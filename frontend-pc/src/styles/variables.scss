@@ -1,0 +1,74 @@
+/**
+ * 全局SCSS变量定义
+ * 基于原型设计文档的设计规范
+ */
+
+// 主题色
+$primary-color: #1890ff;      // 品牌色
+$success-color: #52c41a;      // 成功色
+$warning-color: #faad14;      // 警告色
+$error-color: #f5222d;        // 错误色
+$info-color: #1890ff;         // 信息色
+
+// 中性色
+$text-color-primary: #262626;    // 标题文字
+$text-color-regular: #595959;    // 正文文字
+$text-color-secondary: #8c8c8c;  // 辅助文字
+$text-color-disabled: #bfbfbf;   // 禁用文字
+$border-color: #d9d9d9;          // 边框颜色
+$background-color: #fafafa;      // 背景色
+$white-color: #ffffff;           // 白色
+$black-color: #000000;           // 黑色
+
+// 业务状态色
+$status-pending: #faad14;     // 待审批
+$status-approved: #52c41a;    // 已通过
+$status-rejected: #f5222d;    // 已拒绝
+$status-completed: #8c8c8c;   // 已出库
+$status-canceled: #bfbfbf;    // 已取消
+
+// 间距
+$spacing-xs: 4px;     // 超小间距
+$spacing-sm: 8px;     // 小间距
+$spacing-md: 16px;    // 标准间距
+$spacing-lg: 24px;    // 大间距
+$spacing-xl: 32px;    // 超大间距
+
+// 圆角
+$border-radius-sm: 2px;  // 小圆角
+$border-radius-md: 4px;  // 标准圆角
+$border-radius-lg: 8px;  // 大圆角
+
+// 阴影
+$shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);    // 浅阴影
+$shadow-md: 0 2px 8px rgba(0, 0, 0, 0.09);    // 标准阴影
+$shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);   // 深阴影
+
+// 过渡动画
+$transition-base: all 0.3s ease;
+$transition-fast: all 0.2s ease;
+
+// 字体大小
+$font-size-xs: 12px;   // 辅助文字
+$font-size-sm: 14px;   // 正文
+$font-size-md: 16px;   // 标题
+$font-size-lg: 18px;   // 大标题
+$font-size-xl: 20px;   // 超大标题
+
+// 字体粗细
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-bold: 600;
+
+// 布局尺寸
+$sidebar-width: 200px;          // 侧边栏宽度
+$sidebar-collapsed-width: 64px; // 侧边栏折叠宽度
+$header-height: 60px;           // 顶部导航栏高度
+
+// z-index层级
+$z-index-dropdown: 1000;
+$z-index-fixed: 1010;
+$z-index-mask: 1020;
+$z-index-message: 1030;
+$z-index-notification: 1040;
+$z-index-popup: 2000;
