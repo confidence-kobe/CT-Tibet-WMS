@@ -31,13 +31,13 @@ export default defineConfig({
 
   // 开发服务器配置
   server: {
-    port: 3000,
+    port: 4444,
     open: true,
     cors: true,
     // 代理配置 - 解决跨域问题
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:48888',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '/api')
       }
