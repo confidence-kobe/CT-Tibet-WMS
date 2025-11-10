@@ -1,0 +1,62 @@
+西藏电信仓库管理系统 - 原型文件清单
+===============================================
+生成时间: 2025-01-11
+文件总数: 26个
+代码总量: 约9800行
+
+一、HTML页面 (19个)
+---------------------
+1. ./index.html                          # 原型首页（入口）
+
+PC管理端 (11个):
+2. ./pc/login.html                       # 登录页
+3. ./pc/dashboard.html                   # 仓管员工作台
+4. ./pc/inbound-list.html               # 入库单列表
+5. ./pc/inbound-create.html             # 新建入库单
+6. ./pc/outbound-list.html              # 出库单列表
+7. ./pc/outbound-create.html            # 新建出库单
+8. ./pc/approval-list.html              # 审批管理
+9. ./pc/inventory-list.html             # 库存查询
+10. ./pc/apply-list.html                 # 我的申请（员工）
+11. ./pc/apply-create.html               # 新建申请（员工）
+12. ./pc/stats.html                      # 统计报表
+
+小程序端 (7个):
+13. ./mobile/warehouse-home.html         # 仓管员首页
+14. ./mobile/employee-home.html          # 员工首页
+15. ./mobile/apply-create.html           # 新建申请
+16. ./mobile/apply-list.html             # 我的申请
+17. ./mobile/approval-list.html          # 待审批列表
+18. ./mobile/inventory-list.html         # 库存查询
+19. ./mobile/quick-inbound.html          # 快速入库
+
+二、样式文件 (2个)
+---------------------
+20. ./assets/css/pc-common.css           # PC端公共样式 (9.2KB)
+21. ./assets/css/mobile-common.css       # 移动端公共样式 (9.1KB)
+
+三、脚本文件 (2个)
+---------------------
+22. ./assets/js/mock-data.js             # 模拟数据 (20KB)
+23. ./assets/js/common.js                # 公共函数库 (12KB)
+
+四、文档文件 (3个)
+---------------------
+24. ./README.md                          # 原型系统说明文档
+25. ./QUICKSTART.md                      # 快速开始指南
+26. ./完成总结.md                        # 项目完成总结
+
+===============================================
+总文件大小: 约400KB
+总代码行数: 约9800行
+
+快速访问:
+- 打开原型: 双击 index.html
+- 查看文档: 打开 README.md
+- 快速上手: 查看 QUICKSTART.md
+- 完成总结: 查看 完成总结.md
+
+测试账号:
+- 仓管员: wl_warehouse / 123456
+- 员工: wl_user1 / 123456
+- 管理员: admin / 123456
