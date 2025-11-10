@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>出库管理 - 西藏电信仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/pc-common.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 侧边栏（与其他页面相同，省略） -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">📦</div>
+                <div class="sidebar-title">仓库管理系统</div>
+            </div>
+            <nav class="sidebar-menu">
+                <div class="menu-item" onclick="location.href='dashboard.html'">
+                    <span class="menu-item-icon">🏠</span>
+                    <span>工作台</span>
+                </div>
+                <div class="menu-item" onclick="location.href='inbound-list.html'">
+                    <span class="menu-item-icon">📥</span>
+                    <span>入库管理</span>
+                </div>
+                <div class="menu-item active">
+                    <span class="menu-item-icon">📤</span>
+                    <span>出库管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='approval-list.html'">
+                    <span class="menu-item-icon">✓</span>
+                    <span>审批管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='inventory-list.html'">
+                    <span class="menu-item-icon">📊</span>
+                    <span>库存查询</span>
+                </div>
+                <div class="menu-item" onclick="location.href='stats.html'">
+                    <span class="menu-item-icon">📈</span>
+                    <span>统计报表</span>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-left">
+                    <div class="breadcrumb">
+                        <span class="breadcrumb-item">出库管理</span>
+                        <span>/</span>
+                        <span class="breadcrumb-item active">出库单列表</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="notification-btn"><span>🔔</span><span class="notification-badge">2</span></div>
+                    <div class="user-info"><div class="user-avatar">张</div><span>张三</span></div>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">出库单列表</div>
+                        <button class="btn btn-primary" onclick="location.href='outbound-create.html'">+ 直接出库</button>
+                    </div>
+
+                    <!-- 筛选栏 -->
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <button class="btn ${filterStatus === null ? 'btn-primary' : 'btn-default'}" onclick="filterByStatus(null)">全部</button>
+                        <button class="btn ${filterStatus === 0 ? 'btn-primary' : 'btn-default'}" onclick="filterByStatus(0)">待领取</button>
+                        <button class="btn ${filterStatus === 1 ? 'btn-primary' : 'btn-default'}" onclick="filterByStatus(1)">已完成</button>
+                    </div>
+
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>出库单号</th>
+                                <th>出库类型</th>
+                                <th>仓库名称</th>
+                                <th>领用人</th>
+                                <th>状态</th>
+                                <th>出库金额</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+
+                    <div id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        let filterStatus = null;
+        let currentData = [...mockData.outboundList];
+
+        function renderTable(data) {
+            const tbody = document.querySelector('#dataTable tbody');
+            let html = '';
+
+            data.forEach(item => {
+                html += `
+                    <tr>
+                        <td><a href="#" class="text-primary" onclick="showDetail('${item.code}'); return false;">${item.code}</a></td>
+                        <td>${item.sourceText}</td>
+                        <td>${item.warehouseName}</td>
+                        <td>${item.receiver}</td>
+                        <td>${getStatusTag(item.status, item.statusText, 'outbound')}</td>
+                        <td class="text-danger">${formatMoney(item.totalAmount)}</td>
+                        <td>${formatDateTime(item.createTime)}</td>
+                        <td>
+                            ${item.status === 0 ? `<button class="btn btn-text text-success" onclick="confirmPickup('${item.code}')">确认领取</button>` : ''}
+                            <button class="btn btn-text" onclick="showDetail('${item.code}')">查看详情</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (data.length === 0) {
+                html = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无数据</div></div></td></tr>';
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        function filterByStatus(status) {
+            filterStatus = status;
+            currentData = status === null
+                ? [...mockData.outboundList]
+                : mockData.outboundList.filter(i => i.status === status);
+            renderTable(currentData);
+
+            // 更新按钮样式
+            document.querySelectorAll('.content-wrapper .btn').forEach((btn, i) => {
+                if (i < 3) { // 只处理筛选按钮
+                    btn.className = 'btn ' + ([null, 0, 1][i] === status ? 'btn-primary' : 'btn-default');
+                }
+            });
+        }
+
+        function confirmPickup(code) {
+            confirm(
+                '确认领取',
+                `确认${code}已被领取？领取后将扣减库存。`,
+                () => {
+                    Loading.show('正在处理...');
+                    setTimeout(() => {
+                        Loading.hide();
+                        Message.success('领取确认成功，库存已扣减');
+                        // 更新状态
+                        const item = mockData.outboundList.find(i => i.code === code);
+                        if (item) {
+                            item.status = 1;
+                            item.statusText = '已完成';
+                            item.receiveTime = new Date().toISOString().substring(0, 19).replace('T', ' ');
+                        }
+                        filterByStatus(filterStatus);
+                    }, 1000);
+                }
+            );
+        }
+
+        function showDetail(code) {
+            const item = mockData.outboundList.find(i => i.code === code);
+            if (!item) return;
+
+            let detailsHtml = '<table style="width: 100%; font-size: 14px; margin-top: 16px;"><thead><tr><th>物资名称</th><th>规格型号</th><th>数量</th><th>单价</th><th>金额</th></tr></thead><tbody>';
+            item.details.forEach(d => {
+                detailsHtml += `<tr><td>${d.materialName}</td><td>${d.spec}</td><td>${d.quantity}</td><td>${formatMoney(d.price)}</td><td class="text-danger">${formatMoney(d.amount)}</td></tr>`;
+            });
+            detailsHtml += '</tbody></table>';
+
+            const content = `
+                <div style="font-size: 14px;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px;">
+                        <div><strong>出库单号：</strong>${item.code}</div>
+                        <div><strong>出库类型：</strong>${item.sourceText}</div>
+                        <div><strong>仓库名称：</strong>${item.warehouseName}</div>
+                        <div><strong>领用人：</strong>${item.receiver}</div>
+                        <div><strong>状态：</strong>${getStatusTag(item.status, item.statusText, 'outbound')}</div>
+                        <div><strong>出库金额：</strong><span class="text-danger">${formatMoney(item.totalAmount)}</span></div>
+                        <div><strong>创建时间：</strong>${formatDateTime(item.createTime)}</div>
+                        <div><strong>领取时间：</strong>${formatDateTime(item.receiveTime)}</div>
+                        <div style="grid-column: 1 / -1;"><strong>备注：</strong>${item.remark || '-'}</div>
+                    </div>
+                    <div style="border-top: 1px solid #f0f0f0; padding-top: 16px;">
+                        <strong>出库明细：</strong>
+                        ${detailsHtml}
+                    </div>
+                </div>
+            `;
+
+            showDetailModal('出库单详情', content);
+        }
+
+        function init() {
+            // 从URL参数读取状态筛选
+            const statusParam = URLParams.get('status');
+            if (statusParam !== null) {
+                filterByStatus(parseInt(statusParam));
+            } else {
+                renderTable(mockData.outboundList);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仓管员工作台 - 西藏电信仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/pc-common.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">📦</div>
+                <div class="sidebar-title">仓库管理系统</div>
+            </div>
+            <nav class="sidebar-menu">
+                <div class="menu-item active">
+                    <span class="menu-item-icon">🏠</span>
+                    <span>工作台</span>
+                </div>
+                <div class="menu-item" onclick="location.href='inbound-list.html'">
+                    <span class="menu-item-icon">📥</span>
+                    <span>入库管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='outbound-list.html'">
+                    <span class="menu-item-icon">📤</span>
+                    <span>出库管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='approval-list.html'">
+                    <span class="menu-item-icon">✓</span>
+                    <span>审批管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='inventory-list.html'">
+                    <span class="menu-item-icon">📊</span>
+                    <span>库存查询</span>
+                </div>
+                <div class="menu-item" onclick="location.href='stats.html'">
+                    <span class="menu-item-icon">📈</span>
+                    <span>统计报表</span>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 顶部导航栏 -->
+            <header class="top-header">
+                <div class="header-left">
+                    <div class="breadcrumb">
+                        <span class="breadcrumb-item active">工作台</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="notification-btn">
+                        <span>🔔</span>
+                        <span class="notification-badge">2</span>
+                    </div>
+                    <div class="user-info">
+                        <div class="user-avatar">张</div>
+                        <span id="userName">张三</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 内容区域 -->
+            <div class="content-wrapper">
+                <!-- 统计卡片 -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">今日入库</div>
+                            <div class="stat-icon">📥</div>
+                        </div>
+                        <div class="stat-value">2</div>
+                        <div class="stat-footer">金额：¥11,200</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">今日出库</div>
+                            <div class="stat-icon">📤</div>
+                        </div>
+                        <div class="stat-value">1</div>
+                        <div class="stat-footer">金额：¥280</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">待审批</div>
+                            <div class="stat-icon" style="color: #faad14;">⏳</div>
+                        </div>
+                        <div class="stat-value">1</div>
+                        <div class="stat-footer">需要处理</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">库存预警</div>
+                            <div class="stat-icon" style="color: #f5222d;">⚠️</div>
+                        </div>
+                        <div class="stat-value">2</div>
+                        <div class="stat-footer">低库存/缺货</div>
+                    </div>
+                </div>
+
+                <!-- 快捷操作 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">快捷操作</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+                        <div onclick="location.href='inbound-create.html'" style="cursor: pointer; text-align: center; padding: 24px; background: #f0f5ff; border-radius: 8px; transition: all 0.3s;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">📥</div>
+                            <div style="font-size: 16px; font-weight: 500;">新建入库</div>
+                        </div>
+                        <div onclick="location.href='outbound-create.html'" style="cursor: pointer; text-align: center; padding: 24px; background: #fff7e6; border-radius: 8px; transition: all 0.3s;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">📤</div>
+                            <div style="font-size: 16px; font-weight: 500;">直接出库</div>
+                        </div>
+                        <div onclick="location.href='approval-list.html'" style="cursor: pointer; text-align: center; padding: 24px; background: #f6ffed; border-radius: 8px; transition: all 0.3s;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">✓</div>
+                            <div style="font-size: 16px; font-weight: 500;">审批申请</div>
+                        </div>
+                        <div onclick="location.href='inventory-list.html'" style="cursor: pointer; text-align: center; padding: 24px; background: #fff0f6; border-radius: 8px; transition: all 0.3s;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">📊</div>
+                            <div style="font-size: 16px; font-weight: 500;">查看库存</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;">
+                    <!-- 待办事项 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">待办事项</div>
+                            <a href="approval-list.html" class="link">查看全部</a>
+                        </div>
+                        <div id="todoList"></div>
+                    </div>
+
+                    <!-- 库存预警 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">库存预警</div>
+                            <a href="inventory-list.html" class="link">查看全部</a>
+                        </div>
+                        <div id="stockAlertList"></div>
+                    </div>
+                </div>
+
+                <!-- 最近操作 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">最近操作记录</div>
+                        <a href="#" class="link">查看更多</a>
+                    </div>
+                    <table id="recentTable">
+                        <thead>
+                            <tr>
+                                <th>操作时间</th>
+                                <th>操作类型</th>
+                                <th>单据编号</th>
+                                <th>操作内容</th>
+                                <th>操作人</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        // 渲染待办事项
+        function renderTodoList() {
+            const todoList = document.getElementById('todoList');
+
+            // 待审批申请
+            const pendingApplies = mockData.applyList.filter(a => a.status === 0);
+
+            // 待领取出库单
+            const pendingOutbounds = mockData.outboundList.filter(o => o.status === 0);
+
+            let html = '<div style="font-size: 14px;">';
+
+            if (pendingApplies.length > 0) {
+                html += `
+                    <div style="padding: 12px; background: #fff7e6; border-radius: 4px; margin-bottom: 12px; cursor: pointer;" onclick="location.href='approval-list.html'">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 500; margin-bottom: 4px;">⏳ 待审批申请</div>
+                                <div style="font-size: 13px; color: #8c8c8c;">有 ${pendingApplies.length} 个申请待审批</div>
+                            </div>
+                            <div style="font-size: 24px; color: #faad14;">${pendingApplies.length}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (pendingOutbounds.length > 0) {
+                html += `
+                    <div style="padding: 12px; background: #e6f7ff; border-radius: 4px; margin-bottom: 12px; cursor: pointer;" onclick="location.href='outbound-list.html?status=0'">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 500; margin-bottom: 4px;">📦 待领取出库单</div>
+                                <div style="font-size: 13px; color: #8c8c8c;">有 ${pendingOutbounds.length} 个出库单待领取</div>
+                            </div>
+                            <div style="font-size: 24px; color: #1890ff;">${pendingOutbounds.length}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (pendingApplies.length === 0 && pendingOutbounds.length === 0) {
+                html += '<div class="empty-state" style="padding: 40px 0;"><div class="empty-icon">✓</div><div class="empty-text">暂无待办事项</div></div>';
+            }
+
+            html += '</div>';
+            todoList.innerHTML = html;
+        }
+
+        // 渲染库存预警
+        function renderStockAlert() {
+            const alertList = document.getElementById('stockAlertList');
+            const alerts = mockData.inventoryList.filter(i => i.status === 2 || i.status === 3);
+
+            let html = '<div style="font-size: 14px;">';
+
+            alerts.slice(0, 5).forEach(item => {
+                const icon = item.status === 3 ? '⛔' : '⚠️';
+                const color = item.status === 3 ? '#f5222d' : '#faad14';
+                html += `
+                    <div style="padding: 12px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 500; margin-bottom: 4px;">${item.materialName}</div>
+                            <div style="font-size: 13px; color: #8c8c8c;">${item.spec} | 当前库存：${item.quantity}${item.unit}</div>
+                        </div>
+                        <span class="tag" style="background: ${item.status === 3 ? '#fff1f0' : '#fffbe6'}; color: ${color}; border: 1px solid ${item.status === 3 ? '#ffccc7' : '#ffe58f'};">
+                            ${icon} ${item.statusText}
+                        </span>
+                    </div>
+                `;
+            });
+
+            if (alerts.length === 0) {
+                html += '<div class="empty-state" style="padding: 40px 0;"><div class="empty-icon">✓</div><div class="empty-text">库存正常</div></div>';
+            }
+
+            html += '</div>';
+            alertList.innerHTML = html;
+        }
+
+        // 渲染最近操作记录
+        function renderRecentOperations() {
+            const tbody = document.querySelector('#recentTable tbody');
+
+            const operations = [
+                { time: '2025-01-11 11:00:00', type: '申请审批', code: 'SQ20250111001', content: '通过李明的物资申请', operator: '张三' },
+                { time: '2025-01-11 10:30:00', type: '直接出库', code: 'CK20250111001', content: '出库光纤收发器 1台', operator: '张三' },
+                { time: '2025-01-11 09:30:00', type: '新建入库', code: 'RK20250111001', content: '入库交换机、路由器等设备', operator: '张三' },
+                { time: '2025-01-10 15:20:00', type: '确认出库', code: 'CK20250110003', content: '王芳领取办公用品', operator: '张三' },
+                { time: '2025-01-10 14:20:00', type: '新建入库', code: 'RK20250111002', content: '入库网线、光纤跳线', operator: '张三' }
+            ];
+
+            let html = '';
+            operations.forEach(op => {
+                const typeColor = {
+                    '新建入库': 'text-primary',
+                    '直接出库': 'text-warning',
+                    '申请审批': 'text-success',
+                    '确认出库': 'text-success'
+                }[op.type] || '';
+
+                html += `
+                    <tr>
+                        <td>${formatDateTime(op.time)}</td>
+                        <td><span class="${typeColor}">${op.type}</span></td>
+                        <td>${op.code}</td>
+                        <td>${op.content}</td>
+                        <td>${op.operator}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        // 初始化页面
+        function init() {
+            // 设置用户信息
+            const user = Session.getCurrentUser();
+            document.getElementById('userName').textContent = user.name;
+
+            // 渲染各个模块
+            renderTodoList();
+            renderStockAlert();
+            renderRecentOperations();
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

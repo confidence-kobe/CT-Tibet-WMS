@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的申请 - 西藏电信仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/pc-common.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header"><div class="sidebar-logo">📦</div><div class="sidebar-title">仓库管理系统</div></div>
+            <nav class="sidebar-menu">
+                <div class="menu-item" onclick="location.href='dashboard.html'"><span class="menu-item-icon">🏠</span><span>工作台</span></div>
+                <div class="menu-item active"><span class="menu-item-icon">📝</span><span>我的申请</span></div>
+                <div class="menu-item" onclick="location.href='inventory-list.html'"><span class="menu-item-icon">📊</span><span>库存查询</span></div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-left">
+                    <div class="breadcrumb"><span class="breadcrumb-item active">我的申请</span></div>
+                </div>
+                <div class="header-right">
+                    <div class="notification-btn"><span>🔔</span><span class="notification-badge">1</span></div>
+                    <div class="user-info"><div class="user-avatar">李</div><span>李明</span></div>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">我的申请</div>
+                        <button class="btn btn-primary" onclick="location.href='apply-create.html'">+ 新建申请</button>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <button class="btn btn-primary" onclick="filterByStatus(null)">全部</button>
+                        <button class="btn btn-default" onclick="filterByStatus(0)">待审批</button>
+                        <button class="btn btn-default" onclick="filterByStatus(1)">已通过</button>
+                        <button class="btn btn-default" onclick="filterByStatus(2)">已拒绝</button>
+                        <button class="btn btn-default" onclick="filterByStatus(3)">已完成</button>
+                    </div>
+
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>申请单号</th>
+                                <th>申请用途</th>
+                                <th>物资种类</th>
+                                <th>申请金额</th>
+                                <th>状态</th>
+                                <th>申请时间</th>
+                                <th>审批人</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        const currentUserId = 3; // 李明的用户ID
+
+        function renderTable(status = null) {
+            const tbody = document.querySelector('#dataTable tbody');
+            let data = mockData.applyList.filter(a => a.applyUserId === currentUserId);
+
+            if (status !== null) {
+                data = data.filter(a => a.status === status);
+            }
+
+            let html = '';
+            data.forEach(item => {
+                html += `
+                    <tr>
+                        <td><a href="#" class="text-primary" onclick="showDetail('${item.code}'); return false;">${item.code}</a></td>
+                        <td>${item.purpose}</td>
+                        <td>${item.itemCount}</td>
+                        <td class="text-danger">${formatMoney(item.totalAmount)}</td>
+                        <td>${getStatusTag(item.status, item.statusText, 'apply')}</td>
+                        <td>${formatDateTime(item.applyTime)}</td>
+                        <td>${item.approver || '-'}</td>
+                        <td>
+                            ${item.status === 0 ? `<button class="btn btn-text text-danger" onclick="handleCancel('${item.code}')">撤销</button>` : ''}
+                            ${item.status === 2 ? `<button class="btn btn-text text-primary" onclick="location.href='apply-create.html?copy=${item.code}'">重新申请</button>` : ''}
+                            <button class="btn btn-text" onclick="showDetail('${item.code}')">查看详情</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (data.length === 0) {
+                html = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无申请记录</div></div></td></tr>';
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        function filterByStatus(status) {
+            renderTable(status);
+            document.querySelectorAll('.content-wrapper .btn').forEach((btn, i) => {
+                if (i > 0 && i < 6) {
+                    btn.className = 'btn ' + ([null, 0, 1, 2, 3][i - 1] === status ? 'btn-primary' : 'btn-default');
+                }
+            });
+        }
+
+        function showDetail(code) {
+            const item = mockData.applyList.find(i => i.code === code);
+            if (!item) return;
+
+            let detailsHtml = '<table style="width: 100%; font-size: 14px; margin-top: 16px;"><thead><tr><th>物资名称</th><th>规格型号</th><th>申请数量</th><th>当前库存</th><th>单价</th><th>金额</th></tr></thead><tbody>';
+            item.details.forEach(d => {
+                const stockStatus = d.quantity > d.stockQuantity ? '<span class="text-danger">(库存不足)</span>' : '<span class="text-success">(库存充足)</span>';
+                detailsHtml += `
+                    <tr>
+                        <td>${d.materialName}</td>
+                        <td>${d.spec}</td>
+                        <td>${d.quantity}</td>
+                        <td>${d.stockQuantity} ${stockStatus}</td>
+                        <td>${formatMoney(d.price)}</td>
+                        <td class="text-danger">${formatMoney(d.amount)}</td>
+                    </tr>
+                `;
+            });
+            detailsHtml += '</tbody></table>';
+
+            const statusMessages = {
+                0: '<div style="padding: 12px; background: #fff7e6; border-radius: 4px; margin-top: 16px;">⏳ 申请已提交，等待审批...</div>',
+                1: `<div style="padding: 12px; background: #f6ffed; border-radius: 4px; margin-top: 16px;">✓ 审批已通过，请及时领取物资<br><strong>审批意见：</strong>${item.approveRemark}</div>`,
+                2: `<div style="padding: 12px; background: #fff1f0; border-radius: 4px; margin-top: 16px;">✗ 申请已被拒绝<br><strong>拒绝理由：</strong>${item.approveRemark}</div>`,
+                3: '<div style="padding: 12px; background: #e6f7ff; border-radius: 4px; margin-top: 16px;">✓ 物资已领取，申请已完成</div>'
+            };
+
+            const content = `
+                <div style="font-size: 14px;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px;">
+                        <div><strong>申请单号：</strong>${item.code}</div>
+                        <div><strong>状态：</strong>${getStatusTag(item.status, item.statusText, 'apply')}</div>
+                        <div><strong>申请时间：</strong>${formatDateTime(item.applyTime)}</div>
+                        <div><strong>申请金额：</strong><span class="text-danger">${formatMoney(item.totalAmount)}</span></div>
+                        <div style="grid-column: 1 / -1;"><strong>申请用途：</strong>${item.purpose}</div>
+                        ${item.approver ? `
+                            <div><strong>审批人：</strong>${item.approver}</div>
+                            <div><strong>审批时间：</strong>${formatDateTime(item.approveTime)}</div>
+                        ` : ''}
+                    </div>
+                    <div style="border-top: 1px solid #f0f0f0; padding-top: 16px;">
+                        <strong>申请明细：</strong>
+                        ${detailsHtml}
+                    </div>
+                    ${statusMessages[item.status] || ''}
+                </div>
+            `;
+
+            showDetailModal('申请详情', content);
+        }
+
+        function handleCancel(code) {
+            confirm(
+                '撤销申请',
+                '确定要撤销该申请吗？撤销后无法恢复。',
+                () => {
+                    Loading.show('正在处理...');
+                    setTimeout(() => {
+                        Loading.hide();
+                        Message.success('申请已撤销');
+                        const item = mockData.applyList.find(i => i.code === code);
+                        if (item) {
+                            item.status = 4;
+                            item.statusText = '已取消';
+                        }
+                        renderTable();
+                    }, 1000);
+                }
+            );
+        }
+
+        function init() {
+            renderTable();
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

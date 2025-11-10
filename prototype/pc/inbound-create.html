@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新建入库单 - 西藏电信仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/pc-common.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">📦</div>
+                <div class="sidebar-title">仓库管理系统</div>
+            </div>
+            <nav class="sidebar-menu">
+                <div class="menu-item" onclick="location.href='dashboard.html'">
+                    <span class="menu-item-icon">🏠</span>
+                    <span>工作台</span>
+                </div>
+                <div class="menu-item active">
+                    <span class="menu-item-icon">📥</span>
+                    <span>入库管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='outbound-list.html'">
+                    <span class="menu-item-icon">📤</span>
+                    <span>出库管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='approval-list.html'">
+                    <span class="menu-item-icon">✓</span>
+                    <span>审批管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='inventory-list.html'">
+                    <span class="menu-item-icon">📊</span>
+                    <span>库存查询</span>
+                </div>
+                <div class="menu-item" onclick="location.href='stats.html'">
+                    <span class="menu-item-icon">📈</span>
+                    <span>统计报表</span>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 顶部导航栏 -->
+            <header class="top-header">
+                <div class="header-left">
+                    <div class="breadcrumb">
+                        <span class="breadcrumb-item" style="cursor: pointer;" onclick="location.href='inbound-list.html'">入库管理</span>
+                        <span>/</span>
+                        <span class="breadcrumb-item active">新建入库单</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="notification-btn">
+                        <span>🔔</span>
+                        <span class="notification-badge">2</span>
+                    </div>
+                    <div class="user-info">
+                        <div class="user-avatar">张</div>
+                        <span>张三</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 内容区域 -->
+            <div class="content-wrapper">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">新建入库单</div>
+                    </div>
+
+                    <form id="inboundForm">
+                        <!-- 基本信息 -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label required">仓库</label>
+                                <select class="form-select" id="warehouseId" required>
+                                    <option value="">请选择仓库</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">备注</label>
+                                <input type="text" class="form-input" id="remark" placeholder="请输入备注信息">
+                            </div>
+                        </div>
+
+                        <!-- 入库明细 -->
+                        <div style="margin-bottom: 24px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                <label class="form-label required" style="margin: 0;">入库明细</label>
+                                <button type="button" class="btn btn-primary" onclick="addMaterialRow()">+ 添加物资</button>
+                            </div>
+
+                            <table id="materialTable" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th width="20%">物资</th>
+                                        <th width="25%">规格型号</th>
+                                        <th width="10%">单位</th>
+                                        <th width="12%">数量</th>
+                                        <th width="12%">单价</th>
+                                        <th width="12%">金额</th>
+                                        <th width="9%">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="materialTableBody"></tbody>
+                                <tfoot>
+                                    <tr style="background: #fafafa; font-weight: 500;">
+                                        <td colspan="5" style="text-align: right; padding-right: 16px;">合计：</td>
+                                        <td id="totalAmount" class="text-danger">¥0.00</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <!-- 按钮 -->
+                        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                            <button type="button" class="btn btn-default" onclick="location.href='inbound-list.html'">取消</button>
+                            <button type="submit" class="btn btn-primary">提交入库</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        let materialRows = [];
+
+        // 初始化仓库下拉框
+        function initWarehouseSelect() {
+            const select = document.getElementById('warehouseId');
+            const user = Session.getCurrentUser();
+
+            // 根据用户部门筛选仓库
+            const warehouses = mockData.warehouses.filter(w => w.deptId === user.deptId);
+
+            warehouses.forEach(w => {
+                const option = document.createElement('option');
+                option.value = w.id;
+                option.textContent = w.name;
+                select.appendChild(option);
+            });
+
+            // 默认选择第一个
+            if (warehouses.length > 0) {
+                select.value = warehouses[0].id;
+            }
+        }
+
+        // 添加物资行
+        function addMaterialRow() {
+            const rowId = generateId();
+            materialRows.push(rowId);
+
+            const tbody = document.getElementById('materialTableBody');
+            const tr = document.createElement('tr');
+            tr.id = rowId;
+
+            tr.innerHTML = `
+                <td>
+                    <select class="form-select" onchange="handleMaterialChange('${rowId}')" required>
+                        <option value="">请选择物资</option>
+                        ${mockData.materials.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}
+                    </select>
+                </td>
+                <td><input type="text" class="form-input" readonly></td>
+                <td><input type="text" class="form-input" readonly></td>
+                <td><input type="number" class="form-input" min="1" value="1" onchange="calculateRowAmount('${rowId}')" required></td>
+                <td><input type="number" class="form-input" step="0.01" min="0" onchange="calculateRowAmount('${rowId}')" required></td>
+                <td class="row-amount">¥0.00</td>
+                <td>
+                    <button type="button" class="btn btn-text text-danger" onclick="removeMaterialRow('${rowId}')">删除</button>
+                </td>
+            `;
+
+            tbody.appendChild(tr);
+        }
+
+        // 移除物资行
+        function removeMaterialRow(rowId) {
+            const index = materialRows.indexOf(rowId);
+            if (index > -1) {
+                materialRows.splice(index, 1);
+            }
+            document.getElementById(rowId).remove();
+            calculateTotalAmount();
+        }
+
+        // 物资选择变化
+        function handleMaterialChange(rowId) {
+            const row = document.getElementById(rowId);
+            const materialSelect = row.querySelector('select');
+            const materialId = parseInt(materialSelect.value);
+
+            if (!materialId) return;
+
+            const material = mockData.materials.find(m => m.id === materialId);
+            if (!material) return;
+
+            const inputs = row.querySelectorAll('input');
+            inputs[0].value = material.spec;
+            inputs[1].value = material.unit;
+            inputs[3].value = material.price;
+
+            calculateRowAmount(rowId);
+        }
+
+        // 计算行金额
+        function calculateRowAmount(rowId) {
+            const row = document.getElementById(rowId);
+            const inputs = row.querySelectorAll('input');
+            const quantity = parseFloat(inputs[2].value) || 0;
+            const price = parseFloat(inputs[3].value) || 0;
+            const amount = quantity * price;
+
+            row.querySelector('.row-amount').textContent = formatMoney(amount);
+            calculateTotalAmount();
+        }
+
+        // 计算总金额
+        function calculateTotalAmount() {
+            let total = 0;
+            materialRows.forEach(rowId => {
+                const row = document.getElementById(rowId);
+                if (!row) return;
+
+                const inputs = row.querySelectorAll('input');
+                const quantity = parseFloat(inputs[2].value) || 0;
+                const price = parseFloat(inputs[3].value) || 0;
+                total += quantity * price;
+            });
+
+            document.getElementById('totalAmount').textContent = formatMoney(total);
+        }
+
+        // 表单提交
+        document.getElementById('inboundForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (materialRows.length === 0) {
+                Message.warning('请至少添加一条入库明细');
+                return;
+            }
+
+            // 验证所有明细是否填写完整
+            let valid = true;
+            materialRows.forEach(rowId => {
+                const row = document.getElementById(rowId);
+                const select = row.querySelector('select');
+                const inputs = row.querySelectorAll('input');
+
+                if (!select.value || !inputs[2].value || !inputs[3].value) {
+                    valid = false;
+                }
+            });
+
+            if (!valid) {
+                Message.warning('请完整填写所有入库明细');
+                return;
+            }
+
+            Loading.show('正在提交...');
+
+            setTimeout(() => {
+                Loading.hide();
+                Message.success('入库单提交成功');
+                setTimeout(() => {
+                    location.href = 'inbound-list.html';
+                }, 1500);
+            }, 1000);
+        });
+
+        // 初始化
+        function init() {
+            initWarehouseSelect();
+            addMaterialRow(); // 默认添加一行
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

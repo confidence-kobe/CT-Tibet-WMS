@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>库存查询 - 西藏电信仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/pc-common.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header"><div class="sidebar-logo">📦</div><div class="sidebar-title">仓库管理系统</div></div>
+            <nav class="sidebar-menu">
+                <div class="menu-item" onclick="location.href='dashboard.html'"><span class="menu-item-icon">🏠</span><span>工作台</span></div>
+                <div class="menu-item" onclick="location.href='inbound-list.html'"><span class="menu-item-icon">📥</span><span>入库管理</span></div>
+                <div class="menu-item" onclick="location.href='outbound-list.html'"><span class="menu-item-icon">📤</span><span>出库管理</span></div>
+                <div class="menu-item" onclick="location.href='approval-list.html'"><span class="menu-item-icon">✓</span><span>审批管理</span></div>
+                <div class="menu-item active"><span class="menu-item-icon">📊</span><span>库存查询</span></div>
+                <div class="menu-item" onclick="location.href='stats.html'"><span class="menu-item-icon">📈</span><span>统计报表</span></div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-left"><div class="breadcrumb"><span class="breadcrumb-item active">库存查询</span></div></div>
+                <div class="header-right">
+                    <div class="notification-btn"><span>🔔</span><span class="notification-badge">2</span></div>
+                    <div class="user-info"><div class="user-avatar">张</div><span>张三</span></div>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">库存明细</div>
+                        <button class="btn btn-default" onclick="exportToExcel(mockData.inventoryList, '库存明细')">导出Excel</button>
+                    </div>
+
+                    <div class="table-toolbar">
+                        <div class="search-box">
+                            <input type="text" class="form-input search-input" placeholder="搜索物资名称、编码..." id="searchInput" onkeyup="handleSearch()">
+                            <select class="form-select" style="width: 150px;" onchange="handleSearch()">
+                                <option value="">全部状态</option>
+                                <option value="1">正常</option>
+                                <option value="2">低库存</option>
+                                <option value="3">缺货</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>物资编码</th>
+                                <th>物资名称</th>
+                                <th>分类</th>
+                                <th>规格型号</th>
+                                <th>仓库</th>
+                                <th>当前库存</th>
+                                <th>库存状态</th>
+                                <th>库存金额</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        function renderTable(data) {
+            const tbody = document.querySelector('#dataTable tbody');
+            let html = '';
+
+            data.forEach(item => {
+                const statusIcon = item.status === 3 ? '⛔' : (item.status === 2 ? '⚠️' : '✓');
+                html += `
+                    <tr>
+                        <td>${item.materialCode}</td>
+                        <td>${item.materialName}</td>
+                        <td>${item.category}</td>
+                        <td>${item.spec}</td>
+                        <td>${item.warehouseName}</td>
+                        <td><strong>${item.quantity}</strong> ${item.unit}</td>
+                        <td>${getStatusTag(item.status, statusIcon + ' ' + item.statusText, 'inventory')}</td>
+                        <td class="text-primary">${formatMoney(item.amount)}</td>
+                        <td><button class="btn btn-text" onclick="showStockDetail('${item.materialCode}')">库存详情</button></td>
+                    </tr>
+                `;
+            });
+
+            if (data.length === 0) {
+                html = '<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无数据</div></div></td></tr>';
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        function handleSearch() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            const statusSelect = document.querySelector('.table-toolbar select');
+            const statusFilter = statusSelect.value;
+
+            let data = mockData.inventoryList;
+
+            if (keyword) {
+                data = data.filter(i =>
+                    i.materialCode.toLowerCase().includes(keyword) ||
+                    i.materialName.toLowerCase().includes(keyword)
+                );
+            }
+
+            if (statusFilter) {
+                data = data.filter(i => i.status === parseInt(statusFilter));
+            }
+
+            renderTable(data);
+        }
+
+        function showStockDetail(code) {
+            const item = mockData.inventoryList.find(i => i.materialCode === code);
+            if (!item) return;
+
+            const content = `
+                <div style="font-size: 14px;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px;">
+                        <div><strong>物资编码：</strong>${item.materialCode}</div>
+                        <div><strong>物资名称：</strong>${item.materialName}</div>
+                        <div><strong>分类：</strong>${item.category}</div>
+                        <div><strong>规格型号：</strong>${item.spec}</div>
+                        <div><strong>单位：</strong>${item.unit}</div>
+                        <div><strong>仓库：</strong>${item.warehouseName}</div>
+                        <div><strong>当前库存：</strong><span style="font-size: 20px; font-weight: 600;">${item.quantity}</span> ${item.unit}</div>
+                        <div><strong>库存状态：</strong>${getStatusTag(item.status, item.statusText, 'inventory')}</div>
+                        <div><strong>库存金额：</strong><span class="text-primary">${formatMoney(item.amount)}</span></div>
+                        <div><strong>单价：</strong>${formatMoney(item.price)}</div>
+                        <div><strong>最小库存：</strong>${item.minQuantity} ${item.unit}</div>
+                        <div><strong>最大库存：</strong>${item.maxQuantity} ${item.unit}</div>
+                    </div>
+                    <div style="border-top: 1px solid #f0f0f0; padding-top: 16px;">
+                        <strong>近期动态：</strong>
+                        <div style="margin-top: 12px; padding: 12px; background: #fafafa; border-radius: 4px; font-size: 13px; color: #8c8c8c;">
+                            暂无库存动态记录（实际系统中会显示近期入库/出库记录）
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            showDetailModal('库存详情 - ' + item.materialName, content);
+        }
+
+        function init() {
+            renderTable(mockData.inventoryList);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

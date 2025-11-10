@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>入库管理 - 西藏电信仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/pc-common.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">📦</div>
+                <div class="sidebar-title">仓库管理系统</div>
+            </div>
+            <nav class="sidebar-menu">
+                <div class="menu-item" onclick="location.href='dashboard.html'">
+                    <span class="menu-item-icon">🏠</span>
+                    <span>工作台</span>
+                </div>
+                <div class="menu-item active">
+                    <span class="menu-item-icon">📥</span>
+                    <span>入库管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='outbound-list.html'">
+                    <span class="menu-item-icon">📤</span>
+                    <span>出库管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='approval-list.html'">
+                    <span class="menu-item-icon">✓</span>
+                    <span>审批管理</span>
+                </div>
+                <div class="menu-item" onclick="location.href='inventory-list.html'">
+                    <span class="menu-item-icon">📊</span>
+                    <span>库存查询</span>
+                </div>
+                <div class="menu-item" onclick="location.href='stats.html'">
+                    <span class="menu-item-icon">📈</span>
+                    <span>统计报表</span>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 顶部导航栏 -->
+            <header class="top-header">
+                <div class="header-left">
+                    <div class="breadcrumb">
+                        <span class="breadcrumb-item">入库管理</span>
+                        <span>/</span>
+                        <span class="breadcrumb-item active">入库单列表</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="notification-btn">
+                        <span>🔔</span>
+                        <span class="notification-badge">2</span>
+                    </div>
+                    <div class="user-info">
+                        <div class="user-avatar">张</div>
+                        <span>张三</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 内容区域 -->
+            <div class="content-wrapper">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">入库单列表</div>
+                        <button class="btn btn-primary" onclick="location.href='inbound-create.html'">
+                            + 新建入库
+                        </button>
+                    </div>
+
+                    <!-- 搜索栏 -->
+                    <div class="table-toolbar">
+                        <div class="search-box">
+                            <input type="text" class="form-input search-input" placeholder="搜索单据编号、备注..." id="searchInput">
+                            <button class="btn btn-default" onclick="handleSearch()">搜索</button>
+                        </div>
+                        <div>
+                            <button class="btn btn-default" onclick="handleExport()">导出Excel</button>
+                        </div>
+                    </div>
+
+                    <!-- 表格 -->
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>入库单号</th>
+                                <th>仓库名称</th>
+                                <th>物资种类</th>
+                                <th>入库金额</th>
+                                <th>创建人</th>
+                                <th>创建时间</th>
+                                <th>备注</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+
+                    <!-- 分页 -->
+                    <div id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        let currentData = [...mockData.inboundList];
+        let pagination = null;
+
+        // 渲染表格
+        function renderTable(data) {
+            const tbody = document.querySelector('#dataTable tbody');
+            let html = '';
+
+            data.forEach(item => {
+                html += `
+                    <tr>
+                        <td><a href="#" class="text-primary" onclick="showDetail('${item.code}'); return false;">${item.code}</a></td>
+                        <td>${item.warehouseName}</td>
+                        <td>${item.itemCount}</td>
+                        <td class="text-danger">${formatMoney(item.totalAmount)}</td>
+                        <td>${item.createUser}</td>
+                        <td>${formatDateTime(item.createTime)}</td>
+                        <td>${item.remark || '-'}</td>
+                        <td>
+                            <button class="btn btn-text" onclick="showDetail('${item.code}')">查看详情</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (data.length === 0) {
+                html = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无数据</div></div></td></tr>';
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        // 显示详情
+        function showDetail(code) {
+            const item = mockData.inboundList.find(i => i.code === code);
+            if (!item) return;
+
+            let detailsHtml = '<table style="width: 100%; font-size: 14px; margin-top: 16px;"><thead><tr><th>物资编码</th><th>物资名称</th><th>规格型号</th><th>数量</th><th>单价</th><th>金额</th></tr></thead><tbody>';
+
+            item.details.forEach(d => {
+                detailsHtml += `
+                    <tr>
+                        <td>${d.materialCode}</td>
+                        <td>${d.materialName}</td>
+                        <td>${d.spec}</td>
+                        <td>${d.quantity}</td>
+                        <td>${formatMoney(d.price)}</td>
+                        <td class="text-danger">${formatMoney(d.amount)}</td>
+                    </tr>
+                `;
+            });
+
+            detailsHtml += '</tbody></table>';
+
+            const content = `
+                <div style="font-size: 14px;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px;">
+                        <div><strong>入库单号：</strong>${item.code}</div>
+                        <div><strong>仓库名称：</strong>${item.warehouseName}</div>
+                        <div><strong>创建人：</strong>${item.createUser}</div>
+                        <div><strong>创建时间：</strong>${formatDateTime(item.createTime)}</div>
+                        <div><strong>物资种类：</strong>${item.itemCount}</div>
+                        <div><strong>入库金额：</strong><span class="text-danger">${formatMoney(item.totalAmount)}</span></div>
+                        <div style="grid-column: 1 / -1;"><strong>备注：</strong>${item.remark || '-'}</div>
+                    </div>
+                    <div style="border-top: 1px solid #f0f0f0; padding-top: 16px;">
+                        <strong>入库明细：</strong>
+                        ${detailsHtml}
+                    </div>
+                </div>
+            `;
+
+            showDetailModal('入库单详情', content);
+        }
+
+        // 搜索
+        function handleSearch() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            if (!keyword) {
+                currentData = [...mockData.inboundList];
+            } else {
+                currentData = mockData.inboundList.filter(item =>
+                    item.code.toLowerCase().includes(keyword) ||
+                    item.warehouseName.toLowerCase().includes(keyword) ||
+                    (item.remark && item.remark.toLowerCase().includes(keyword))
+                );
+            }
+
+            // 重新创建分页
+            pagination = new Pagination(
+                document.getElementById('pagination'),
+                currentData.length,
+                10,
+                (page, pageSize) => {
+                    const start = (page - 1) * pageSize;
+                    const end = start + pageSize;
+                    renderTable(currentData.slice(start, end));
+                }
+            );
+
+            renderTable(currentData.slice(0, 10));
+        }
+
+        // 导出
+        function handleExport() {
+            exportToExcel(currentData, '入库单列表');
+        }
+
+        // 初始化
+        function init() {
+            renderTable(mockData.inboundList);
+
+            pagination = new Pagination(
+                document.getElementById('pagination'),
+                mockData.inboundList.length,
+                10,
+                (page, pageSize) => {
+                    const start = (page - 1) * pageSize;
+                    const end = start + pageSize;
+                    renderTable(currentData.slice(start, end));
+                }
+            );
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

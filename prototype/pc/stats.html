@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>统计报表 - 西藏电信仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/pc-common.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header"><div class="sidebar-logo">📦</div><div class="sidebar-title">仓库管理系统</div></div>
+            <nav class="sidebar-menu">
+                <div class="menu-item" onclick="location.href='dashboard.html'"><span class="menu-item-icon">🏠</span><span>工作台</span></div>
+                <div class="menu-item" onclick="location.href='inbound-list.html'"><span class="menu-item-icon">📥</span><span>入库管理</span></div>
+                <div class="menu-item" onclick="location.href='outbound-list.html'"><span class="menu-item-icon">📤</span><span>出库管理</span></div>
+                <div class="menu-item" onclick="location.href='approval-list.html'"><span class="menu-item-icon">✓</span><span>审批管理</span></div>
+                <div class="menu-item" onclick="location.href='inventory-list.html'"><span class="menu-item-icon">📊</span><span>库存查询</span></div>
+                <div class="menu-item active"><span class="menu-item-icon">📈</span><span>统计报表</span></div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-left"><div class="breadcrumb"><span class="breadcrumb-item active">统计报表</span></div></div>
+                <div class="header-right">
+                    <div class="notification-btn"><span>🔔</span><span class="notification-badge">2</span></div>
+                    <div class="user-info"><div class="user-avatar">张</div><span>张三</span></div>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <!-- 时间范围选择 -->
+                <div class="card">
+                    <div style="display: flex; gap: 16px; align-items: center;">
+                        <label style="font-weight: 500;">统计周期：</label>
+                        <button class="btn btn-default" onclick="switchPeriod('today')">今日</button>
+                        <button class="btn btn-primary" onclick="switchPeriod('week')">本周</button>
+                        <button class="btn btn-default" onclick="switchPeriod('month')">本月</button>
+                        <div style="flex: 1; display: flex; gap: 8px; justify-content: flex-end;">
+                            <input type="date" class="form-input" style="width: 150px;" id="startDate">
+                            <span>至</span>
+                            <input type="date" class="form-input" style="width: 150px;" id="endDate">
+                            <button class="btn btn-default" onclick="customQuery()">查询</button>
+                            <button class="btn btn-default" onclick="exportReport()">导出Excel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 数据概览 -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">入库统计</div>
+                            <div class="stat-icon" style="color: #1890ff;">📥</div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: end;">
+                            <div>
+                                <div class="stat-value" id="inboundCount">8</div>
+                                <div class="stat-footer">入库单数</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 20px; font-weight: 600; color: #52c41a;" id="inboundAmount">¥45,600</div>
+                                <div class="stat-footer">入库金额</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">出库统计</div>
+                            <div class="stat-icon" style="color: #faad14;">📤</div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: end;">
+                            <div>
+                                <div class="stat-value" id="outboundCount">12</div>
+                                <div class="stat-footer">出库单数</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 20px; font-weight: 600; color: #f5222d;" id="outboundAmount">¥8,950</div>
+                                <div class="stat-footer">出库金额</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">申请统计</div>
+                            <div class="stat-icon" style="color: #52c41a;">✓</div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: end;">
+                            <div>
+                                <div class="stat-value" id="applyCount">15</div>
+                                <div class="stat-footer">申请总数</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 20px; font-weight: 600; color: #1890ff;" id="approveCount">13</div>
+                                <div class="stat-footer">已审批数</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 按物资分类统计 -->
+                <div class="card">
+                    <div class="card-header"><div class="card-title">物资分类统计</div></div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>物资分类</th>
+                                <th>入库次数</th>
+                                <th>入库金额</th>
+                                <th>出库次数</th>
+                                <th>出库金额</th>
+                                <th>净增金额</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoryTable"></tbody>
+                    </table>
+                </div>
+
+                <!-- 趋势图（模拟） -->
+                <div class="card">
+                    <div class="card-header"><div class="card-title">出入库趋势（最近7天）</div></div>
+                    <div style="height: 300px; display: flex; align-items: end; gap: 16px; padding: 24px; background: #fafafa; border-radius: 4px;">
+                        <div style="text-align: center; flex: 1;">
+                            <div style="height: 120px; background: linear-gradient(to top, #1890ff, #69c0ff); border-radius: 4px 4px 0 0; margin-bottom: 8px;"></div>
+                            <div style="font-size: 13px; color: #8c8c8c;">01-05</div>
+                        </div>
+                        <div style="text-align: center; flex: 1;">
+                            <div style="height: 100px; background: linear-gradient(to top, #1890ff, #69c0ff); border-radius: 4px 4px 0 0; margin-bottom: 8px;"></div>
+                            <div style="font-size: 13px; color: #8c8c8c;">01-06</div>
+                        </div>
+                        <div style="text-align: center; flex: 1;">
+                            <div style="height: 60px; background: linear-gradient(to top, #1890ff, #69c0ff); border-radius: 4px 4px 0 0; margin-bottom: 8px;"></div>
+                            <div style="font-size: 13px; color: #8c8c8c;">01-07</div>
+                        </div>
+                        <div style="text-align: center; flex: 1;">
+                            <div style="height: 160px; background: linear-gradient(to top, #1890ff, #69c0ff); border-radius: 4px 4px 0 0; margin-bottom: 8px;"></div>
+                            <div style="font-size: 13px; color: #8c8c8c;">01-08</div>
+                        </div>
+                        <div style="text-align: center; flex: 1;">
+                            <div style="height: 90px; background: linear-gradient(to top, #1890ff, #69c0ff); border-radius: 4px 4px 0 0; margin-bottom: 8px;"></div>
+                            <div style="font-size: 13px; color: #8c8c8c;">01-09</div>
+                        </div>
+                        <div style="text-align: center; flex: 1;">
+                            <div style="height: 130px; background: linear-gradient(to top, #1890ff, #69c0ff); border-radius: 4px 4px 0 0; margin-bottom: 8px;"></div>
+                            <div style="font-size: 13px; color: #8c8c8c;">01-10</div>
+                        </div>
+                        <div style="text-align: center; flex: 1;">
+                            <div style="height: 80px; background: linear-gradient(to top, #1890ff, #69c0ff); border-radius: 4px 4px 0 0; margin-bottom: 8px;"></div>
+                            <div style="font-size: 13px; color: #8c8c8c;">01-11</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 16px; text-align: center; font-size: 13px; color: #8c8c8c;">
+                        💡 实际项目中可使用 ECharts、Chart.js 等图表库实现更专业的可视化效果
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        let currentPeriod = 'week';
+
+        function renderCategoryStats() {
+            const tbody = document.getElementById('categoryTable');
+            let html = '';
+
+            mockData.statistics.byCategory.forEach(item => {
+                const netAmount = item.inboundAmount - item.outboundAmount;
+                const netClass = netAmount > 0 ? 'text-success' : (netAmount < 0 ? 'text-danger' : '');
+
+                html += `
+                    <tr>
+                        <td>${item.category}</td>
+                        <td>${item.inboundCount}</td>
+                        <td class="text-success">${formatMoney(item.inboundAmount)}</td>
+                        <td>${item.outboundCount}</td>
+                        <td class="text-danger">${formatMoney(item.outboundAmount)}</td>
+                        <td class="${netClass}">${formatMoney(netAmount)}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function updateStats(period) {
+            const stats = mockData.statistics[period];
+
+            document.getElementById('inboundCount').textContent = stats.inboundCount;
+            document.getElementById('inboundAmount').textContent = formatMoney(stats.inboundAmount);
+            document.getElementById('outboundCount').textContent = stats.outboundCount;
+            document.getElementById('outboundAmount').textContent = formatMoney(stats.outboundAmount);
+            document.getElementById('applyCount').textContent = stats.applyCount;
+            document.getElementById('approveCount').textContent = stats.approveCount;
+        }
+
+        function switchPeriod(period) {
+            currentPeriod = period;
+            updateStats(period);
+
+            // 更新按钮样式
+            document.querySelectorAll('.content-wrapper .btn').forEach((btn, i) => {
+                if (i < 3) {
+                    const periods = ['today', 'week', 'month'];
+                    btn.className = 'btn ' + (periods[i] === period ? 'btn-primary' : 'btn-default');
+                }
+            });
+        }
+
+        function customQuery() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!startDate || !endDate) {
+                Message.warning('请选择开始和结束日期');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                Message.warning('开始日期不能大于结束日期');
+                return;
+            }
+
+            Loading.show('正在查询...');
+            setTimeout(() => {
+                Loading.hide();
+                Message.success('查询成功');
+                // 实际项目中这里会调用后端API
+            }, 1000);
+        }
+
+        function exportReport() {
+            Message.info('正在导出Excel报表...');
+            // 实际项目中这里会生成Excel文件
+        }
+
+        function init() {
+            renderCategoryStats();
+            updateStats('week');
+
+            // 设置日期默认值
+            const today = new Date();
+            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            document.getElementById('startDate').value = weekAgo.toISOString().substring(0, 10);
+            document.getElementById('endDate').value = today.toISOString().substring(0, 10);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

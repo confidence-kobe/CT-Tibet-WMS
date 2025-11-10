@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>审批管理 - 西藏电信仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/pc-common.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">📦</div>
+                <div class="sidebar-title">仓库管理系统</div>
+            </div>
+            <nav class="sidebar-menu">
+                <div class="menu-item" onclick="location.href='dashboard.html'"><span class="menu-item-icon">🏠</span><span>工作台</span></div>
+                <div class="menu-item" onclick="location.href='inbound-list.html'"><span class="menu-item-icon">📥</span><span>入库管理</span></div>
+                <div class="menu-item" onclick="location.href='outbound-list.html'"><span class="menu-item-icon">📤</span><span>出库管理</span></div>
+                <div class="menu-item active"><span class="menu-item-icon">✓</span><span>审批管理</span></div>
+                <div class="menu-item" onclick="location.href='inventory-list.html'"><span class="menu-item-icon">📊</span><span>库存查询</span></div>
+                <div class="menu-item" onclick="location.href='stats.html'"><span class="menu-item-icon">📈</span><span>统计报表</span></div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-left">
+                    <div class="breadcrumb"><span class="breadcrumb-item active">审批管理</span></div>
+                </div>
+                <div class="header-right">
+                    <div class="notification-btn"><span>🔔</span><span class="notification-badge">2</span></div>
+                    <div class="user-info"><div class="user-avatar">张</div><span>张三</span></div>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">申请审批</div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <button class="btn btn-primary" onclick="filterByStatus(0)">待审批</button>
+                        <button class="btn btn-default" onclick="filterByStatus(1)">已通过</button>
+                        <button class="btn btn-default" onclick="filterByStatus(2)">已拒绝</button>
+                        <button class="btn btn-default" onclick="filterByStatus(null)">全部</button>
+                    </div>
+
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>申请单号</th>
+                                <th>申请人</th>
+                                <th>部门</th>
+                                <th>申请用途</th>
+                                <th>物资种类</th>
+                                <th>申请金额</th>
+                                <th>状态</th>
+                                <th>申请时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        let filterStatusValue = 0; // 默认显示待审批
+
+        function renderTable(data) {
+            const tbody = document.querySelector('#dataTable tbody');
+            let html = '';
+
+            data.forEach(item => {
+                html += `
+                    <tr>
+                        <td><a href="#" class="text-primary" onclick="showApprovalDetail('${item.code}'); return false;">${item.code}</a></td>
+                        <td>${item.applyUser}</td>
+                        <td>${item.applyDept}</td>
+                        <td>${item.purpose}</td>
+                        <td>${item.itemCount}</td>
+                        <td class="text-danger">${formatMoney(item.totalAmount)}</td>
+                        <td>${getStatusTag(item.status, item.statusText, 'apply')}</td>
+                        <td>${formatDateTime(item.applyTime)}</td>
+                        <td>
+                            ${item.status === 0 ? `
+                                <button class="btn btn-text text-success" onclick="handleApprove('${item.code}')">通过</button>
+                                <button class="btn btn-text text-danger" onclick="handleReject('${item.code}')">拒绝</button>
+                            ` : `
+                                <button class="btn btn-text" onclick="showApprovalDetail('${item.code}')">查看详情</button>
+                            `}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (data.length === 0) {
+                html = '<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">✓</div><div class="empty-text">暂无待审批申请</div></div></td></tr>';
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        function filterByStatus(status) {
+            filterStatusValue = status;
+            const data = status === null
+                ? mockData.applyList
+                : mockData.applyList.filter(i => i.status === status);
+            renderTable(data);
+
+            // 更新按钮样式
+            document.querySelectorAll('.content-wrapper .btn').forEach((btn, i) => {
+                if (i < 4) {
+                    btn.className = 'btn ' + ([0, 1, 2, null][i] === status ? 'btn-primary' : 'btn-default');
+                }
+            });
+        }
+
+        function showApprovalDetail(code) {
+            const item = mockData.applyList.find(i => i.code === code);
+            if (!item) return;
+
+            let detailsHtml = '<table style="width: 100%; font-size: 14px; margin-top: 16px;"><thead><tr><th>物资名称</th><th>规格型号</th><th>申请数量</th><th>当前库存</th><th>单价</th><th>金额</th></tr></thead><tbody>';
+            item.details.forEach(d => {
+                const stockStatus = d.quantity > d.stockQuantity ? '<span class="text-danger">(库存不足)</span>' : '<span class="text-success">(库存充足)</span>';
+                detailsHtml += `
+                    <tr>
+                        <td>${d.materialName}</td>
+                        <td>${d.spec}</td>
+                        <td>${d.quantity}</td>
+                        <td>${d.stockQuantity} ${stockStatus}</td>
+                        <td>${formatMoney(d.price)}</td>
+                        <td class="text-danger">${formatMoney(d.amount)}</td>
+                    </tr>
+                `;
+            });
+            detailsHtml += '</tbody></table>';
+
+            const content = `
+                <div style="font-size: 14px;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px;">
+                        <div><strong>申请单号：</strong>${item.code}</div>
+                        <div><strong>申请人：</strong>${item.applyUser}</div>
+                        <div><strong>所属部门：</strong>${item.applyDept}</div>
+                        <div><strong>申请时间：</strong>${formatDateTime(item.applyTime)}</div>
+                        <div><strong>申请金额：</strong><span class="text-danger">${formatMoney(item.totalAmount)}</span></div>
+                        <div><strong>状态：</strong>${getStatusTag(item.status, item.statusText, 'apply')}</div>
+                        <div style="grid-column: 1 / -1;"><strong>申请用途：</strong>${item.purpose}</div>
+                        ${item.approver ? `
+                            <div><strong>审批人：</strong>${item.approver}</div>
+                            <div><strong>审批时间：</strong>${formatDateTime(item.approveTime)}</div>
+                            <div style="grid-column: 1 / -1;"><strong>审批意见：</strong>${item.approveRemark || '-'}</div>
+                        ` : ''}
+                    </div>
+                    <div style="border-top: 1px solid #f0f0f0; padding-top: 16px;">
+                        <strong>申请明细：</strong>
+                        ${detailsHtml}
+                    </div>
+                </div>
+            `;
+
+            showDetailModal('申请详情', content);
+        }
+
+        function handleApprove(code) {
+            const item = mockData.applyList.find(i => i.code === code);
+
+            // 检查库存
+            let stockSufficient = true;
+            item.details.forEach(d => {
+                if (d.quantity > d.stockQuantity) {
+                    stockSufficient = false;
+                }
+            });
+
+            if (!stockSufficient) {
+                confirm(
+                    '库存不足',
+                    '当前申请的部分物资库存不足，是否仍要通过审批？',
+                    () => proceedApprove(code)
+                );
+            } else {
+                proceedApprove(code);
+            }
+        }
+
+        function proceedApprove(code) {
+            Loading.show('正在处理...');
+            setTimeout(() => {
+                Loading.hide();
+                Message.success('审批通过，已自动创建出库单');
+
+                const item = mockData.applyList.find(i => i.code === code);
+                if (item) {
+                    item.status = 1;
+                    item.statusText = '已通过';
+                    item.approver = '张三';
+                    item.approveTime = new Date().toISOString().substring(0, 19).replace('T', ' ');
+                    item.approveRemark = '同意';
+                }
+
+                filterByStatus(filterStatusValue);
+            }, 1000);
+        }
+
+        function handleReject(code) {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.innerHTML = `
+                <div class="modal" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <div class="modal-title">拒绝申请</div>
+                        <span class="modal-close">×</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label class="form-label required">拒绝理由</label>
+                            <textarea class="form-textarea" id="rejectReason" placeholder="请输入拒绝理由" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-default" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn btn-danger" onclick="submitReject('${code}')">确认拒绝</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            overlay.querySelector('.modal-close').onclick = () => overlay.remove();
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        }
+
+        function submitReject(code) {
+            const reason = document.getElementById('rejectReason').value.trim();
+            if (!reason) {
+                Message.warning('请输入拒绝理由');
+                return;
+            }
+
+            document.querySelector('.modal-overlay').remove();
+            Loading.show('正在处理...');
+
+            setTimeout(() => {
+                Loading.hide();
+                Message.success('已拒绝申请');
+
+                const item = mockData.applyList.find(i => i.code === code);
+                if (item) {
+                    item.status = 2;
+                    item.statusText = '已拒绝';
+                    item.approver = '张三';
+                    item.approveTime = new Date().toISOString().substring(0, 19).replace('T', ' ');
+                    item.approveRemark = reason;
+                }
+
+                filterByStatus(filterStatusValue);
+            }, 1000);
+        }
+
+        function init() {
+            filterByStatus(0); // 默认显示待审批
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
