@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 西藏电信仓库管理系统</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            width: 400px;
+            background: white;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .login-logo {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .login-title {
+            font-size: 24px;
+            font-weight: 500;
+            color: #262626;
+            margin-bottom: 8px;
+        }
+
+        .login-subtitle {
+            font-size: 14px;
+            color: #8c8c8c;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            color: #595959;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            height: 40px;
+            padding: 0 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 2px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #1890ff;
+            box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #595959;
+            cursor: pointer;
+        }
+
+        .checkbox-label input {
+            margin-right: 8px;
+        }
+
+        .link {
+            font-size: 14px;
+            color: #1890ff;
+            text-decoration: none;
+        }
+
+        .link:hover {
+            color: #40a9ff;
+        }
+
+        .login-button {
+            width: 100%;
+            height: 40px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 2px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .login-button:hover {
+            background: #40a9ff;
+        }
+
+        .login-button:active {
+            background: #096dd9;
+        }
+
+        .test-accounts {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .test-title {
+            font-size: 14px;
+            color: #8c8c8c;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .account-list {
+            list-style: none;
+            font-size: 13px;
+            color: #595959;
+            line-height: 2;
+        }
+
+        .account-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+
+        .account-role {
+            color: #8c8c8c;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="login-logo">📦</div>
+            <div class="login-title">仓库管理系统</div>
+            <div class="login-subtitle">西藏电信 Warehouse Management System</div>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label">用户名</label>
+                <input type="text" class="form-input" placeholder="请输入用户名" value="admin" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">密码</label>
+                <input type="password" class="form-input" placeholder="请输入密码" value="123456" required>
+            </div>
+
+            <div class="form-options">
+                <label class="checkbox-label">
+                    <input type="checkbox" checked>
+                    记住我
+                </label>
+                <a href="#" class="link">忘记密码？</a>
+            </div>
+
+            <button type="submit" class="login-button">登录</button>
+        </form>
+
+        <div class="test-accounts">
+            <div class="test-title">测试账号</div>
+            <ul class="account-list">
+                <li>
+                    <span>admin / 123456</span>
+                    <span class="account-role">系统管理员</span>
+                </li>
+                <li>
+                    <span>wl_warehouse / 123456</span>
+                    <span class="account-role">仓库管理员</span>
+                </li>
+                <li>
+                    <span>wl_user1 / 123456</span>
+                    <span class="account-role">普通员工</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            // 简单的模拟登录
+            alert('登录成功！即将跳转到主页面...');
+            window.location.href = 'dashboard.html';
+        });
+    </script>
+</body>
+</html>

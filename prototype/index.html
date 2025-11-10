@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>西藏电信仓库管理系统 - 原型演示</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: #f0f2f5;
+        }
+
+        .welcome-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .welcome-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .welcome-header h1 {
+            font-size: 36px;
+            color: #262626;
+            margin-bottom: 16px;
+        }
+
+        .welcome-header p {
+            font-size: 16px;
+            color: #8c8c8c;
+        }
+
+        .proto-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .proto-card {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .proto-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+
+        .proto-card-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .proto-card-title {
+            font-size: 20px;
+            font-weight: 500;
+            color: #262626;
+            margin-bottom: 8px;
+        }
+
+        .proto-card-desc {
+            font-size: 14px;
+            color: #8c8c8c;
+            line-height: 1.6;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 8px;
+            padding: 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+        }
+
+        .info-section h2 {
+            font-size: 24px;
+            color: #262626;
+            margin-bottom: 24px;
+        }
+
+        .feature-list {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .feature-list li {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+
+        .feature-list li::before {
+            content: "✓";
+            color: #52c41a;
+            font-weight: bold;
+            margin-right: 8px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="welcome-container">
+        <div class="welcome-header">
+            <h1>📦 西藏电信仓库管理系统</h1>
+            <p>产品原型演示 - 可交互的静态页面</p>
+        </div>
+
+        <div class="proto-grid">
+            <div class="proto-card" onclick="location.href='pc/login.html'">
+                <div class="proto-card-icon">💻</div>
+                <div class="proto-card-title">PC管理端</div>
+                <div class="proto-card-desc">
+                    适用于仓管员、部门管理员、系统管理员<br>
+                    功能：出入库管理、审批管理、库存查询、统计报表
+                </div>
+            </div>
+
+            <div class="proto-card" onclick="location.href='mobile/warehouse-home.html'">
+                <div class="proto-card-icon">📱</div>
+                <div class="proto-card-title">小程序端-仓管员</div>
+                <div class="proto-card-desc">
+                    适用于仓库管理员移动办公<br>
+                    功能：快速入库、快速出库、审批申请、查看库存
+                </div>
+            </div>
+
+            <div class="proto-card" onclick="location.href='mobile/employee-home.html'">
+                <div class="proto-card-icon">👤</div>
+                <div class="proto-card-title">小程序端-普通员工</div>
+                <div class="proto-card-desc">
+                    适用于普通员工领用物资<br>
+                    功能：提交申请、查看申请状态、查看库存
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>📋 原型功能清单</h2>
+            <ul class="feature-list">
+                <li>登录页面</li>
+                <li>入库单列表</li>
+                <li>新建入库单</li>
+                <li>出库单列表</li>
+                <li>新建出库单</li>
+                <li>审批管理</li>
+                <li>申请详情</li>
+                <li>库存查询</li>
+                <li>我的申请</li>
+                <li>新建申请</li>
+                <li>统计报表</li>
+                <li>用户管理</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
