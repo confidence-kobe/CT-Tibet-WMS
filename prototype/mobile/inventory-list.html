@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>库存查询 - 仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/mobile-common.css">
+</head>
+<body>
+    <div class="mobile-container">
+        <div class="navbar">
+            <div class="navbar-back" onclick="goBack()">←</div>
+            <div class="navbar-title">库存查询</div>
+        </div>
+
+        <div class="page">
+            <!-- 搜索框 -->
+            <div style="background: white; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                <input type="text" class="form-input" id="searchInput" placeholder="搜索物资名称或编码" onkeyup="handleSearch()" style="margin: 0;">
+            </div>
+
+            <!-- 筛选栏 -->
+            <div class="filter-bar">
+                <div class="filter-tab active" onclick="filterByStatus(null)">全部</div>
+                <div class="filter-tab" onclick="filterByStatus(1)">正常</div>
+                <div class="filter-tab" onclick="filterByStatus(2)">低库存</div>
+                <div class="filter-tab" onclick="filterByStatus(3)">缺货</div>
+            </div>
+
+            <!-- 库存列表 -->
+            <div id="inventoryList"></div>
+        </div>
+
+        <div class="tabbar">
+            <div class="tabbar-item" onclick="location.href='warehouse-home.html'"><div class="tabbar-icon">🏠</div><div class="tabbar-text">首页</div></div>
+            <div class="tabbar-item"><div class="tabbar-icon">✓</div><div class="tabbar-text">审批</div></div>
+            <div class="tabbar-item active"><div class="tabbar-icon">📊</div><div class="tabbar-text">库存</div></div>
+            <div class="tabbar-item" onclick="Toast.show('我的')"><div class="tabbar-icon">👤</div><div class="tabbar-text">我的</div></div>
+        </div>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        let currentData = [...mockData.inventoryList];
+
+        function renderList(data) {
+            const list = document.getElementById('inventoryList');
+            let html = '';
+
+            data.forEach(item => {
+                const icon = item.status === 3 ? '⛔' : (item.status === 2 ? '⚠️' : '✓');
+                html += `
+                    <div class="card" style="margin-bottom: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                            <div>
+                                <div style="font-size: 16px; font-weight: 500; margin-bottom: 4px;">${item.materialName}</div>
+                                <div style="font-size: 13px; color: #646566;">${item.materialCode} | ${item.category}</div>
+                            </div>
+                            ${getStatusTag(item.status, icon, 'inventory')}
+                        </div>
+
+                        <div style="font-size: 13px; color: #646566; margin-bottom: 8px;">${item.spec}</div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f7f8fa; border-radius: 4px;">
+                            <div>
+                                <div style="font-size: 13px; color: #969799; margin-bottom: 4px;">当前库存</div>
+                                <div style="font-size: 24px; font-weight: 600; color: ${item.status === 3 ? '#ee0a24' : (item.status === 2 ? '#ff976a' : '#07c160')}">${item.quantity}</div>
+                                <div style="font-size: 12px; color: #969799;">${item.unit}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 13px; color: #969799; margin-bottom: 4px;">库存金额</div>
+                                <div style="font-size: 16px; font-weight: 500; color: #1989fa;">${formatMoney(item.amount)}</div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 8px; font-size: 12px; color: #969799;">
+                            <span>最小库存：${item.minQuantity}</span>
+                            <span style="margin-left: 16px;">最大库存：${item.maxQuantity}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (data.length === 0) {
+                html = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无数据</div></div>';
+            }
+
+            list.innerHTML = html;
+        }
+
+        function handleSearch() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            if (!keyword) {
+                currentData = [...mockData.inventoryList];
+            } else {
+                currentData = mockData.inventoryList.filter(i =>
+                    i.materialCode.toLowerCase().includes(keyword) ||
+                    i.materialName.toLowerCase().includes(keyword)
+                );
+            }
+            renderList(currentData);
+        }
+
+        function filterByStatus(status) {
+            const data = status === null
+                ? mockData.inventoryList
+                : mockData.inventoryList.filter(i => i.status === status);
+
+            currentData = data;
+            renderList(data);
+
+            document.querySelectorAll('.filter-tab').forEach((tab, i) => {
+                tab.className = 'filter-tab' + ([null, 1, 2, 3][i] === status ? ' active' : '');
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => renderList(mockData.inventoryList));
+    </script>
+</body>
+</html>

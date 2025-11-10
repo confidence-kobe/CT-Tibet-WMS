@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我的申请 - 仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/mobile-common.css">
+</head>
+<body>
+    <div class="mobile-container">
+        <div class="navbar">
+            <div class="navbar-back" onclick="goBack()">←</div>
+            <div class="navbar-title">我的申请</div>
+        </div>
+
+        <div class="page">
+            <!-- 筛选栏 -->
+            <div class="filter-bar">
+                <div class="filter-tab active" onclick="filterByStatus(null)">全部</div>
+                <div class="filter-tab" onclick="filterByStatus(0)">待审批</div>
+                <div class="filter-tab" onclick="filterByStatus(1)">已通过</div>
+                <div class="filter-tab" onclick="filterByStatus(2)">已拒绝</div>
+            </div>
+
+            <!-- 申请列表 -->
+            <div class="list" id="applyList"></div>
+        </div>
+
+        <div class="tabbar">
+            <div class="tabbar-item" onclick="location.href='employee-home.html'"><div class="tabbar-icon">🏠</div><div class="tabbar-text">首页</div></div>
+            <div class="tabbar-item active"><div class="tabbar-icon">📝</div><div class="tabbar-text">我的申请</div></div>
+            <div class="tabbar-item" onclick="location.href='inventory-list.html'"><div class="tabbar-icon">📊</div><div class="tabbar-text">库存</div></div>
+            <div class="tabbar-item" onclick="Toast.show('我的')"><div class="tabbar-icon">👤</div><div class="tabbar-text">我的</div></div>
+        </div>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        function renderList(status = null) {
+            const list = document.getElementById('applyList');
+            let data = mockData.applyList.filter(a => a.applyUserId === 3);
+
+            if (status !== null) {
+                data = data.filter(a => a.status === status);
+            }
+
+            let html = '';
+            data.forEach(item => {
+                html += `
+                    <div class="list-item">
+                        <div class="list-header">
+                            <div class="list-title">${item.code}</div>
+                            ${getStatusTag(item.status, item.statusText, 'apply')}
+                        </div>
+                        <div class="list-info">${item.purpose}</div>
+                        <div class="list-meta">
+                            <span>${item.itemCount}种物资 | ${formatMoney(item.totalAmount)}</span>
+                            <span>${formatDateTime(item.applyTime)}</span>
+                        </div>
+                        ${item.status === 2 ? `<div style="margin-top: 8px; padding: 8px; background: #fff1f0; border-radius: 4px; font-size: 13px; color: #ee0a24;">拒绝理由：${item.approveRemark}</div>` : ''}
+                    </div>
+                `;
+            });
+
+            if (data.length === 0) {
+                html = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无申请记录</div></div>';
+            }
+
+            list.innerHTML = html;
+        }
+
+        function filterByStatus(status) {
+            renderList(status);
+            document.querySelectorAll('.filter-tab').forEach((tab, i) => {
+                tab.className = 'filter-tab' + ([null, 0, 1, 2][i] === status ? ' active' : '');
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => renderList());
+    </script>
+</body>
+</html>

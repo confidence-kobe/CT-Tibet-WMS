@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>员工首页 - 仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/mobile-common.css">
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- 导航栏 -->
+        <div class="navbar">
+            <div class="navbar-title">物资申请</div>
+        </div>
+
+        <!-- 页面内容 -->
+        <div class="page">
+            <!-- 统计卡片 -->
+            <div class="stat-grid">
+                <div class="stat-item" onclick="filterApplies(0)">
+                    <div class="stat-icon" style="color: #ff976a;">⏳</div>
+                    <div class="stat-value">1</div>
+                    <div class="stat-label">待审批</div>
+                </div>
+                <div class="stat-item" onclick="filterApplies(1)">
+                    <div class="stat-icon" style="color: #07c160;">✓</div>
+                    <div class="stat-value">1</div>
+                    <div class="stat-label">已通过</div>
+                </div>
+                <div class="stat-item" onclick="filterApplies(3)">
+                    <div class="stat-icon" style="color: #1989fa;">📦</div>
+                    <div class="stat-value">1</div>
+                    <div class="stat-label">已完成</div>
+                </div>
+                <div class="stat-item" onclick="filterApplies(2)">
+                    <div class="stat-icon" style="color: #ee0a24;">✗</div>
+                    <div class="stat-value">1</div>
+                    <div class="stat-label">已拒绝</div>
+                </div>
+            </div>
+
+            <!-- 快捷申请按钮 -->
+            <div style="padding: 0 12px; margin-bottom: 12px;">
+                <button class="btn btn-primary" onclick="location.href='apply-create.html'" style="height: 48px;">
+                    + 新建物资申请
+                </button>
+            </div>
+
+            <!-- 我的申请 -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div class="card-title" style="margin: 0;">我的申请</div>
+                    <a href="apply-list.html" style="color: #1989fa; font-size: 14px; text-decoration: none;">查看全部 ></a>
+                </div>
+
+                <!-- 筛选 -->
+                <div class="filter-bar" style="margin: 0 -16px 12px -16px; padding: 12px 16px;">
+                    <div class="filter-tab active" onclick="filterApplies(null)">全部</div>
+                    <div class="filter-tab" onclick="filterApplies(0)">待审批</div>
+                    <div class="filter-tab" onclick="filterApplies(1)">已通过</div>
+                    <div class="filter-tab" onclick="filterApplies(2)">已拒绝</div>
+                </div>
+
+                <div class="list" id="applyList"></div>
+            </div>
+
+            <!-- 消息通知 -->
+            <div class="card">
+                <div class="card-title">消息通知</div>
+                <div class="list" id="messageList"></div>
+            </div>
+        </div>
+
+        <!-- TabBar -->
+        <div class="tabbar">
+            <div class="tabbar-item active" onclick="location.href='employee-home.html'">
+                <div class="tabbar-icon">🏠</div>
+                <div class="tabbar-text">首页</div>
+            </div>
+            <div class="tabbar-item" onclick="location.href='apply-list.html'">
+                <div class="tabbar-icon">📝</div>
+                <div class="tabbar-text">我的申请</div>
+            </div>
+            <div class="tabbar-item" onclick="location.href='inventory-list.html'">
+                <div class="tabbar-icon">📊</div>
+                <div class="tabbar-text">库存</div>
+            </div>
+            <div class="tabbar-item" onclick="Toast.show('我的')">
+                <div class="tabbar-icon">👤</div>
+                <div class="tabbar-text">我的</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        let currentFilter = null;
+
+        // 渲染申请列表
+        function renderApplyList(status = null) {
+            const applyList = document.getElementById('applyList');
+
+            // 筛选当前用户的申请（这里假设当前用户ID为3）
+            let data = mockData.applyList.filter(a => a.applyUserId === 3);
+
+            if (status !== null) {
+                data = data.filter(a => a.status === status);
+            }
+
+            let html = '';
+
+            data.slice(0, 5).forEach(item => {
+                html += `
+                    <div class="list-item" onclick="showApplyDetail('${item.code}')">
+                        <div class="list-header">
+                            <div class="list-title">${item.code}</div>
+                            ${getStatusTag(item.status, item.statusText, 'apply')}
+                        </div>
+                        <div class="list-info">${item.purpose}</div>
+                        <div class="list-meta">
+                            <span>${item.itemCount}种物资 | ${formatMoney(item.totalAmount)}</span>
+                            <span>${formatDateTime(item.applyTime)}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (data.length === 0) {
+                html = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无申请记录</div></div>';
+            }
+
+            applyList.innerHTML = html;
+        }
+
+        // 筛选申请
+        function filterApplies(status) {
+            currentFilter = status;
+            renderApplyList(status);
+
+            // 更新筛选按钮样式
+            const filterTabs = document.querySelectorAll('.filter-tab');
+            filterTabs.forEach((tab, i) => {
+                const tabStatuses = [null, 0, 1, 2];
+                tab.className = 'filter-tab' + (tabStatuses[i] === status ? ' active' : '');
+            });
+        }
+
+        // 显示申请详情
+        function showApplyDetail(code) {
+            Toast.show('跳转到申请详情页');
+        }
+
+        // 渲染消息列表
+        function renderMessageList() {
+            const messageList = document.getElementById('messageList');
+
+            // 筛选与当前用户相关的消息
+            const messages = mockData.notifications.filter(n => !n.read);
+
+            let html = '';
+
+            messages.slice(0, 3).forEach(msg => {
+                const icon = msg.type === 'approval' ? '✓' : (msg.type === 'stock' ? '⚠️' : 'ℹ️');
+                html += `
+                    <div class="list-item">
+                        <div class="list-header">
+                            <div class="list-title">${icon} ${msg.title}</div>
+                        </div>
+                        <div class="list-info">${msg.content}</div>
+                        <div class="list-meta">
+                            <span>${formatDateTime(msg.time)}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (messages.length === 0) {
+                html = '<div class="empty-state"><div class="empty-icon">✓</div><div class="empty-text">暂无新消息</div></div>';
+            }
+
+            messageList.innerHTML = html;
+        }
+
+        function init() {
+            renderApplyList();
+            renderMessageList();
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>仓管员首页 - 仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/mobile-common.css">
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- 导航栏 -->
+        <div class="navbar">
+            <div class="navbar-title">仓库管理</div>
+        </div>
+
+        <!-- 页面内容 -->
+        <div class="page">
+            <!-- 统计卡片 -->
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="stat-icon" style="color: #1989fa;">📥</div>
+                    <div class="stat-value">2</div>
+                    <div class="stat-label">今日入库</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon" style="color: #07c160;">📤</div>
+                    <div class="stat-value">1</div>
+                    <div class="stat-label">今日出库</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon" style="color: #ff976a;">⏳</div>
+                    <div class="stat-value">1</div>
+                    <div class="stat-label">待审批</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon" style="color: #ee0a24;">⚠️</div>
+                    <div class="stat-value">2</div>
+                    <div class="stat-label">库存预警</div>
+                </div>
+            </div>
+
+            <!-- 快捷操作 -->
+            <div class="card">
+                <div class="card-title">快捷操作</div>
+                <div class="action-grid">
+                    <div class="action-item" onclick="Toast.show('跳转到快速入库')">
+                        <div class="action-icon" style="color: #1989fa;">📥</div>
+                        <div class="action-text">快速入库</div>
+                    </div>
+                    <div class="action-item" onclick="Toast.show('跳转到快速出库')">
+                        <div class="action-icon" style="color: #07c160;">📤</div>
+                        <div class="action-text">快速出库</div>
+                    </div>
+                    <div class="action-item" onclick="location.href='approval-list.html'">
+                        <div class="action-icon" style="color: #ff976a;">✓</div>
+                        <div class="action-text">审批管理</div>
+                    </div>
+                    <div class="action-item" onclick="location.href='inventory-list.html'">
+                        <div class="action-icon" style="color: #1989fa;">📊</div>
+                        <div class="action-text">库存查询</div>
+                    </div>
+                    <div class="action-item" onclick="Toast.show('扫码功能')">
+                        <div class="action-icon" style="color: #646566;">📷</div>
+                        <div class="action-text">扫码入库</div>
+                    </div>
+                    <div class="action-item" onclick="Toast.show('消息中心')">
+                        <div class="action-icon" style="color: #646566;">🔔</div>
+                        <div class="action-text">消息中心</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 待办事项 -->
+            <div class="card">
+                <div class="card-title">待办事项</div>
+                <div id="todoList"></div>
+            </div>
+
+            <!-- 库存预警 -->
+            <div class="card">
+                <div class="card-title">库存预警</div>
+                <div class="list" id="stockAlertList"></div>
+            </div>
+        </div>
+
+        <!-- TabBar -->
+        <div class="tabbar">
+            <div class="tabbar-item active" onclick="location.href='warehouse-home.html'">
+                <div class="tabbar-icon">🏠</div>
+                <div class="tabbar-text">首页</div>
+            </div>
+            <div class="tabbar-item" onclick="location.href='approval-list.html'">
+                <div class="tabbar-icon">✓</div>
+                <div class="tabbar-text">审批</div>
+            </div>
+            <div class="tabbar-item" onclick="location.href='inventory-list.html'">
+                <div class="tabbar-icon">📊</div>
+                <div class="tabbar-text">库存</div>
+            </div>
+            <div class="tabbar-item" onclick="Toast.show('我的')">
+                <div class="tabbar-icon">👤</div>
+                <div class="tabbar-text">我的</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        function renderTodoList() {
+            const todoList = document.getElementById('todoList');
+            const pendingApplies = mockData.applyList.filter(a => a.status === 0);
+            const pendingOutbounds = mockData.outboundList.filter(o => o.status === 0);
+
+            let html = '';
+
+            if (pendingApplies.length > 0) {
+                html += `
+                    <div class="list-item" onclick="location.href='approval-list.html'">
+                        <div class="list-header">
+                            <div class="list-title">⏳ 待审批申请</div>
+                            <span class="tag tag-warning">${pendingApplies.length}个</span>
+                        </div>
+                        <div class="list-info">有员工申请需要审批，请及时处理</div>
+                    </div>
+                `;
+            }
+
+            if (pendingOutbounds.length > 0) {
+                html += `
+                    <div class="list-item" onclick="Toast.show('跳转到待领取列表')">
+                        <div class="list-header">
+                            <div class="list-title">📦 待领取出库单</div>
+                            <span class="tag tag-info">${pendingOutbounds.length}个</span>
+                        </div>
+                        <div class="list-info">有出库单待员工领取</div>
+                    </div>
+                `;
+            }
+
+            if (pendingApplies.length === 0 && pendingOutbounds.length === 0) {
+                html = '<div class="empty-state"><div class="empty-icon">✓</div><div class="empty-text">暂无待办事项</div></div>';
+            }
+
+            todoList.innerHTML = html;
+        }
+
+        function renderStockAlert() {
+            const alertList = document.getElementById('stockAlertList');
+            const alerts = mockData.inventoryList.filter(i => i.status === 2 || i.status === 3);
+
+            let html = '';
+
+            alerts.slice(0, 3).forEach(item => {
+                const icon = item.status === 3 ? '⛔' : '⚠️';
+                html += `
+                    <div class="list-item">
+                        <div class="list-header">
+                            <div class="list-title">${icon} ${item.materialName}</div>
+                            <span class="tag ${item.status === 3 ? 'tag-danger' : 'tag-warning'}">${item.statusText}</span>
+                        </div>
+                        <div class="list-info">${item.spec} | 当前：${item.quantity}${item.unit}</div>
+                    </div>
+                `;
+            });
+
+            if (alerts.length === 0) {
+                html = '<div class="empty-state"><div class="empty-icon">✓</div><div class="empty-text">库存正常</div></div>';
+            }
+
+            alertList.innerHTML = html;
+        }
+
+        function init() {
+            renderTodoList();
+            renderStockAlert();
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>快速入库 - 仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/mobile-common.css">
+</head>
+<body>
+    <div class="mobile-container">
+        <div class="navbar">
+            <div class="navbar-back" onclick="goBack()">←</div>
+            <div class="navbar-title">快速入库</div>
+        </div>
+
+        <div class="page">
+            <form id="inboundForm">
+                <!-- 仓库选择 -->
+                <div style="background: white; border-radius: 8px; margin-bottom: 12px;">
+                    <div class="form-cell">
+                        <div class="form-label required">选择仓库</div>
+                        <select class="form-select" id="warehouseId" required style="border: none; text-align: right; color: #323233;">
+                            <option value="">请选择仓库</option>
+                        </select>
+                        <div class="form-arrow">›</div>
+                    </div>
+                </div>
+
+                <!-- 物资列表 -->
+                <div style="background: white; border-radius: 8px; margin-bottom: 12px;">
+                    <div style="padding: 16px; border-bottom: 1px solid #ebedf0; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-weight: 500;">入库物资</div>
+                        <button type="button" style="background: #1989fa; color: white; border: none; padding: 4px 12px; border-radius: 4px; font-size: 13px;" onclick="addMaterial()">+ 添加</button>
+                    </div>
+                    <div id="materialList"></div>
+                </div>
+
+                <!-- 备注 -->
+                <div style="background: white; border-radius: 8px; margin-bottom: 12px;">
+                    <div class="form-cell" style="align-items: start;">
+                        <div class="form-label" style="margin-top: 8px;">备注</div>
+                        <textarea class="form-textarea" id="remark" placeholder="请输入备注信息（选填）" style="border: none;"></textarea>
+                    </div>
+                </div>
+
+                <!-- 合计 -->
+                <div style="background: white; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-size: 15px; font-weight: 500;">合计金额</div>
+                        <div id="totalAmount" style="font-size: 24px; font-weight: 600; color: #ee0a24;">¥0.00</div>
+                    </div>
+                </div>
+
+                <!-- 提示 -->
+                <div style="background: #fff7e6; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                    <div style="font-size: 13px; color: #ff976a; line-height: 1.6;">
+                        💡 快速入库适用于日常补货场景，物资入库后立即更新库存
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 底部按钮 -->
+        <div class="btn-group">
+            <button class="btn btn-default" onclick="goBack()">取消</button>
+            <button class="btn btn-primary" onclick="submitInbound()">确认入库</button>
+        </div>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        let materials = [];
+
+        // 初始化仓库下拉框
+        function initWarehouse() {
+            const select = document.getElementById('warehouseId');
+            const user = { deptId: 1 }; // 假设当前用户的部门ID
+            const warehouses = mockData.warehouses.filter(w => w.deptId === user.deptId);
+
+            warehouses.forEach(w => {
+                const option = document.createElement('option');
+                option.value = w.id;
+                option.textContent = w.name;
+                select.appendChild(option);
+            });
+
+            if (warehouses.length > 0) {
+                select.value = warehouses[0].id;
+            }
+        }
+
+        // 添加物资
+        function addMaterial() {
+            const materialId = generateId();
+            materials.push({
+                id: materialId,
+                materialId: null,
+                quantity: 1,
+                price: 0
+            });
+            renderMaterialList();
+        }
+
+        // 渲染物资列表
+        function renderMaterialList() {
+            const container = document.getElementById('materialList');
+            let html = '';
+
+            materials.forEach((item, index) => {
+                const material = item.materialId ? mockData.materials.find(m => m.id === item.materialId) : null;
+
+                html += `
+                    <div style="padding: 16px; border-bottom: 1px solid #ebedf0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div style="font-weight: 500; color: #323233;">物资 ${index + 1}</div>
+                            <button type="button" style="background: none; border: none; color: #ee0a24; font-size: 14px;" onclick="removeMaterial('${item.id}')">删除</button>
+                        </div>
+
+                        <div class="form-cell" style="padding: 8px 0; border-bottom: 1px solid #f7f8fa;">
+                            <div class="form-label required">物资名称</div>
+                            <select class="form-select" onchange="selectMaterial('${item.id}', this.value)" required style="border: none; text-align: right; color: #323233;">
+                                <option value="">请选择物资</option>
+                                ${mockData.materials.map(m => `<option value="${m.id}" ${item.materialId === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+                            </select>
+                            <div class="form-arrow">›</div>
+                        </div>
+
+                        ${material ? `
+                            <div class="form-cell" style="padding: 8px 0; border-bottom: 1px solid #f7f8fa;">
+                                <div class="form-label">规格型号</div>
+                                <div style="color: #969799;">${material.spec}</div>
+                            </div>
+
+                            <div class="form-cell" style="padding: 8px 0; border-bottom: 1px solid #f7f8fa;">
+                                <div class="form-label">单位</div>
+                                <div style="color: #969799;">${material.unit}</div>
+                            </div>
+
+                            <div class="form-cell" style="padding: 8px 0; border-bottom: 1px solid #f7f8fa;">
+                                <div class="form-label required">数量</div>
+                                <input type="number" class="form-input" value="${item.quantity}" min="1" onchange="updateQuantity('${item.id}', this.value)" required style="border: none; text-align: right; color: #323233; width: 100px;">
+                            </div>
+
+                            <div class="form-cell" style="padding: 8px 0;">
+                                <div class="form-label required">单价</div>
+                                <input type="number" class="form-input" value="${item.price}" step="0.01" min="0" onchange="updatePrice('${item.id}', this.value)" required style="border: none; text-align: right; color: #323233; width: 120px;">
+                            </div>
+
+                            <div style="margin-top: 8px; padding: 8px; background: #f7f8fa; border-radius: 4px; display: flex; justify-content: space-between;">
+                                <span style="color: #646566;">小计</span>
+                                <span style="color: #ee0a24; font-weight: 500;">${formatMoney(item.quantity * item.price)}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            if (materials.length === 0) {
+                html = '<div style="padding: 40px; text-align: center; color: #969799;">请添加入库物资</div>';
+            }
+
+            container.innerHTML = html;
+            calculateTotal();
+        }
+
+        // 选择物资
+        function selectMaterial(itemId, materialId) {
+            const item = materials.find(m => m.id === itemId);
+            if (!item) return;
+
+            item.materialId = parseInt(materialId) || null;
+
+            if (item.materialId) {
+                const material = mockData.materials.find(m => m.id === item.materialId);
+                if (material) {
+                    item.price = material.price;
+                }
+            }
+
+            renderMaterialList();
+        }
+
+        // 更新数量
+        function updateQuantity(itemId, quantity) {
+            const item = materials.find(m => m.id === itemId);
+            if (item) {
+                item.quantity = parseInt(quantity) || 1;
+                renderMaterialList();
+            }
+        }
+
+        // 更新单价
+        function updatePrice(itemId, price) {
+            const item = materials.find(m => m.id === itemId);
+            if (item) {
+                item.price = parseFloat(price) || 0;
+                renderMaterialList();
+            }
+        }
+
+        // 删除物资
+        function removeMaterial(itemId) {
+            const index = materials.findIndex(m => m.id === itemId);
+            if (index > -1) {
+                materials.splice(index, 1);
+                renderMaterialList();
+            }
+        }
+
+        // 计算总金额
+        function calculateTotal() {
+            let total = 0;
+            materials.forEach(item => {
+                if (item.materialId) {
+                    total += item.quantity * item.price;
+                }
+            });
+            document.getElementById('totalAmount').textContent = formatMoney(total);
+        }
+
+        // 提交入库
+        function submitInbound() {
+            const warehouseId = document.getElementById('warehouseId').value;
+
+            if (!warehouseId) {
+                Toast.show('请选择仓库');
+                return;
+            }
+
+            if (materials.length === 0) {
+                Toast.show('请至少添加一条入库物资');
+                return;
+            }
+
+            // 验证所有物资是否已选择
+            const hasEmpty = materials.some(item => !item.materialId);
+            if (hasEmpty) {
+                Toast.show('请完整填写所有物资信息');
+                return;
+            }
+
+            Loading.show('正在提交...');
+            setTimeout(() => {
+                Loading.hide();
+                Toast.show('入库成功');
+                setTimeout(() => {
+                    location.href = 'warehouse-home.html';
+                }, 1500);
+            }, 1000);
+        }
+
+        function init() {
+            initWarehouse();
+            addMaterial(); // 默认添加一行
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

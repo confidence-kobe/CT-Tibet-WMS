@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>审批管理 - 仓库管理系统</title>
+    <link rel="stylesheet" href="../assets/css/mobile-common.css">
+</head>
+<body>
+    <div class="mobile-container">
+        <div class="navbar">
+            <div class="navbar-back" onclick="goBack()">←</div>
+            <div class="navbar-title">审批管理</div>
+        </div>
+
+        <div class="page">
+            <div class="filter-bar">
+                <div class="filter-tab active" onclick="filterByStatus(0)">待审批</div>
+                <div class="filter-tab" onclick="filterByStatus(1)">已通过</div>
+                <div class="filter-tab" onclick="filterByStatus(2)">已拒绝</div>
+            </div>
+
+            <div class="list" id="approvalList"></div>
+        </div>
+
+        <div class="tabbar">
+            <div class="tabbar-item" onclick="location.href='warehouse-home.html'"><div class="tabbar-icon">🏠</div><div class="tabbar-text">首页</div></div>
+            <div class="tabbar-item active"><div class="tabbar-icon">✓</div><div class="tabbar-text">审批</div></div>
+            <div class="tabbar-item" onclick="location.href='inventory-list.html'"><div class="tabbar-icon">📊</div><div class="tabbar-text">库存</div></div>
+            <div class="tabbar-item" onclick="Toast.show('我的')"><div class="tabbar-icon">👤</div><div class="tabbar-text">我的</div></div>
+        </div>
+    </div>
+
+    <script src="../assets/js/mock-data.js"></script>
+    <script src="../assets/js/common.js"></script>
+    <script>
+        function renderList(status = 0) {
+            const list = document.getElementById('approvalList');
+            const data = mockData.applyList.filter(a => a.status === status);
+
+            let html = '';
+            data.forEach(item => {
+                html += `
+                    <div class="list-item" onclick="${status === 0 ? `showApprovalDetail('${item.code}')` : 'void(0)'}">
+                        <div class="list-header">
+                            <div class="list-title">${item.code}</div>
+                            ${getStatusTag(item.status, item.statusText, 'apply')}
+                        </div>
+                        <div class="list-info">
+                            <div style="margin-bottom: 4px;"><strong>${item.applyUser}</strong> - ${item.applyDept}</div>
+                            <div style="color: #969799;">${item.purpose}</div>
+                        </div>
+                        <div class="list-meta">
+                            <span>${item.itemCount}种物资 | ${formatMoney(item.totalAmount)}</span>
+                            <span>${formatDateTime(item.applyTime)}</span>
+                        </div>
+                        ${status === 0 ? `
+                            <div style="margin-top: 12px; display: flex; gap: 12px;">
+                                <button class="btn btn-danger" style="flex: 1; height: 36px;" onclick="event.stopPropagation(); handleReject('${item.code}')">拒绝</button>
+                                <button class="btn btn-success" style="flex: 1; height: 36px;" onclick="event.stopPropagation(); handleApprove('${item.code}')">通过</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            if (data.length === 0) {
+                html = '<div class="empty-state"><div class="empty-icon">✓</div><div class="empty-text">暂无待审批申请</div></div>';
+            }
+
+            list.innerHTML = html;
+        }
+
+        function filterByStatus(status) {
+            renderList(status);
+            document.querySelectorAll('.filter-tab').forEach((tab, i) => {
+                tab.className = 'filter-tab' + ([0, 1, 2][i] === status ? ' active' : '');
+            });
+        }
+
+        function showApprovalDetail(code) {
+            const item = mockData.applyList.find(i => i.code === code);
+            if (!item) return;
+
+            let detailHtml = '';
+            item.details.forEach(d => {
+                const stockOk = d.quantity <= d.stockQuantity;
+                detailHtml += `
+                    <div style="padding: 12px; background: #f7f8fa; border-radius: 4px; margin-bottom: 8px;">
+                        <div style="font-weight: 500; margin-bottom: 4px;">${d.materialName}</div>
+                        <div style="font-size: 13px; color: #646566;">规格：${d.spec}</div>
+                        <div style="font-size: 13px; color: #646566;">申请数量：${d.quantity} | 库存：${d.stockQuantity} <span style="color: ${stockOk ? '#07c160' : '#ee0a24'}">${stockOk ? '✓' : '⚠️库存不足'}</span></div>
+                        <div style="font-size: 13px; color: #ee0a24; margin-top: 4px;">小计：${formatMoney(d.amount)}</div>
+                    </div>
+                `;
+            });
+
+            const content = `
+                <div style="font-size: 14px;">
+                    <div style="margin-bottom: 16px;">
+                        <div style="margin-bottom: 8px;"><strong>申请人：</strong>${item.applyUser} - ${item.applyDept}</div>
+                        <div style="margin-bottom: 8px;"><strong>申请用途：</strong>${item.purpose}</div>
+                        <div style="margin-bottom: 8px;"><strong>申请时间：</strong>${formatDateTime(item.applyTime)}</div>
+                        <div><strong>申请金额：</strong><span style="color: #ee0a24; font-size: 18px; font-weight: 600;">${formatMoney(item.totalAmount)}</span></div>
+                    </div>
+                    <div style="border-top: 1px solid #ebedf0; padding-top: 12px;">
+                        <strong>申请明细：</strong>
+                        <div style="margin-top: 8px;">${detailHtml}</div>
+                    </div>
+                </div>
+            `;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'popup-overlay';
+            overlay.innerHTML = `
+                <div class="popup">
+                    <div class="popup-header">
+                        <div class="popup-title">申请详情</div>
+                        <div class="popup-close">×</div>
+                    </div>
+                    <div class="popup-body">${content}</div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.querySelector('.popup-close').onclick = () => overlay.remove();
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        }
+
+        function handleApprove(code) {
+            Loading.show('正在处理...');
+            setTimeout(() => {
+                Loading.hide();
+                Toast.show('审批通过');
+                const item = mockData.applyList.find(i => i.code === code);
+                if (item) {
+                    item.status = 1;
+                    item.statusText = '已通过';
+                }
+                renderList(0);
+            }, 1000);
+        }
+
+        function handleReject(code) {
+            Toast.show('拒绝申请（实际需要填写拒绝理由）');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => renderList(0));
+    </script>
+</body>
+</html>
