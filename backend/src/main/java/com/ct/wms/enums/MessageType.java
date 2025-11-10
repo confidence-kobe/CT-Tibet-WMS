@@ -16,24 +16,34 @@ import lombok.Getter;
 public enum MessageType {
 
     /**
-     * 系统通知
+     * 申请提交
      */
-    SYSTEM(1, "系统通知"),
+    APPLY_SUBMIT(1, "申请提交"),
 
     /**
-     * 申请通知
+     * 审批通过
      */
-    APPLY(2, "申请通知"),
+    APPLY_APPROVED(2, "审批通过"),
 
     /**
-     * 审批通知
+     * 审批拒绝
      */
-    APPROVAL(3, "审批通知"),
+    APPLY_REJECTED(3, "审批拒绝"),
+
+    /**
+     * 出库待取
+     */
+    OUTBOUND_PENDING(4, "出库待取"),
 
     /**
      * 库存预警
      */
-    INVENTORY_ALERT(4, "库存预警");
+    STOCK_ALERT(5, "库存预警"),
+
+    /**
+     * 超时取消
+     */
+    TIMEOUT_CANCEL(6, "超时取消");
 
     @EnumValue
     @JsonValue
