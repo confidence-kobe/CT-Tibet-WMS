@@ -1,0 +1,36 @@
+# IDE
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/usage.statistics.xml
+.idea/dictionaries
+.idea/shelf/
+.vscode/
+
+# Build outputs
+target/
+dist/
+build/
+out/
+*.class
+*.log
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.tmp
+*.temp
+.cache/
+
+# Claude Code
+.xcodemap/
+.claude/
