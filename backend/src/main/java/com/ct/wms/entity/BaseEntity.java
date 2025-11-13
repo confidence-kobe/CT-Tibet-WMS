@@ -56,8 +56,15 @@ public class BaseEntity implements Serializable {
 
     /**
      * 逻辑删除标记（0-未删除 1-已删除）
+     *
+     * 映射关系：
+     * - Java字段名: deleted (驼峰式)
+     * - 数据库字段名: is_deleted (蛇形式)
+     * - 全局配置: mybatis-plus.global-config.db-config.logic-delete-field = deleted
+     * - 自动转换: MyBatis-Plus自动将"deleted"映射到"is_deleted"
+     *
+     * 注意: 字段名必须与全局配置中的logic-delete-field保持一致
      */
     @TableLogic
-    @TableField("is_deleted")
-    private Integer isDeleted;
+    private Integer deleted;
 }

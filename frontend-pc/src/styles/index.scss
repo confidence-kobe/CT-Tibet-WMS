@@ -2,12 +2,12 @@
  * 全局样式入口文件
  */
 
-// 导入变量
-@import './variables.scss';
+// 导入变量 - 使用 @use 代替 @import
+@use './variables.scss' as *;
 
-// 导入其他样式模块
-@import './reset.scss';
-@import './transition.scss';
+// 导入其他样式模块 - 使用 @use 代替 @import
+@use './reset.scss';
+@use './transition.scss';
 
 // 全局样式
 body {

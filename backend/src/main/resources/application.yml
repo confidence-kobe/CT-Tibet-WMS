@@ -42,10 +42,23 @@ spring:
     virtual-host: /wms
     publisher-confirm-type: correlated
     publisher-returns: true
+    # 连接超时配置（默认10秒）
+    connection-timeout: ${RABBITMQ_TIMEOUT:10000}
     listener:
       simple:
         acknowledge-mode: manual
         prefetch: 1
+        # 重试配置（支持消费失败重试）
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-interval: 10000
+          multiplier: 1.0
+          max-attempts: 3
+    # 缓存连接配置
+    cache:
+      connection:
+        timeout: ${RABBITMQ_TIMEOUT:10000}
 
   # Jackson配置
   jackson:
@@ -114,19 +127,13 @@ server:
       max: 200
       min-spare: 10
 
-# 日志配置
-logging:
-  level:
-    root: INFO
-    com.ct.wms: DEBUG
-    com.baomidou.mybatisplus: DEBUG
-  pattern:
-    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
-    file: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
-  file:
-    name: logs/wms.log
-    max-size: 100MB
-    max-history: 30
+# 日志配置（详细配置在 logback-spring.xml 中）
+# 日志文件位置: backend/logs/
+# - all.log: 所有日志
+# - error.log: 仅错误日志
+# - debug-for-claude.log: 调试日志（包含完整堆栈，供Claude分析）
+# - sql.log: SQL语句日志
+# - business.log: 业务日志
 
 # Spring Boot Actuator
 management:
