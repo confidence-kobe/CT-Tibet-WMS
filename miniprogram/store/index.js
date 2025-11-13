@@ -98,11 +98,11 @@ const store = new Vuex.Store({
     // 是否已登录
     isLogin: state => !!state.token,
     // 用户角色代码
-    roleCode: state => state.userInfo?.roleCode || '',
+    roleCode: state => (state.userInfo ? state.userInfo.roleCode : '') || '',
     // 是否是仓库管理员
-    isWarehouse: state => ['admin', 'dept_admin', 'warehouse'].includes(state.userInfo?.roleCode),
+    isWarehouse: state => ['admin', 'dept_admin', 'warehouse'].includes(state.userInfo ? state.userInfo.roleCode : ''),
     // 是否是普通员工
-    isEmployee: state => state.userInfo?.roleCode === 'user',
+    isEmployee: state => state.userInfo ? state.userInfo.roleCode === 'user' : false,
     // TabBar列表（根据角色动态生成）
     tabBarList: (state, getters) => {
       const isWarehouse = getters.isWarehouse

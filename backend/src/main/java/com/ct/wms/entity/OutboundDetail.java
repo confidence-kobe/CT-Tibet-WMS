@@ -35,6 +35,30 @@ public class OutboundDetail extends BaseEntity {
     private Long materialId;
 
     /**
+     * 物资名称（冗余字段）
+     */
+    @Schema(description = "物资名称")
+    private String materialName;
+
+    /**
+     * 物资编码（冗余字段）
+     */
+    @Schema(description = "物资编码")
+    private String materialCode;
+
+    /**
+     * 规格型号（冗余字段）
+     */
+    @Schema(description = "规格型号")
+    private String spec;
+
+    /**
+     * 单位（冗余字段）
+     */
+    @Schema(description = "单位")
+    private String unit;
+
+    /**
      * 出库数量
      */
     @Schema(description = "出库数量")
@@ -48,32 +72,18 @@ public class OutboundDetail extends BaseEntity {
 
     // 非数据库字段
     /**
-     * 物资名称
+     * 单价（非数据库字段）
      */
     @TableField(exist = false)
-    @Schema(description = "物资名称")
-    private String materialName;
+    @Schema(description = "单价")
+    private BigDecimal unitPrice;
 
     /**
-     * 物资编码
+     * 金额（非数据库字段）
      */
     @TableField(exist = false)
-    @Schema(description = "物资编码")
-    private String materialCode;
-
-    /**
-     * 规格型号
-     */
-    @TableField(exist = false)
-    @Schema(description = "规格型号")
-    private String spec;
-
-    /**
-     * 单位
-     */
-    @TableField(exist = false)
-    @Schema(description = "单位")
-    private String unit;
+    @Schema(description = "金额")
+    private BigDecimal amount;
 
     /**
      * 当前库存

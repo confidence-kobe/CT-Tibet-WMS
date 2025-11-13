@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中国电信配色预览 - CT-Tibet-WMS</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #0052D9;
+      margin-bottom: 40px;
+      text-align: center;
+      font-size: 32px;
+    }
+
+    .section {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 32px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    }
+
+    .section-title {
+      color: #262626;
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    /* 色卡 */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .color-card {
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s;
+    }
+
+    .color-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .color-preview {
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .color-info {
+      padding: 16px;
+      background: white;
+    }
+
+    .color-name {
+      font-weight: 600;
+      color: #262626;
+      margin-bottom: 4px;
+    }
+
+    .color-hex {
+      color: #8c8c8c;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+    }
+
+    /* 渐变展示 */
+    .gradient-card {
+      border-radius: 16px;
+      height: 150px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 24px rgba(0, 82, 217, 0.25);
+      transition: transform 0.3s;
+    }
+
+    .gradient-card:hover {
+      transform: scale(1.02);
+    }
+
+    /* 按钮预览 */
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .btn {
+      height: 48px;
+      border: none;
+      border-radius: 24px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0052D9 0%, #3D7EFF 100%);
+      color: white;
+      box-shadow: 0 8px 24px rgba(0, 82, 217, 0.25);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #3D7EFF 0%, #5A95FF 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(0, 82, 217, 0.3);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #00D084 0%, #00B8A9 100%);
+      color: white;
+      box-shadow: 0 8px 24px rgba(0, 208, 132, 0.25);
+    }
+
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(0, 208, 132, 0.3);
+    }
+
+    .btn-telecom {
+      background: linear-gradient(135deg, #0052D9 0%, #00D084 100%);
+      color: white;
+      box-shadow: 0 8px 24px rgba(0, 82, 217, 0.2);
+    }
+
+    .btn-telecom:hover {
+      transform: translateY(-2px);
+    }
+
+    /* 文字渐变 */
+    .gradient-text {
+      font-size: 48px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #0052D9 0%, #3D7EFF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+
+    .gradient-text-5g {
+      font-size: 48px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00D084 0%, #00B8A9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+
+    /* 卡片预览 */
+    .preview-card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      border-left: 4px solid #0052D9;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+      margin-bottom: 16px;
+      transition: all 0.3s;
+    }
+
+    .preview-card:hover {
+      transform: translateX(4px);
+      box-shadow: 0 8px 24px rgba(0, 82, 217, 0.15);
+    }
+
+    .preview-card-title {
+      color: #262626;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .preview-card-desc {
+      color: #8c8c8c;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 中国电信配色方案预览</h1>
+
+    <!-- 主色 -->
+    <div class="section">
+      <h2 class="section-title">主色 - 电信蓝</h2>
+      <div class="color-grid">
+        <div class="color-card">
+          <div class="color-preview" style="background: #0052D9;">电信蓝</div>
+          <div class="color-info">
+            <div class="color-name">Primary 主色</div>
+            <div class="color-hex">#0052D9</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-preview" style="background: #3D7EFF;">浅电信蓝</div>
+          <div class="color-info">
+            <div class="color-name">Primary Light 浅色</div>
+            <div class="color-hex">#3D7EFF</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-preview" style="background: #0043B0;">深电信蓝</div>
+          <div class="color-info">
+            <div class="color-name">Primary Dark 深色</div>
+            <div class="color-hex">#0043B0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 辅助色 -->
+    <div class="section">
+      <h2 class="section-title">辅助色 - 5G绿</h2>
+      <div class="color-grid">
+        <div class="color-card">
+          <div class="color-preview" style="background: #00D084;">5G绿</div>
+          <div class="color-info">
+            <div class="color-name">Secondary 辅助色</div>
+            <div class="color-hex">#00D084</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-preview" style="background: #00B8A9;">青绿</div>
+          <div class="color-info">
+            <div class="color-name">Secondary Dark</div>
+            <div class="color-hex">#00B8A9</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 渐变效果 -->
+    <div class="section">
+      <h2 class="section-title">渐变效果</h2>
+      <div class="gradient-card" style="background: linear-gradient(135deg, #0052D9 0%, #3D7EFF 100%);">
+        电信蓝渐变
+      </div>
+      <div class="gradient-card" style="background: linear-gradient(135deg, #0052D9 0%, #00D084 100%);">
+        电信专属渐变（蓝→绿）
+      </div>
+      <div class="gradient-card" style="background: linear-gradient(135deg, #003D99 0%, #0052D9 100%);">
+        深色渐变
+      </div>
+      <div class="gradient-card" style="background: linear-gradient(135deg, #00D084 0%, #00B8A9 100%);">
+        5G绿渐变
+      </div>
+    </div>
+
+    <!-- 按钮预览 -->
+    <div class="section">
+      <h2 class="section-title">按钮样式</h2>
+      <div class="button-grid">
+        <button class="btn btn-primary">主要按钮</button>
+        <button class="btn btn-secondary">5G功能</button>
+        <button class="btn btn-telecom">特色按钮</button>
+      </div>
+    </div>
+
+    <!-- 渐变文字 -->
+    <div class="section">
+      <h2 class="section-title">渐变文字</h2>
+      <div class="gradient-text">中国电信</div>
+      <div class="gradient-text-5g">5G时代</div>
+    </div>
+
+    <!-- 卡片预览 -->
+    <div class="section">
+      <h2 class="section-title">卡片样式</h2>
+      <div class="preview-card">
+        <div class="preview-card-title">📦 入库单 #20250111001</div>
+        <div class="preview-card-desc">光纤设备 × 100  |  2025-01-11 14:30</div>
+      </div>
+      <div class="preview-card" style="border-left-color: #00D084;">
+        <div class="preview-card-title">✅ 出库完成 #20250111002</div>
+        <div class="preview-card-desc">5G基站设备 × 50  |  2025-01-11 15:20</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

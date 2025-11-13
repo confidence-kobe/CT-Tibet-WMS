@@ -1,5 +1,6 @@
 package com.ct.wms.common.api;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -92,6 +93,18 @@ public class PageResult<T> extends Result<List<T>> {
     }
 
     /**
+     * Create a successful paginated response from MyBatis-Plus Page object
+     *
+     * @param page MyBatis-Plus Page object
+     * @param <T> the type of data
+     * @return PageResult object with success status
+     */
+    public static <T> PageResult<T> of(Page<T> page) {
+        return success(page.getRecords(), page.getTotal(),
+                      (int) page.getCurrent(), (int) page.getSize());
+    }
+
+    /**
      * Create an empty paginated response
      *
      * @param pageNum current page number
@@ -103,36 +116,6 @@ public class PageResult<T> extends Result<List<T>> {
         return success(List.of(), 0L, pageNum, pageSize);
     }
 
-    /**
-     * Create an error paginated response
-     *
-     * @param resultCode the result code enum
-     * @param <T> the type of data
-     * @return PageResult object with error status
-     */
-    public static <T> PageResult<T> error(ResultCode resultCode) {
-        PageResult<T> result = new PageResult<>();
-        result.setCode(resultCode.getCode());
-        result.setMessage(resultCode.getMessage());
-        result.setTimestamp(LocalDateTime.now());
-        return result;
-    }
-
-    /**
-     * Create an error paginated response with custom message
-     *
-     * @param resultCode the result code enum
-     * @param message custom error message
-     * @param <T> the type of data
-     * @return PageResult object with error status
-     */
-    public static <T> PageResult<T> error(ResultCode resultCode, String message) {
-        PageResult<T> result = new PageResult<>();
-        result.setCode(resultCode.getCode());
-        result.setMessage(message);
-        result.setTimestamp(LocalDateTime.now());
-        return result;
-    }
 
     /**
      * Calculate total number of pages

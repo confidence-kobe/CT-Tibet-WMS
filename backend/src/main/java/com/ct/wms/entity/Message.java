@@ -1,10 +1,13 @@
 package com.ct.wms.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.ct.wms.enums.MessageType;
+import com.ct.wms.common.enums.MessageType;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+
+import java.time.LocalDateTime;
 
 /**
  * 消息实体类
@@ -61,4 +64,50 @@ public class Message extends BaseEntity {
      */
     @Schema(description = "是否已读")
     private Integer isRead;
+
+    /**
+     * 阅读时间
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "阅读时间")
+    private LocalDateTime readTime;
+
+    /**
+     * 获取接收人ID（别名方法）
+     * @return 用户ID
+     */
+    public Long getReceiverId() {
+        return this.userId;
+    }
+
+    /**
+     * 设置接收人ID（别名方法）
+     * @param receiverId 接收人ID
+     */
+    public void setReceiverId(Long receiverId) {
+        this.userId = receiverId;
+    }
+
+    /**
+     * 获取消息类型（别名方法）
+     * @return 消息类型的整数值
+     */
+    public Integer getMessageType() {
+        return this.type != null ? this.type.getCode() : null;
+    }
+
+    /**
+     * 设置消息类型（别名方法）
+     * @param messageType 消息类型整数值
+     */
+    public void setMessageType(Integer messageType) {
+        if (messageType != null) {
+            for (MessageType mt : MessageType.values()) {
+                if (mt.getCode().equals(messageType)) {
+                    this.type = mt;
+                    break;
+                }
+            }
+        }
+    }
 }

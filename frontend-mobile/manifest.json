@@ -1,0 +1,46 @@
+{
+  "name": "西藏电信仓库管理",
+  "appid": "__UNI__CTTIBET",
+  "description": "西藏电信仓库管理系统小程序",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "transformPx": false,
+
+  "mp-weixin": {
+    "appid": "wxXXXXXXXXXXXXXXXX",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "enhance": true,
+      "postcss": true,
+      "minified": true,
+      "newFeature": true,
+      "bigPackageSizeSupport": true
+    },
+    "usingComponents": true,
+    "permission": {
+      "scope.userLocation": {
+        "desc": "您的位置信息将用于确认仓库位置"
+      }
+    },
+    "requiredPrivateInfos": [
+      "getLocation"
+    ]
+  },
+
+  "h5": {
+    "title": "西藏电信仓库管理",
+    "template": "index.html",
+    "router": {
+      "mode": "hash",
+      "base": "/"
+    },
+    "optimization": {
+      "treeShaking": {
+        "enable": true
+      }
+    }
+  },
+
+  "vueVersion": "3"
+}

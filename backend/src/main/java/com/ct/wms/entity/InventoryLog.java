@@ -35,6 +35,12 @@ public class InventoryLog extends BaseEntity {
     private Long materialId;
 
     /**
+     * 物资名称（冗余字段）
+     */
+    @Schema(description = "物资名称")
+    private String materialName;
+
+    /**
      * 变动类型（1-入库 2-出库）
      */
     @Schema(description = "变动类型")
@@ -71,16 +77,16 @@ public class InventoryLog extends BaseEntity {
     private Integer relatedType;
 
     /**
-     * 关联单据ID
-     */
-    @Schema(description = "关联单据ID")
-    private Long relatedId;
-
-    /**
      * 操作人ID
      */
     @Schema(description = "操作人ID")
     private Long operatorId;
+
+    /**
+     * 操作人姓名（冗余字段）
+     */
+    @Schema(description = "操作人姓名")
+    private String operatorName;
 
     /**
      * 备注
@@ -90,30 +96,38 @@ public class InventoryLog extends BaseEntity {
 
     // 非数据库字段
     /**
-     * 仓库名称
+     * 仓库名称（非数据库字段）
      */
     @TableField(exist = false)
     @Schema(description = "仓库名称")
     private String warehouseName;
 
     /**
-     * 物资名称
-     */
-    @TableField(exist = false)
-    @Schema(description = "物资名称")
-    private String materialName;
-
-    /**
-     * 物资编码
+     * 物资编码（非数据库字段）
      */
     @TableField(exist = false)
     @Schema(description = "物资编码")
     private String materialCode;
 
     /**
-     * 操作人姓名
+     * 规格型号（非数据库字段）
      */
     @TableField(exist = false)
-    @Schema(description = "操作人姓名")
-    private String operatorName;
+    @Schema(description = "规格型号")
+    private String spec;
+
+    /**
+     * 单位（非数据库字段）
+     */
+    @TableField(exist = false)
+    @Schema(description = "单位")
+    private String unit;
+
+    /**
+     * 关联单据ID（非数据库字段）
+     */
+    @TableField(exist = false)
+    @Schema(description = "关联单据ID")
+    private Long relatedId;
+
 }

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.enums.OutboundSource;
 import com.ct.wms.common.enums.OutboundStatus;
+import com.ct.wms.common.enums.OutboundType;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.OutboundDTO;
 import com.ct.wms.entity.*;
@@ -172,9 +173,17 @@ public class OutboundServiceImpl implements OutboundService {
         Outbound outbound = new Outbound();
         outbound.setOutboundNo(outboundNo);
         outbound.setWarehouseId(dto.getWarehouseId());
-        outbound.setOutboundType(dto.getOutboundType());
-        outbound.setSource(OutboundSource.DIRECT.getValue());
-        outbound.setStatus(OutboundStatus.COMPLETED.getValue());
+        // 将Integer类型转换为OutboundType枚举
+        if (dto.getOutboundType() != null) {
+            for (OutboundType ot : OutboundType.values()) {
+                if (ot.getCode().equals(dto.getOutboundType())) {
+                    outbound.setOutboundType(ot);
+                    break;
+                }
+            }
+        }
+        outbound.setSource(OutboundSource.DIRECT);
+        outbound.setStatus(OutboundStatus.COMPLETED);
         outbound.setOperatorId(operatorId);
         outbound.setReceiverId(dto.getReceiverId());
         outbound.setOutboundTime(dto.getOutboundTime());
@@ -277,9 +286,9 @@ public class OutboundServiceImpl implements OutboundService {
         Outbound outbound = new Outbound();
         outbound.setOutboundNo(outboundNo);
         outbound.setWarehouseId(warehouseId);
-        outbound.setOutboundType(1); // 领用
-        outbound.setSource(OutboundSource.FROM_APPLY.getValue());
-        outbound.setStatus(OutboundStatus.PENDING_PICKUP.getValue());
+        outbound.setOutboundType(OutboundType.RECEIVE); // 领用
+        outbound.setSource(OutboundSource.FROM_APPLY);
+        outbound.setStatus(OutboundStatus.PENDING_PICKUP);
         outbound.setOperatorId(operatorId);
         outbound.setReceiverId(receiverId);
         outbound.setApplyId(applyId);
@@ -349,7 +358,7 @@ public class OutboundServiceImpl implements OutboundService {
         }
 
         // 更新出库单状态
-        outbound.setStatus(OutboundStatus.COMPLETED.getValue());
+        outbound.setStatus(OutboundStatus.COMPLETED);
         outboundMapper.updateById(outbound);
 
         log.info("确认出库完成: outboundNo={}", outbound.getOutboundNo());
@@ -370,7 +379,7 @@ public class OutboundServiceImpl implements OutboundService {
         }
 
         // 更新出库单状态
-        outbound.setStatus(OutboundStatus.CANCELED.getValue());
+        outbound.setStatus(OutboundStatus.CANCELED);
         outbound.setRemark(outbound.getRemark() + " [取消原因: " + reason + "]");
         outboundMapper.updateById(outbound);
 

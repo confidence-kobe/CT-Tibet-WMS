@@ -1,6 +1,6 @@
 package com.ct.wms.dto;
 
-import com.ct.wms.enums.InboundType;
+import com.ct.wms.common.enums.InboundType;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;

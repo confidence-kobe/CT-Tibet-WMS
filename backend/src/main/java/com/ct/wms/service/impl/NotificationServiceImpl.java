@@ -4,7 +4,7 @@ import com.ct.wms.dto.NotificationMessageDTO;
 import com.ct.wms.entity.Apply;
 import com.ct.wms.entity.Outbound;
 import com.ct.wms.entity.Warehouse;
-import com.ct.wms.enums.MessageType;
+import com.ct.wms.common.enums.MessageType;
 import com.ct.wms.mapper.WarehouseMapper;
 import com.ct.wms.mq.NotificationProducer;
 import com.ct.wms.service.NotificationService;

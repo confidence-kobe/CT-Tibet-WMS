@@ -1,0 +1,407 @@
+/**
+ * 现代设计系统 - Design System
+ * 基于 2025 年设计趋势
+ */
+
+/* ==================== 色彩系统 Color System - 电信风格 ==================== */
+
+// 主色 - 电信蓝渐变
+$primary: #0052D9;           // 电信蓝
+$primary-light: #3D7EFF;     // 浅电信蓝
+$primary-dark: #0043B0;      // 深电信蓝
+$primary-gradient: linear-gradient(135deg, #0052D9 0%, #3D7EFF 100%);
+$primary-gradient-hover: linear-gradient(135deg, #3D7EFF 0%, #5A95FF 100%);
+
+// 辅助色 - 电信品牌色
+$secondary: #00D084;         // 5G绿
+$secondary-gradient: linear-gradient(135deg, #00D084 0%, #00B8A9 100%);
+
+$success: #10b981;
+$success-light: #d1fae5;
+$warning: #f59e0b;
+$warning-light: #fef3c7;
+$error: #ef4444;
+$error-light: #fee2e2;
+$info: #3b82f6;
+$info-light: #dbeafe;
+
+// 中性色 - 更现代的灰度系统
+$gray-50: #fafafa;
+$gray-100: #f5f5f5;
+$gray-200: #eeeeee;
+$gray-300: #e0e0e0;
+$gray-400: #bdbdbd;
+$gray-500: #9e9e9e;
+$gray-600: #757575;
+$gray-700: #616161;
+$gray-800: #424242;
+$gray-900: #212121;
+
+// 背景色
+$bg-primary: #ffffff;
+$bg-secondary: #f8f9fa;
+$bg-tertiary: #f3f4f6;
+
+// 文字色
+$text-primary: #1f2937;
+$text-secondary: #6b7280;
+$text-tertiary: #9ca3af;
+$text-disabled: #d1d5db;
+
+/* ==================== 间距系统 Spacing System ==================== */
+$spacing-xs: 8rpx;
+$spacing-sm: 16rpx;
+$spacing-md: 24rpx;
+$spacing-lg: 32rpx;
+$spacing-xl: 48rpx;
+$spacing-2xl: 64rpx;
+$spacing-3xl: 96rpx;
+
+/* ==================== 圆角系统 Border Radius ==================== */
+$radius-none: 0;
+$radius-sm: 8rpx;
+$radius-md: 12rpx;
+$radius-lg: 16rpx;
+$radius-xl: 24rpx;
+$radius-2xl: 32rpx;
+$radius-full: 9999rpx;
+
+/* ==================== 阴影系统 Shadow System ==================== */
+$shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+$shadow-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
+$shadow-xl: 0 16rpx 48rpx rgba(0, 0, 0, 0.12);
+$shadow-2xl: 0 24rpx 64rpx rgba(0, 0, 0, 0.16);
+
+// 彩色阴影 - 电信风格
+$shadow-primary: 0 8rpx 24rpx rgba(0, 82, 217, 0.25);
+$shadow-secondary: 0 8rpx 24rpx rgba(0, 208, 132, 0.25);
+$shadow-success: 0 8rpx 24rpx rgba(16, 185, 129, 0.25);
+$shadow-warning: 0 8rpx 24rpx rgba(245, 158, 11, 0.25);
+$shadow-error: 0 8rpx 24rpx rgba(239, 68, 68, 0.25);
+
+/* ==================== 玻璃拟态 Glassmorphism ==================== */
+@mixin glass-effect($blur: 20rpx, $opacity: 0.8) {
+  background: rgba(255, 255, 255, $opacity);
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+  border: 1rpx solid rgba(255, 255, 255, 0.3);
+}
+
+@mixin glass-card {
+  @include glass-effect(24rpx, 0.9);
+  box-shadow: $shadow-lg;
+  border-radius: $radius-xl;
+}
+
+/* ==================== 渐变效果 Gradients - 电信风格 ==================== */
+@mixin gradient-primary {
+  background: $primary-gradient;
+}
+
+@mixin gradient-secondary {
+  background: $secondary-gradient;
+}
+
+@mixin gradient-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+@mixin gradient-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+// 电信专属渐变
+@mixin gradient-telecom {
+  background: linear-gradient(135deg, #0052D9 0%, #00D084 100%);
+}
+
+@mixin gradient-telecom-dark {
+  background: linear-gradient(135deg, #003D99 0%, #0052D9 100%);
+}
+
+@mixin gradient-mesh {
+  background:
+    radial-gradient(at 0% 0%, rgba(0, 82, 217, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(61, 126, 255, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(0, 208, 132, 0.1) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(0, 184, 169, 0.1) 0px, transparent 50%);
+}
+
+/* ==================== 字体系统 Typography ==================== */
+$font-size-xs: 20rpx;
+$font-size-sm: 24rpx;
+$font-size-base: 28rpx;
+$font-size-md: 32rpx;
+$font-size-lg: 36rpx;
+$font-size-xl: 40rpx;
+$font-size-2xl: 48rpx;
+$font-size-3xl: 56rpx;
+
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+$line-height-tight: 1.25;
+$line-height-normal: 1.5;
+$line-height-relaxed: 1.75;
+
+/* ==================== 动画系统 Animation System ==================== */
+$transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+$transition-base: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+$transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+
+@mixin smooth-transition($properties...) {
+  transition-property: $properties;
+  transition-duration: $transition-base;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==================== 卡片组件 Card Component ==================== */
+@mixin card-base {
+  background: $bg-primary;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-md;
+  padding: $spacing-lg;
+  @include smooth-transition(transform, box-shadow);
+
+  &:active {
+    transform: scale(0.98);
+    box-shadow: $shadow-sm;
+  }
+}
+
+@mixin card-hover {
+  &:hover {
+    transform: translateY(-4rpx);
+    box-shadow: $shadow-xl;
+  }
+}
+
+/* ==================== 按钮组件 Button Component ==================== */
+@mixin btn-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: $radius-full;
+  font-weight: $font-weight-medium;
+  cursor: pointer;
+  @include smooth-transition(all);
+
+  &::after {
+    border: none;
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+@mixin btn-primary {
+  @include btn-base;
+  @include gradient-primary;
+  color: #ffffff;
+  box-shadow: $shadow-primary;
+
+  &:hover {
+    box-shadow: $shadow-xl;
+  }
+}
+
+@mixin btn-outline {
+  @include btn-base;
+  background: transparent;
+  border: 2rpx solid $primary;
+  color: $primary;
+
+  &:hover {
+    background: rgba($primary, 0.05);
+  }
+}
+
+/* ==================== 输入框组件 Input Component ==================== */
+@mixin input-base {
+  background: $bg-secondary;
+  border: 2rpx solid transparent;
+  border-radius: $radius-lg;
+  padding: $spacing-md;
+  font-size: $font-size-base;
+  color: $text-primary;
+  @include smooth-transition(border-color, background);
+
+  &:focus {
+    background: $bg-primary;
+    border-color: $primary;
+    outline: none;
+  }
+
+  &::placeholder {
+    color: $text-tertiary;
+  }
+}
+
+/* ==================== 徽章组件 Badge Component ==================== */
+@mixin badge($color, $bg-color) {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 12rpx;
+  border-radius: $radius-full;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  color: $color;
+  background: $bg-color;
+}
+
+/* ==================== 响应式 Responsive ==================== */
+@mixin responsive-padding {
+  padding-left: $spacing-lg;
+  padding-right: $spacing-lg;
+}
+
+/* ==================== 工具类 Utility Classes ==================== */
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin text-clamp($lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ==================== 安全区域 Safe Area ==================== */
+@mixin safe-area-bottom($padding: 0) {
+  padding-bottom: calc(#{$padding} + constant(safe-area-inset-bottom));
+  padding-bottom: calc(#{$padding} + env(safe-area-inset-bottom));
+}
+
+/* ==================== 骨架屏 Skeleton ==================== */
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@mixin skeleton {
+  background: linear-gradient(
+    90deg,
+    $gray-200 25%,
+    $gray-100 37%,
+    $gray-200 63%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.4s ease infinite;
+}
+
+/* ==================== 状态反馈 Status Feedback ==================== */
+@mixin status-dot($color, $size: 12rpx) {
+  width: $size;
+  height: $size;
+  border-radius: 50%;
+  background: $color;
+  box-shadow: 0 0 0 4rpx rgba($color, 0.2);
+}
+
+/* ==================== 分隔线 Divider ==================== */
+@mixin divider($margin: $spacing-md) {
+  height: 1rpx;
+  background: $gray-200;
+  margin: $margin 0;
+}
+
+/* ==================== 悬浮动画 Float Animation ==================== */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10rpx);
+  }
+}
+
+@mixin float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ==================== 脉冲动画 Pulse Animation ==================== */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@mixin pulse-animation {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ==================== 淡入动画 Fade In ==================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@mixin fade-in($delay: 0s) {
+  animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) $delay forwards;
+  opacity: 0;
+}
+
+/* ==================== 滑入动画 Slide In ==================== */
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@mixin slide-in-up {
+  animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==================== 缩放动画 Scale ==================== */
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@mixin scale-in {
+  animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

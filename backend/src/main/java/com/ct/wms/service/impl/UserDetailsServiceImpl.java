@@ -3,7 +3,7 @@ package com.ct.wms.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ct.wms.entity.Role;
 import com.ct.wms.entity.User;
-import com.ct.wms.enums.UserStatus;
+import com.ct.wms.common.enums.UserStatus;
 import com.ct.wms.mapper.RoleMapper;
 import com.ct.wms.mapper.UserMapper;
 import com.ct.wms.security.UserDetailsImpl;

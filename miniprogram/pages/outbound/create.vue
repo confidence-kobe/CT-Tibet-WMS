@@ -10,7 +10,7 @@
           <text class="form-label">出库仓库</text>
           <picker mode="selector" :range="warehouses" range-key="warehouseName" @change="handleWarehouseChange">
             <view class="picker-value">
-              {{ selectedWarehouse?.warehouseName || '请选择仓库' }} ▼
+              {{ selectedWarehouse ? selectedWarehouse.warehouseName : '请选择仓库' }} ▼
             </view>
           </picker>
         </view>
@@ -181,7 +181,7 @@
                   <text class="user-name">{{ user.realName }}</text>
                   <text class="user-dept">{{ user.deptName }} | {{ user.phone }}</text>
                 </view>
-                <text class="user-check">{{ selectedUser?.id === user.id ? '✓' : '' }}</text>
+                <text class="user-check">{{ selectedUser && selectedUser.id === user.id ? '✓' : '' }}</text>
               </view>
             </view>
             <view v-else class="empty-state">
@@ -263,7 +263,7 @@ export default {
 
           if (this.warehouses.length > 0) {
             const userDeptWarehouse = this.warehouses.find(
-              w => w.deptId === this.userInfo?.deptId
+              w => w.deptId === (this.userInfo ? this.userInfo.deptId : null)
             )
             if (userDeptWarehouse) {
               this.selectedWarehouse = userDeptWarehouse
@@ -407,7 +407,7 @@ export default {
           url: '/api/users',
           method: 'GET',
           data: {
-            deptId: this.userInfo?.deptId,
+            deptId: this.userInfo ? this.userInfo.deptId : null,
             status: 0,
             pageSize: 1000
           }

@@ -120,27 +120,19 @@
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "首页",
-        "iconPath": "static/tabbar/home.png",
-        "selectedIconPath": "static/tabbar/home-active.png"
+        "text": "🏠 首页"
       },
       {
         "pagePath": "pages/apply/list",
-        "text": "申请",
-        "iconPath": "static/tabbar/apply.png",
-        "selectedIconPath": "static/tabbar/apply-active.png"
+        "text": "📝 申请"
       },
       {
         "pagePath": "pages/inventory/list",
-        "text": "库存",
-        "iconPath": "static/tabbar/inventory.png",
-        "selectedIconPath": "static/tabbar/inventory-active.png"
+        "text": "📦 库存"
       },
       {
         "pagePath": "pages/mine/mine",
-        "text": "我的",
-        "iconPath": "static/tabbar/mine.png",
-        "selectedIconPath": "static/tabbar/mine-active.png"
+        "text": "👤 我的"
       }
     ]
   },

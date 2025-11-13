@@ -213,7 +213,7 @@ public class ApplyServiceImpl implements ApplyService {
         apply.setWarehouseId(dto.getWarehouseId());
         apply.setApplicantId(applicantId);
         apply.setApplyTime(dto.getApplyTime());
-        apply.setStatus(ApplyStatus.PENDING.getValue());
+        apply.setStatus(ApplyStatus.PENDING);
         apply.setApplyReason(dto.getApplyReason());
 
         applyMapper.insert(apply);
@@ -282,7 +282,7 @@ public class ApplyServiceImpl implements ApplyService {
 
         if (dto.getApprovalResult() == 1) {
             // 审批通过
-            apply.setStatus(ApplyStatus.APPROVED.getValue());
+            apply.setStatus(ApplyStatus.APPROVED);
             applyMapper.updateById(apply);
 
             log.info("审批通过: applyNo={}, approverId={}", apply.getApplyNo(), approverId);
@@ -299,7 +299,7 @@ public class ApplyServiceImpl implements ApplyService {
 
         } else if (dto.getApprovalResult() == 2) {
             // 审批拒绝
-            apply.setStatus(ApplyStatus.REJECTED.getValue());
+            apply.setStatus(ApplyStatus.REJECTED);
             applyMapper.updateById(apply);
 
             log.info("审批拒绝: applyNo={}, approverId={}, reason={}",
@@ -333,7 +333,7 @@ public class ApplyServiceImpl implements ApplyService {
         }
 
         // 更新状态
-        apply.setStatus(ApplyStatus.CANCELED.getValue());
+        apply.setStatus(ApplyStatus.CANCELED);
         applyMapper.updateById(apply);
 
         log.info("取消申请单: applyNo={}, applicantId={}", apply.getApplyNo(), userId);

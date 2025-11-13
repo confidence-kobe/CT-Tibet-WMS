@@ -86,11 +86,12 @@ export function getPendingStats() {
  * @param {Object} params - 查询参数
  */
 export function getMyApplies(params) {
+  const userInfo = uni.getStorageSync('userInfo')
   return $uRequest({
     url: '/api/applies',
     method: 'GET',
     data: {
-      applicantId: uni.getStorageSync('userInfo')?.id,
+      applicantId: userInfo ? userInfo.id : null,
       ...params
     }
   })

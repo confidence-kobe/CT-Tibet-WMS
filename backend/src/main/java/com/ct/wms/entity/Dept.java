@@ -41,6 +41,12 @@ public class Dept extends BaseEntity {
     private Long parentId;
 
     /**
+     * 祖级列表（1,2,3,路径）
+     */
+    @Schema(description = "祖级列表")
+    private String ancestors;
+
+    /**
      * 部门负责人ID
      */
     @Schema(description = "部门负责人ID")
@@ -53,6 +59,12 @@ public class Dept extends BaseEntity {
     private String phone;
 
     /**
+     * 邮箱
+     */
+    @Schema(description = "邮箱")
+    private String email;
+
+    /**
      * 状态（0-启用 1-禁用）
      */
     @Schema(description = "状态")
@@ -63,6 +75,12 @@ public class Dept extends BaseEntity {
      */
     @Schema(description = "排序")
     private Integer sort;
+
+    /**
+     * 备注
+     */
+    @Schema(description = "备注")
+    private String remark;
 
     // 非数据库字段
     /**

@@ -1,0 +1,145 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue"
+    }
+  },
+
+  "pages": [
+    {
+      "path": "pages/warehouse/home",
+      "style": {
+        "navigationBarTitleText": "仓管员首页",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/warehouse/quick-inbound",
+      "style": {
+        "navigationBarTitleText": "快速入库"
+      }
+    },
+    {
+      "path": "pages/warehouse/quick-outbound",
+      "style": {
+        "navigationBarTitleText": "快速出库"
+      }
+    },
+    {
+      "path": "pages/warehouse/approval-list",
+      "style": {
+        "navigationBarTitleText": "审批管理",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/warehouse/approval-detail",
+      "style": {
+        "navigationBarTitleText": "审批详情"
+      }
+    },
+    {
+      "path": "pages/warehouse/inventory",
+      "style": {
+        "navigationBarTitleText": "库存查询",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/employee/home",
+      "style": {
+        "navigationBarTitleText": "员工首页",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/employee/apply-list",
+      "style": {
+        "navigationBarTitleText": "我的申请",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/employee/apply-create",
+      "style": {
+        "navigationBarTitleText": "新建申请"
+      }
+    },
+    {
+      "path": "pages/employee/apply-detail",
+      "style": {
+        "navigationBarTitleText": "申请详情"
+      }
+    },
+    {
+      "path": "pages/employee/inventory",
+      "style": {
+        "navigationBarTitleText": "库存查询",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    }
+  ],
+
+  "tabBar": {
+    "color": "#8c8c8c",
+    "selectedColor": "#1890ff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/warehouse/home",
+        "iconPath": "static/icons/home.png",
+        "selectedIconPath": "static/icons/home-active.png",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/warehouse/approval-list",
+        "iconPath": "static/icons/approval.png",
+        "selectedIconPath": "static/icons/approval-active.png",
+        "text": "审批"
+      },
+      {
+        "pagePath": "pages/warehouse/inventory",
+        "iconPath": "static/icons/inventory.png",
+        "selectedIconPath": "static/icons/inventory-active.png",
+        "text": "库存"
+      }
+    ]
+  },
+
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "仓库管理",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f5f5f5",
+    "app-plus": {
+      "titleNView": {
+        "buttons": []
+      }
+    }
+  },
+
+  "condition": {
+    "current": 0,
+    "list": [
+      {
+        "name": "仓管员首页",
+        "path": "pages/warehouse/home"
+      },
+      {
+        "name": "员工首页",
+        "path": "pages/employee/home"
+      }
+    ]
+  }
+}

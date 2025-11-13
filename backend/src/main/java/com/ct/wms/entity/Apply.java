@@ -2,7 +2,7 @@ package com.ct.wms.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.ct.wms.enums.ApplyStatus;
+import com.ct.wms.common.enums.ApplyStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -44,10 +44,24 @@ public class Apply extends BaseEntity {
     private Long deptId;
 
     /**
+     * 目标仓库ID（非数据库字段）
+     */
+    @TableField(exist = false)
+    @Schema(description = "目标仓库ID")
+    private Long warehouseId;
+
+    /**
      * 领用用途
      */
     @Schema(description = "领用用途")
     private String purpose;
+
+    /**
+     * 申请原因（非数据库字段）
+     */
+    @TableField(exist = false)
+    @Schema(description = "申请原因")
+    private String applyReason;
 
     /**
      * 申请时间
@@ -63,10 +77,34 @@ public class Apply extends BaseEntity {
     private ApplyStatus status;
 
     /**
+     * 申请人姓名（冗余字段）
+     */
+    @Schema(description = "申请人姓名")
+    private String applicantName;
+
+    /**
+     * 申请人手机号（冗余字段）
+     */
+    @Schema(description = "申请人手机号")
+    private String applicantPhone;
+
+    /**
+     * 部门名称（冗余字段）
+     */
+    @Schema(description = "部门名称")
+    private String deptName;
+
+    /**
      * 审批人ID
      */
     @Schema(description = "审批人ID")
     private Long approverId;
+
+    /**
+     * 审批人姓名（冗余字段）
+     */
+    @Schema(description = "审批人姓名")
+    private String approverName;
 
     /**
      * 审批时间
@@ -82,6 +120,13 @@ public class Apply extends BaseEntity {
     private String approvalOpinion;
 
     /**
+     * 审批备注（非数据库字段）
+     */
+    @TableField(exist = false)
+    @Schema(description = "审批备注")
+    private String approvalRemark;
+
+    /**
      * 拒绝原因
      */
     @Schema(description = "拒绝原因")
@@ -94,6 +139,19 @@ public class Apply extends BaseEntity {
     private Long outboundId;
 
     /**
+     * 取消原因
+     */
+    @Schema(description = "取消原因")
+    private String cancelReason;
+
+    /**
+     * 取消时间
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "取消时间")
+    private LocalDateTime cancelTime;
+
+    /**
      * 备注
      */
     @Schema(description = "备注")
@@ -101,32 +159,11 @@ public class Apply extends BaseEntity {
 
     // 非数据库字段
     /**
-     * 申请人姓名
+     * 仓库名称（非数据库字段）
      */
     @TableField(exist = false)
-    @Schema(description = "申请人姓名")
-    private String applicantName;
-
-    /**
-     * 申请人手机号
-     */
-    @TableField(exist = false)
-    @Schema(description = "申请人手机号")
-    private String applicantPhone;
-
-    /**
-     * 部门名称
-     */
-    @TableField(exist = false)
-    @Schema(description = "部门名称")
-    private String deptName;
-
-    /**
-     * 审批人姓名
-     */
-    @TableField(exist = false)
-    @Schema(description = "审批人姓名")
-    private String approverName;
+    @Schema(description = "仓库名称")
+    private String warehouseName;
 
     /**
      * 关联出库单号

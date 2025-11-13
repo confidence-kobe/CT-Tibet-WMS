@@ -58,6 +58,6 @@ public class BaseEntity implements Serializable {
      * 逻辑删除标记（0-未删除 1-已删除）
      */
     @TableLogic
-    @TableField("deleted")
-    private Integer deleted;
+    @TableField("is_deleted")
+    private Integer isDeleted;
 }

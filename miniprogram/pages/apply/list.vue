@@ -146,7 +146,7 @@ export default {
             pageNum: this.pageNum,
             pageSize: this.pageSize,
             status: status,
-            applicantId: this.$store.state.userInfo?.id
+            applicantId: this.$store.state.userInfo ? this.$store.state.userInfo.id : null
           }
         })
 
@@ -301,31 +301,54 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import "@/styles/design-system.scss";
+
 .apply-list-container {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  @include gradient-mesh;
+  background-color: $bg-secondary;
 }
 
 .tabs {
-  background-color: #ffffff;
+  background: $bg-primary;
   display: flex;
-  padding: 16rpx 32rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
+  padding: $spacing-sm $spacing-lg 0;
+  position: relative;
+  box-shadow: $shadow-sm;
+
+  // 渐变装饰线
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4rpx;
+    @include gradient-primary;
+  }
 }
 
 .tab-item {
   flex: 1;
-  padding: 24rpx 0;
+  padding: $spacing-md 0;
   text-align: center;
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  @include flex-center;
+  @include smooth-transition(all);
+  cursor: pointer;
+
+  &:active {
+    opacity: 0.7;
+  }
 
   &.active {
     .tab-text {
-      color: #1890ff;
-      font-weight: 500;
+      background: $primary-gradient;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: $font-weight-semibold;
+      transform: scale(1.05);
     }
 
     &::after {
@@ -334,26 +357,31 @@ export default {
       bottom: 0;
       left: 50%;
       transform: translateX(-50%);
-      width: 60rpx;
+      width: 64rpx;
       height: 4rpx;
-      background-color: #1890ff;
-      border-radius: 2rpx;
+      @include gradient-primary;
+      border-radius: $radius-full;
+      box-shadow: 0 2rpx 8rpx rgba($primary, 0.3);
     }
   }
 }
 
 .tab-text {
-  font-size: 28rpx;
-  color: #262626;
+  font-size: $font-size-base;
+  color: $text-primary;
+  @include smooth-transition(all);
 }
 
 .tab-badge {
-  margin-left: 8rpx;
-  padding: 2rpx 12rpx;
-  background-color: #f5222d;
+  margin-left: $spacing-xs;
+  padding: 4rpx 12rpx;
+  @include gradient-secondary;
   color: #ffffff;
-  font-size: 20rpx;
-  border-radius: 16rpx;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
+  border-radius: $radius-full;
+  box-shadow: 0 2rpx 8rpx rgba($error, 0.3);
+  @include pulse-animation;
 }
 
 .scroll-content {
@@ -361,121 +389,200 @@ export default {
 }
 
 .apply-list {
-  padding: 24rpx 32rpx;
+  padding: $spacing-md $spacing-lg;
 }
 
 .apply-card {
-  background-color: #ffffff;
-  border-radius: 16rpx;
-  padding: 32rpx;
-  margin-bottom: 24rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
+  @include card-base;
+  margin-bottom: $spacing-md;
   position: relative;
+  overflow: hidden;
+  border-left: 4rpx solid transparent;
+  @include fade-in;
+
+  // 依次出现动画
+  @for $i from 1 through 10 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.05}s;
+    }
+  }
+
+  // 左侧状态彩条
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4rpx;
+    @include smooth-transition(width);
+  }
+
+  &:active {
+    transform: scale(0.98);
+
+    &::before {
+      width: 8rpx;
+    }
+  }
+
+  // 根据状态设置彩条颜色
+  &:has(.status-0)::before {
+    @include gradient-warning;
+  }
+
+  &:has(.status-1)::before {
+    @include gradient-success;
+  }
+
+  &:has(.status-2)::before {
+    background: $error;
+  }
+
+  &:has(.status-3)::before,
+  &:has(.status-4)::before {
+    background: $gray-300;
+  }
 }
 
 .status-tag {
   position: absolute;
-  top: 24rpx;
-  right: 24rpx;
-  padding: 8rpx 24rpx;
-  border-radius: 8rpx;
-  font-size: 24rpx;
+  top: $spacing-md;
+  right: $spacing-md;
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-full;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
+  box-shadow: $shadow-sm;
+  @include smooth-transition(transform);
+
+  &:active {
+    transform: scale(0.95);
+  }
 
   &.status-0 {
-    background-color: #fff7e6;
-    color: #faad14;
+    background: $warning-light;
+    color: $warning;
+    border: 2rpx solid rgba($warning, 0.2);
   }
 
   &.status-1 {
-    background-color: #f6ffed;
-    color: #52c41a;
+    background: $success-light;
+    color: $success;
+    border: 2rpx solid rgba($success, 0.2);
   }
 
   &.status-2 {
-    background-color: #fff1f0;
-    color: #f5222d;
+    background: $error-light;
+    color: $error;
+    border: 2rpx solid rgba($error, 0.2);
   }
 
   &.status-3 {
-    background-color: #f5f5f5;
-    color: #8c8c8c;
+    background: $gray-100;
+    color: $text-secondary;
+    border: 2rpx solid $gray-200;
   }
 
   &.status-4 {
-    background-color: #f5f5f5;
-    color: #bfbfbf;
+    background: $gray-100;
+    color: $text-tertiary;
+    border: 2rpx solid $gray-200;
   }
 }
 
 .apply-info {
   display: flex;
   flex-direction: column;
-  padding-right: 120rpx;
+  gap: $spacing-xs;
+  padding-right: 140rpx;
 }
 
 .apply-title {
-  font-size: 32rpx;
-  font-weight: 500;
-  color: #262626;
-  margin-bottom: 12rpx;
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: $text-primary;
+  @include text-ellipsis;
+  margin-bottom: $spacing-xs;
 }
 
 .apply-no,
 .apply-purpose,
 .apply-time {
-  font-size: 24rpx;
-  color: #8c8c8c;
-  margin-bottom: 8rpx;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  line-height: $line-height-relaxed;
 }
 
 .approval-info,
 .rejection-info {
-  margin-top: 16rpx;
-  padding-top: 16rpx;
-  border-top: 1rpx solid #f0f0f0;
+  margin-top: $spacing-md;
+  padding-top: $spacing-md;
+  @include divider(0);
   display: flex;
   flex-direction: column;
+  gap: $spacing-xs;
+  background: linear-gradient(135deg, $bg-secondary 0%, $gray-50 100%);
+  padding: $spacing-md;
+  border-radius: $radius-md;
+  margin-left: -$spacing-lg;
+  margin-right: -$spacing-lg;
+  margin-bottom: -$spacing-lg;
 }
 
 .approval-time,
 .approval-opinion,
 .rejection-time,
 .rejection-reason {
-  font-size: 24rpx;
-  margin-bottom: 8rpx;
+  font-size: $font-size-sm;
+  line-height: $line-height-relaxed;
 }
 
 .approval-time,
 .rejection-time {
-  color: #8c8c8c;
+  color: $text-tertiary;
 }
 
 .approval-opinion {
-  color: #52c41a;
+  color: $success;
+  font-weight: $font-weight-medium;
 }
 
 .rejection-reason {
-  color: #f5222d;
+  color: $error;
+  font-weight: $font-weight-medium;
 }
 
 .apply-actions {
-  margin-top: 24rpx;
+  margin-top: $spacing-lg;
   display: flex;
   justify-content: flex-end;
-  gap: 16rpx;
+  gap: $spacing-sm;
 }
 
 .btn-action {
-  padding: 16rpx 32rpx;
-  background-color: #f0f0f0;
-  color: #262626;
-  border: none;
-  border-radius: 8rpx;
-  font-size: 24rpx;
+  padding: $spacing-sm $spacing-lg;
+  background: $bg-secondary;
+  color: $text-primary;
+  border: 2rpx solid $gray-200;
+  border-radius: $radius-full;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  @include smooth-transition(all);
+
+  &:active {
+    transform: scale(0.95);
+    background: $gray-200;
+  }
 
   &.primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #ffffff;
+    @include btn-primary;
+    padding: $spacing-sm $spacing-xl;
+    box-shadow: $shadow-primary;
+
+    &:active {
+      box-shadow: $shadow-sm;
+    }
   }
 
   &::after {
@@ -484,31 +591,38 @@ export default {
 }
 
 .empty-state {
-  padding: 200rpx 0;
-  text-align: center;
+  @include flex-center;
+  flex-direction: column;
+  padding: $spacing-3xl 0;
+  opacity: 0.8;
 }
 
 .empty-icon {
   display: block;
   font-size: 160rpx;
-  margin-bottom: 32rpx;
+  margin-bottom: $spacing-lg;
+  filter: grayscale(50%);
+  @include float-animation;
 }
 
 .empty-text {
   display: block;
-  font-size: 28rpx;
-  color: #8c8c8c;
-  margin-bottom: 48rpx;
+  font-size: $font-size-lg;
+  color: $text-secondary;
+  margin-bottom: $spacing-2xl;
+  font-weight: $font-weight-medium;
 }
 
 .btn-create {
-  width: 240rpx;
-  height: 72rpx;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #ffffff;
-  border: none;
-  border-radius: 36rpx;
-  font-size: 28rpx;
+  width: 280rpx;
+  height: 88rpx;
+  @include btn-primary;
+  font-size: $font-size-base;
+  box-shadow: $shadow-primary;
+
+  &:active {
+    transform: scale(0.95);
+  }
 
   &::after {
     border: none;
@@ -516,29 +630,51 @@ export default {
 }
 
 .load-more {
-  padding: 32rpx;
+  padding: $spacing-xl;
   text-align: center;
-  font-size: 24rpx;
-  color: #8c8c8c;
+  font-size: $font-size-sm;
+  color: $text-tertiary;
 }
 
 .fab {
   position: fixed;
-  right: 48rpx;
-  bottom: 120rpx;
-  width: 112rpx;
-  height: 112rpx;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 56rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8rpx 24rpx rgba(102, 126, 234, 0.4);
+  right: $spacing-xl;
+  bottom: 140rpx;
+  width: 120rpx;
+  height: 120rpx;
+  @include gradient-primary;
+  border-radius: $radius-full;
+  @include flex-center;
+  box-shadow: $shadow-primary, 0 16rpx 32rpx rgba($primary, 0.3);
+  @include smooth-transition(all);
+  z-index: 100;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -8rpx;
+    border-radius: $radius-full;
+    background: $primary-gradient;
+    opacity: 0;
+    @include smooth-transition(opacity);
+  }
+
+  &:active {
+    transform: scale(0.9);
+    box-shadow: $shadow-md;
+
+    &::before {
+      opacity: 0.3;
+    }
+  }
 }
 
 .fab-icon {
-  font-size: 64rpx;
+  font-size: 72rpx;
   color: #ffffff;
   font-weight: 300;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 2rpx 4rpx rgba(0, 0, 0, 0.2));
 }
 </style>

@@ -10,7 +10,7 @@
           <text class="form-label">入库仓库</text>
           <picker mode="selector" :range="warehouses" range-key="warehouseName" @change="handleWarehouseChange">
             <view class="picker-value">
-              {{ selectedWarehouse?.warehouseName || '请选择仓库' }} ▼
+              {{ selectedWarehouse ? selectedWarehouse.warehouseName : '请选择仓库' }} ▼
             </view>
           </picker>
         </view>
@@ -226,7 +226,7 @@ export default {
           // 默认选择用户所属部门的仓库
           if (this.warehouses.length > 0) {
             const userDeptWarehouse = this.warehouses.find(
-              w => w.deptId === this.userInfo?.deptId
+              w => w.deptId === (this.userInfo ? this.userInfo.deptId : null)
             )
             if (userDeptWarehouse) {
               this.selectedWarehouse = userDeptWarehouse

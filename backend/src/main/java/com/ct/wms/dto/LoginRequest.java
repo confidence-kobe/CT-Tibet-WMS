@@ -23,6 +23,6 @@ public class LoginRequest {
     @Schema(description = "密码", required = true)
     private String password;
 
-    @Schema(description = "登录类型(1-PC端 2-小程序)")
-    private Integer loginType = 1;
+    @Schema(description = "登录类型(PASSWORD-密码登录 PHONE-手机号登录 WECHAT-微信登录 ENTERPRISE_WECHAT-企业微信登录)")
+    private String loginType = "PASSWORD";
 }

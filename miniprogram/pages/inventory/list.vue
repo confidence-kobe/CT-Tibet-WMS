@@ -278,71 +278,120 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import "@/styles/design-system.scss";
+
 .inventory-container {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  @include gradient-mesh;
+  background-color: $bg-secondary;
 }
 
 .search-header {
-  background-color: #ffffff;
-  padding: 24rpx 32rpx;
+  background: $bg-primary;
+  padding: $spacing-md $spacing-lg;
+  box-shadow: $shadow-sm;
+  position: relative;
+
+  // 顶部渐变装饰线
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4rpx;
+    @include gradient-primary;
+  }
 }
 
 .search-bar {
   position: relative;
-  margin-bottom: 16rpx;
+  margin-bottom: $spacing-sm;
 }
 
 .search-input {
+  @include input-base;
   width: 100%;
-  height: 64rpx;
-  padding: 0 80rpx 0 24rpx;
-  background-color: #f5f5f5;
-  border-radius: 32rpx;
-  font-size: 28rpx;
+  height: 72rpx;
+  padding: 0 96rpx 0 $spacing-lg;
+  border-radius: $radius-full;
+  font-size: $font-size-base;
+  box-shadow: $shadow-sm;
 }
 
 .search-icon {
   position: absolute;
-  right: 24rpx;
+  right: $spacing-lg;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 32rpx;
+  font-size: 40rpx;
+  @include smooth-transition(transform);
+
+  &:active {
+    transform: translateY(-50%) scale(0.9);
+  }
 }
 
 .filters {
   display: flex;
-  gap: 16rpx;
+  gap: $spacing-sm;
 }
 
 .filter-item {
   flex: 1;
-  height: 56rpx;
-  padding: 0 24rpx;
-  background-color: #f5f5f5;
-  border-radius: 8rpx;
-  font-size: 24rpx;
-  color: #1890ff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 64rpx;
+  padding: 0 $spacing-md;
+  background: linear-gradient(135deg, $bg-secondary 0%, $gray-100 100%);
+  border-radius: $radius-lg;
+  font-size: $font-size-sm;
+  color: $primary;
+  font-weight: $font-weight-medium;
+  @include flex-center;
+  border: 2rpx solid rgba($primary, 0.2);
+  @include smooth-transition(all);
+
+  &:active {
+    background: rgba($primary, 0.1);
+    transform: scale(0.96);
+  }
 }
 
 .stats-bar {
-  background-color: #ffffff;
-  padding: 16rpx 32rpx;
+  background: $bg-primary;
+  padding: $spacing-md $spacing-lg;
   display: flex;
   justify-content: space-around;
-  border-top: 1rpx solid #f0f0f0;
+  gap: $spacing-sm;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
 }
 
 .stats-text {
-  font-size: 24rpx;
-  color: #262626;
+  font-size: $font-size-sm;
+  color: $text-primary;
+  font-weight: $font-weight-medium;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $radius-md;
+  background: $bg-secondary;
+  @include smooth-transition(all);
 
-  &.success { color: #52c41a; }
-  &.warning { color: #faad14; }
-  &.danger { color: #f5222d; }
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &.success {
+    color: $success;
+    background: $success-light;
+  }
+
+  &.warning {
+    color: $warning;
+    background: $warning-light;
+  }
+
+  &.danger {
+    color: $error;
+    background: $error-light;
+  }
 }
 
 .scroll-content {
@@ -350,73 +399,138 @@ export default {
 }
 
 .inventory-list {
-  padding: 24rpx 32rpx;
+  padding: $spacing-md $spacing-lg;
 }
 
 .inventory-card {
-  background-color: #ffffff;
-  border-radius: 16rpx;
-  padding: 32rpx;
-  margin-bottom: 24rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
+  @include card-base;
+  margin-bottom: $spacing-md;
+  position: relative;
+  overflow: hidden;
+  @include fade-in;
+
+  // 依次出现动画
+  @for $i from 1 through 10 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.05}s;
+    }
+  }
+
+  // 左侧状态彩条
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4rpx;
+    @include smooth-transition(width);
+  }
+
+  &:active {
+    transform: scale(0.98);
+
+    &::before {
+      width: 8rpx;
+    }
+  }
 }
 
 .card-header {
   display: flex;
-  margin-bottom: 24rpx;
+  margin-bottom: $spacing-md;
+  align-items: flex-start;
 }
 
 .status-icon {
-  font-size: 48rpx;
-  margin-right: 16rpx;
+  font-size: 56rpx;
+  margin-right: $spacing-md;
+  @include float-animation;
 
-  &.status-0 { color: #52c41a; }
-  &.status-1 { color: #faad14; }
-  &.status-2 { color: #f5222d; }
+  &.status-0 {
+    color: $success;
+    filter: drop-shadow(0 2rpx 4rpx rgba($success, 0.3));
+  }
+
+  &.status-1 {
+    color: $warning;
+    filter: drop-shadow(0 2rpx 4rpx rgba($warning, 0.3));
+  }
+
+  &.status-2 {
+    color: $error;
+    filter: drop-shadow(0 2rpx 4rpx rgba($error, 0.3));
+  }
 }
 
 .material-info {
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: $spacing-xs;
 }
 
 .material-name {
-  font-size: 32rpx;
-  font-weight: 500;
-  color: #262626;
-  margin-bottom: 8rpx;
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: $text-primary;
+  @include text-ellipsis;
 }
 
 .material-spec {
-  font-size: 24rpx;
-  color: #8c8c8c;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  line-height: $line-height-normal;
+}
+
+// 根据状态设置卡片左侧彩条
+.inventory-card:has(.status-0)::before {
+  @include gradient-success;
+}
+
+.inventory-card:has(.status-1)::before {
+  @include gradient-warning;
+}
+
+.inventory-card:has(.status-2)::before {
+  background: $error;
 }
 
 .card-body {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16rpx;
+  gap: $spacing-sm;
+  background: linear-gradient(135deg, $bg-secondary 0%, $gray-50 100%);
+  padding: $spacing-md;
+  border-radius: $radius-md;
+  margin: 0 (-$spacing-lg);
+  margin-bottom: -$spacing-lg;
 }
 
 .stock-item {
   display: flex;
   justify-content: space-between;
-  padding: 12rpx 0;
+  align-items: center;
+  padding: $spacing-sm 0;
 }
 
 .stock-label {
-  font-size: 24rpx;
-  color: #8c8c8c;
+  font-size: $font-size-sm;
+  color: $text-tertiary;
+  font-weight: $font-weight-medium;
 }
 
 .stock-value {
-  font-size: 24rpx;
-  color: #262626;
+  font-size: $font-size-base;
+  color: $text-primary;
+  font-weight: $font-weight-semibold;
 
   &.primary {
-    color: #1890ff;
-    font-weight: 500;
+    background: $primary-gradient;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-size: $font-size-lg;
   }
 }
 
@@ -426,93 +540,127 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8rpx);
+  -webkit-backdrop-filter: blur(8rpx);
+  @include flex-center;
   z-index: 1000;
+  @include fade-in;
 }
 
 .modal-content {
-  width: 80%;
-  max-height: 70vh;
-  background-color: #ffffff;
-  border-radius: 16rpx;
+  width: 85%;
+  max-height: 75vh;
+  @include glass-card;
+  @include scale-in;
+  box-shadow: $shadow-2xl;
 }
 
 .modal-header {
-  padding: 32rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1rpx solid #f0f0f0;
+  padding: $spacing-xl;
+  @include flex-between;
+  border-bottom: 2rpx solid $gray-100;
+  background: linear-gradient(135deg, rgba($primary, 0.05) 0%, transparent 100%);
 }
 
 .modal-title {
-  font-size: 32rpx;
-  font-weight: 500;
-  color: #262626;
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $text-primary;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
 }
 
 .modal-close {
-  font-size: 40rpx;
-  color: #8c8c8c;
+  width: 56rpx;
+  height: 56rpx;
+  @include flex-center;
+  font-size: 48rpx;
+  color: $text-tertiary;
+  border-radius: $radius-full;
+  @include smooth-transition(all);
+
+  &:active {
+    background: $gray-100;
+    color: $text-primary;
+    transform: rotate(90deg);
+  }
 }
 
 .modal-body {
-  padding: 32rpx;
+  padding: $spacing-xl;
   max-height: 60vh;
   overflow-y: auto;
 }
 
 .detail-section {
-  display: flex;
-  justify-content: space-between;
-  padding: 16rpx 0;
+  @include flex-between;
+  padding: $spacing-md 0;
+  @include smooth-transition(padding);
+
+  &:active {
+    padding-left: $spacing-sm;
+  }
 }
 
 .detail-label {
-  font-size: 26rpx;
-  color: #8c8c8c;
+  font-size: $font-size-sm;
+  color: $text-tertiary;
+  font-weight: $font-weight-medium;
 }
 
 .detail-value {
-  font-size: 26rpx;
-  color: #262626;
+  font-size: $font-size-sm;
+  color: $text-primary;
+  font-weight: $font-weight-medium;
 
-  &.bold { font-weight: 500; }
-  &.primary { color: #1890ff; }
-  &.success { color: #52c41a; }
-  &.warning { color: #faad14; }
-  &.danger { color: #f5222d; }
+  &.bold {
+    font-weight: $font-weight-bold;
+    font-size: $font-size-base;
+  }
+
+  &.primary {
+    background: $primary-gradient;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  &.success { color: $success; }
+  &.warning { color: $warning; }
+  &.danger { color: $error; }
 }
 
 .divider {
-  height: 1rpx;
-  background-color: #f0f0f0;
-  margin: 16rpx 0;
+  @include divider($spacing-sm);
 }
 
 .empty-state {
-  padding: 200rpx 0;
-  text-align: center;
+  @include flex-center;
+  flex-direction: column;
+  padding: $spacing-3xl 0;
+  opacity: 0.8;
 }
 
 .empty-icon {
   display: block;
   font-size: 160rpx;
-  margin-bottom: 32rpx;
+  margin-bottom: $spacing-lg;
+  filter: grayscale(50%);
+  @include float-animation;
 }
 
 .empty-text {
-  font-size: 28rpx;
-  color: #8c8c8c;
+  font-size: $font-size-lg;
+  color: $text-secondary;
+  font-weight: $font-weight-medium;
 }
 
 .load-more {
-  padding: 32rpx;
+  padding: $spacing-xl;
   text-align: center;
-  font-size: 24rpx;
-  color: #8c8c8c;
+  font-size: $font-size-sm;
+  color: $text-tertiary;
 }
 </style>

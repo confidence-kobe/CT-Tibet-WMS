@@ -54,4 +54,10 @@ public class Role extends BaseEntity {
      */
     @Schema(description = "排序")
     private Integer sort;
+
+    /**
+     * 备注
+     */
+    @Schema(description = "备注")
+    private String remark;
 }

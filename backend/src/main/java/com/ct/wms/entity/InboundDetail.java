@@ -35,6 +35,30 @@ public class InboundDetail extends BaseEntity {
     private Long materialId;
 
     /**
+     * 物资名称（冗余字段）
+     */
+    @Schema(description = "物资名称")
+    private String materialName;
+
+    /**
+     * 物资编码（冗余字段）
+     */
+    @Schema(description = "物资编码")
+    private String materialCode;
+
+    /**
+     * 规格型号（冗余字段）
+     */
+    @Schema(description = "规格型号")
+    private String spec;
+
+    /**
+     * 单位（冗余字段）
+     */
+    @Schema(description = "单位")
+    private String unit;
+
+    /**
      * 入库数量
      */
     @Schema(description = "入库数量")
@@ -57,33 +81,4 @@ public class InboundDetail extends BaseEntity {
      */
     @Schema(description = "备注")
     private String remark;
-
-    // 非数据库字段
-    /**
-     * 物资名称
-     */
-    @TableField(exist = false)
-    @Schema(description = "物资名称")
-    private String materialName;
-
-    /**
-     * 物资编码
-     */
-    @TableField(exist = false)
-    @Schema(description = "物资编码")
-    private String materialCode;
-
-    /**
-     * 规格型号
-     */
-    @TableField(exist = false)
-    @Schema(description = "规格型号")
-    private String spec;
-
-    /**
-     * 单位
-     */
-    @TableField(exist = false)
-    @Schema(description = "单位")
-    private String unit;
 }

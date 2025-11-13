@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.security.PermitAll;
+
 /**
  * 认证授权Controller
  *
@@ -28,6 +30,7 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "用户登录", description = "PC端或小程序用户登录")
+    @PermitAll
     public Result<LoginVO> login(@Validated @RequestBody LoginRequest request) {
         log.info("用户登录: username={}, loginType={}", request.getUsername(), request.getLoginType());
         LoginVO loginVO = authService.login(request);

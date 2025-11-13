@@ -2,7 +2,7 @@ package com.ct.wms.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.ct.wms.enums.InboundType;
+import com.ct.wms.common.enums.InboundType;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -51,6 +51,12 @@ public class Inbound extends BaseEntity {
     private Long operatorId;
 
     /**
+     * 操作人姓名（冗余字段）
+     */
+    @Schema(description = "操作人姓名")
+    private String operatorName;
+
+    /**
      * 入库时间
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -76,13 +82,6 @@ public class Inbound extends BaseEntity {
     @TableField(exist = false)
     @Schema(description = "仓库名称")
     private String warehouseName;
-
-    /**
-     * 操作人姓名
-     */
-    @TableField(exist = false)
-    @Schema(description = "操作人姓名")
-    private String operatorName;
 
     /**
      * 入库明细列表

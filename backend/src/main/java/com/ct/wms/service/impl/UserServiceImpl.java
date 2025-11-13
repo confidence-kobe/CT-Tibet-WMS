@@ -117,7 +117,7 @@ public class UserServiceImpl implements UserService {
         user.setRoleId(dto.getRoleId());
         user.setPhone(dto.getPhone());
         user.setEmail(dto.getEmail());
-        user.setStatus(UserStatus.ENABLED.getValue());
+        user.setStatus(UserStatus.ENABLED);
         user.setRemark(dto.getRemark());
 
         userMapper.insert(user);
@@ -199,7 +199,15 @@ public class UserServiceImpl implements UserService {
         }
 
         // 更新状态
-        user.setStatus(status);
+        // 将Integer状态值转换为UserStatus枚举
+        if (status != null) {
+            for (UserStatus us : UserStatus.values()) {
+                if (us.getCode().equals(status)) {
+                    user.setStatus(us);
+                    break;
+                }
+            }
+        }
         userMapper.updateById(user);
 
         log.info("更新用户状态: id={}, status={}", id, status);

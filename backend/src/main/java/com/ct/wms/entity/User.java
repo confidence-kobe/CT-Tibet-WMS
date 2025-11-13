@@ -2,7 +2,7 @@ package com.ct.wms.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.ct.wms.enums.UserStatus;
+import com.ct.wms.common.enums.UserStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -106,10 +106,24 @@ public class User extends BaseEntity {
     private String lastLoginIp;
 
     /**
+     * 密码最后修改时间
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "密码最后修改时间")
+    private LocalDateTime passwordUpdateTime;
+
+    /**
+     * 是否首次登录（0-否 1-是）
+     */
+    @Schema(description = "是否首次登录")
+    private Integer isFirstLogin;
+
+    /**
      * 备注
      */
     @Schema(description = "备注")
     private String remark;
+
 
     // 非数据库字段
     /**

@@ -368,17 +368,32 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import "@/styles/design-system.scss";
+
 .index-container {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  @include gradient-mesh;
+  background-color: $bg-secondary;
 }
 
 .header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 32rpx 32rpx 48rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  @include gradient-primary;
+  padding: 40rpx 32rpx 56rpx;
+  @include flex-between;
+  position: relative;
+  overflow: hidden;
+
+  // 添加装饰性渐变球
+  &::before {
+    content: '';
+    position: absolute;
+    top: -100rpx;
+    right: -100rpx;
+    width: 300rpx;
+    height: 300rpx;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+    border-radius: 50%;
+  }
 }
 
 .user-info {
@@ -389,52 +404,71 @@ export default {
 .avatar {
   width: 96rpx;
   height: 96rpx;
-  border-radius: 50%;
-  margin-right: 24rpx;
-  background-color: #ffffff;
+  border-radius: $radius-full;
+  margin-right: $spacing-md;
+  background: $bg-primary;
+  border: 4rpx solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8rpx 16rpx rgba(0, 0, 0, 0.15);
+  position: relative;
+  z-index: 1;
 }
 
 .info {
   display: flex;
   flex-direction: column;
+  gap: 4rpx;
+  position: relative;
+  z-index: 1;
 }
 
 .name {
-  font-size: 36rpx;
-  font-weight: 600;
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
   color: #ffffff;
-  margin-bottom: 8rpx;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
 }
 
 .dept {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.8);
+  font-size: $font-size-sm;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: $font-weight-medium;
 }
 
 .message-icon {
   position: relative;
-  width: 48rpx;
-  height: 48rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  @include flex-center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: $radius-full;
+  @include smooth-transition(transform, background);
+  z-index: 1;
+
+  &:active {
+    transform: scale(0.9);
+    background: rgba(255, 255, 255, 0.3);
+  }
 }
 
 .icon {
-  font-size: 48rpx;
+  font-size: 40rpx;
+  filter: drop-shadow(0 2rpx 4rpx rgba(0, 0, 0, 0.1));
 }
 
 .badge {
   position: absolute;
-  top: -8rpx;
-  right: -8rpx;
-  background-color: #f5222d;
+  top: -4rpx;
+  right: -4rpx;
+  @include gradient-secondary;
   color: #ffffff;
-  font-size: 20rpx;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-bold;
   padding: 4rpx 8rpx;
-  border-radius: 16rpx;
+  border-radius: $radius-full;
   min-width: 32rpx;
   text-align: center;
+  box-shadow: 0 4rpx 12rpx rgba(245, 87, 108, 0.4);
+  @include pulse-animation;
 }
 
 .scroll-content {
@@ -442,34 +476,47 @@ export default {
 }
 
 .card {
-  background-color: #ffffff;
-  border-radius: 16rpx;
-  margin: 24rpx 32rpx;
-  padding: 32rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
+  @include card-base;
+  margin: $spacing-md $spacing-lg;
+  @include fade-in;
+
+  &:nth-child(1) { animation-delay: 0.1s; }
+  &:nth-child(2) { animation-delay: 0.2s; }
+  &:nth-child(3) { animation-delay: 0.3s; }
+  &:nth-child(4) { animation-delay: 0.4s; }
 }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24rpx;
+  @include flex-between;
+  margin-bottom: $spacing-md;
+  padding-bottom: $spacing-sm;
+  border-bottom: 2rpx solid $gray-100;
 }
 
 .card-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #262626;
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: $text-primary;
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
 }
 
 .card-more {
-  font-size: 24rpx;
-  color: #1890ff;
+  font-size: $font-size-sm;
+  color: $primary;
+  font-weight: $font-weight-medium;
+  @include smooth-transition(color);
+
+  &:active {
+    color: $primary-dark;
+  }
 }
 
 .stats-grid {
   display: flex;
   justify-content: space-around;
+  gap: $spacing-sm;
 
   &.four {
     display: grid;
@@ -478,43 +525,100 @@ export default {
 }
 
 .stat-item {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16rpx;
+  padding: $spacing-lg $spacing-sm;
+  background: $bg-secondary;
+  border-radius: $radius-lg;
+  @include smooth-transition(transform, box-shadow);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4rpx;
+    opacity: 0;
+    @include smooth-transition(opacity);
+  }
+
+  &:active {
+    transform: translateY(-4rpx);
+    box-shadow: $shadow-md;
+  }
+
+  &.primary,
+  &:has(.stat-value.primary) {
+    &::before {
+      background: $primary-gradient;
+      opacity: 1;
+    }
+  }
+
+  &.success,
+  &:has(.stat-value.success) {
+    &::before {
+      @include gradient-success;
+      opacity: 1;
+    }
+  }
+
+  &.warning,
+  &:has(.stat-value.warning) {
+    &::before {
+      @include gradient-warning;
+      opacity: 1;
+    }
+  }
 }
 
 .stat-value {
-  font-size: 48rpx;
-  font-weight: 600;
-  margin-bottom: 8rpx;
+  font-size: $font-size-3xl;
+  font-weight: $font-weight-bold;
+  margin-bottom: $spacing-xs;
+  background: $primary-gradient;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 
   &.primary {
-    color: #1890ff;
+    background: $primary-gradient;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   &.success {
-    color: #52c41a;
+    @include gradient-success;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   &.warning {
-    color: #faad14;
+    @include gradient-warning;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   &.info {
-    color: #8c8c8c;
+    color: $text-secondary;
   }
 }
 
 .stat-label {
-  font-size: 24rpx;
-  color: #8c8c8c;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  font-weight: $font-weight-medium;
 }
 
 .quick-actions {
   display: flex;
-  gap: 16rpx;
-  margin-bottom: 16rpx;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-sm;
 
   &:last-child {
     margin-bottom: 0;
@@ -523,131 +627,209 @@ export default {
 
 .action-item {
   flex: 1;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16rpx;
-  padding: 32rpx 24rpx;
-  display: flex;
+  @include gradient-primary;
+  border-radius: $radius-xl;
+  padding: $spacing-xl $spacing-md;
+  @include flex-center;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  box-shadow: $shadow-primary;
+  @include smooth-transition(transform, box-shadow);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  &:active {
+    transform: scale(0.96);
+    box-shadow: $shadow-md;
+
+    &::before {
+      width: 300rpx;
+      height: 300rpx;
+    }
+  }
 
   &.large {
     flex: none;
     width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: $spacing-xl;
+
+    .action-icon {
+      font-size: 80rpx;
+      margin-bottom: 0;
+      margin-right: $spacing-md;
+    }
+
+    .action-text {
+      font-size: $font-size-lg;
+    }
   }
 }
 
 .action-icon {
-  font-size: 56rpx;
-  margin-bottom: 12rpx;
+  font-size: 64rpx;
+  margin-bottom: $spacing-sm;
+  filter: drop-shadow(0 4rpx 8rpx rgba(0, 0, 0, 0.15));
+  position: relative;
+  z-index: 1;
 }
 
 .action-text {
-  font-size: 28rpx;
+  font-size: $font-size-base;
   color: #ffffff;
-  font-weight: 500;
+  font-weight: $font-weight-semibold;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1);
 }
 
 .todo-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: $spacing-sm;
 }
 
 .todo-item {
   display: flex;
   align-items: center;
-  padding: 24rpx;
-  background-color: #fafafa;
-  border-radius: 12rpx;
+  padding: $spacing-lg;
+  background: $bg-secondary;
+  border-radius: $radius-lg;
+  border-left: 4rpx solid $primary;
+  @include smooth-transition(all);
+
+  &:active {
+    transform: translateX(4rpx);
+    background: $gray-100;
+  }
 }
 
 .todo-icon {
-  font-size: 40rpx;
-  margin-right: 16rpx;
+  font-size: 48rpx;
+  margin-right: $spacing-md;
+  @include float-animation;
 }
 
 .todo-text {
   flex: 1;
-  font-size: 28rpx;
-  color: #262626;
+  font-size: $font-size-base;
+  color: $text-primary;
+  font-weight: $font-weight-medium;
 }
 
 .todo-arrow {
-  font-size: 40rpx;
-  color: #bfbfbf;
+  font-size: 48rpx;
+  color: $text-tertiary;
+  @include smooth-transition(transform);
+
+  .todo-item:active & {
+    transform: translateX(4rpx);
+  }
 }
 
 .message-list,
 .operation-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: $spacing-sm;
 }
 
 .message-item {
-  padding: 24rpx;
-  background-color: #fafafa;
-  border-radius: 12rpx;
+  padding: $spacing-lg;
+  background: linear-gradient(135deg, $bg-secondary 0%, $gray-100 100%);
+  border-radius: $radius-lg;
+  border-left: 4rpx solid $info;
+  @include smooth-transition(transform, box-shadow);
+
+  &:active {
+    transform: translateY(-2rpx);
+    box-shadow: $shadow-md;
+  }
 }
 
 .message-content {
   display: flex;
   flex-direction: column;
+  gap: $spacing-xs;
 }
 
 .message-title {
-  font-size: 28rpx;
-  font-weight: 500;
-  color: #262626;
-  margin-bottom: 8rpx;
+  font-size: $font-size-base;
+  font-weight: $font-weight-semibold;
+  color: $text-primary;
+  @include text-ellipsis;
 }
 
 .message-text {
-  font-size: 24rpx;
-  color: #595959;
-  margin-bottom: 8rpx;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  @include text-clamp(2);
 }
 
 .message-time {
-  font-size: 20rpx;
-  color: #8c8c8c;
+  font-size: $font-size-xs;
+  color: $text-tertiary;
 }
 
 .operation-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
+  @include flex-between;
+  padding: $spacing-md 0;
+  border-bottom: 1rpx solid $gray-200;
+  @include smooth-transition(padding);
 
   &:last-child {
     border-bottom: none;
   }
+
+  &:active {
+    padding-left: $spacing-sm;
+  }
 }
 
 .operation-time {
-  font-size: 24rpx;
-  color: #8c8c8c;
+  font-size: $font-size-sm;
+  color: $text-tertiary;
 }
 
 .operation-title {
-  font-size: 28rpx;
-  color: #262626;
+  flex: 1;
+  font-size: $font-size-base;
+  color: $text-primary;
+  margin-left: $spacing-md;
+  @include text-ellipsis;
 }
 
 .empty-state {
-  padding: 80rpx 0;
-  text-align: center;
+  @include flex-center;
+  flex-direction: column;
+  padding: $spacing-3xl 0;
+  opacity: 0.6;
 }
 
 .empty-icon {
   display: block;
-  font-size: 96rpx;
-  margin-bottom: 24rpx;
+  font-size: 128rpx;
+  margin-bottom: $spacing-md;
+  filter: grayscale(100%);
+  opacity: 0.5;
 }
 
 .empty-text {
-  font-size: 28rpx;
-  color: #8c8c8c;
+  font-size: $font-size-base;
+  color: $text-tertiary;
+  font-weight: $font-weight-medium;
 }
 </style>
