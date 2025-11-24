@@ -113,4 +113,54 @@ public class AuthServiceImpl implements AuthService {
 
         return jwtUtils.refreshToken(oldToken);
     }
+
+    @Override
+    public Object getCurrentUserInfo() {
+        // 从SecurityContext获取当前认证信息
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new BusinessException(401, "未登录或登录已过期");
+        }
+
+        // 获取用户名
+        String username = authentication.getName();
+
+        // 查询用户完整信息
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>()
+                        .eq(User::getUsername, username)
+        );
+
+        if (user == null) {
+            throw new BusinessException(401, "用户不存在");
+        }
+
+        // 查询角色信息
+        Role role = roleMapper.selectById(user.getRoleId());
+        if (role == null) {
+            throw new BusinessException(401, "用户角色不存在");
+        }
+
+        // 构建用户信息
+        LoginVO.UserInfo userInfo = LoginVO.UserInfo.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .realName(user.getRealName())
+                .phone(user.getPhone())
+                .deptId(user.getDeptId())
+                .deptName(user.getDeptName())
+                .roleId(user.getRoleId())
+                .roleName(role.getRoleName())
+                .roleCode(role.getRoleCode())
+                .avatar(user.getAvatar())
+                .build();
+
+        // 构建返回结果（Map格式：{user, roles, permissions}）
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("user", userInfo);
+        result.put("roles", java.util.Arrays.asList(role.getRoleCode())); // 角色码列表
+        result.put("permissions", java.util.Collections.emptyList()); // 权限列表（暂时为空）
+
+        return result;
+    }
 }

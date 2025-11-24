@@ -1,0 +1,320 @@
+# Prometheus告警规则配置
+# CT-Tibet-WMS系统告警规则
+
+groups:
+  # ===========================================================================
+  # 1. 应用性能告警
+  # ===========================================================================
+  - name: application_performance
+    interval: 30s
+    rules:
+      # API响应时间过长
+      - alert: HighAPIResponseTime
+        expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{application="ct-tibet-wms"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "API响应时间过长"
+          description: "{{ $labels.uri }} P95响应时间超过2秒: {{ $value }}秒"
+
+      # API响应时间严重超标
+      - alert: CriticalAPIResponseTime
+        expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{application="ct-tibet-wms"}[5m])) > 5
+        for: 2m
+        labels:
+          severity: critical
+          category: performance
+        annotations:
+          summary: "API响应时间严重超标"
+          description: "{{ $labels.uri }} P95响应时间超过5秒: {{ $value }}秒"
+
+      # API错误率过高
+      - alert: HighAPIErrorRate
+        expr: rate(http_server_requests_seconds_count{application="ct-tibet-wms",status=~"5.."}[5m]) / rate(http_server_requests_seconds_count{application="ct-tibet-wms"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "API错误率过高"
+          description: "{{ $labels.uri }} 错误率超过5%: {{ $value | humanizePercentage }}"
+
+      # 吞吐量异常下降
+      - alert: ThroughputDropped
+        expr: rate(http_server_requests_seconds_count{application="ct-tibet-wms"}[5m]) < 10
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "系统吞吐量异常下降"
+          description: "当前吞吐量: {{ $value | printf \"%.2f\" }} TPS (正常应 > 10 TPS)"
+
+  # ===========================================================================
+  # 2. JVM监控告警
+  # ===========================================================================
+  - name: jvm_monitoring
+    interval: 30s
+    rules:
+      # 堆内存使用率过高
+      - alert: HighHeapMemoryUsage
+        expr: (jvm_memory_used_bytes{application="ct-tibet-wms",area="heap"} / jvm_memory_max_bytes{application="ct-tibet-wms",area="heap"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "JVM堆内存使用率过高"
+          description: "堆内存使用率超过85%: {{ $value | humanizePercentage }}"
+
+      # 堆内存使用率严重超标
+      - alert: CriticalHeapMemoryUsage
+        expr: (jvm_memory_used_bytes{application="ct-tibet-wms",area="heap"} / jvm_memory_max_bytes{application="ct-tibet-wms",area="heap"}) > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: resource
+        annotations:
+          summary: "JVM堆内存使用率严重超标"
+          description: "堆内存使用率超过95%: {{ $value | humanizePercentage }}"
+
+      # GC频率过高
+      - alert: HighGCRate
+        expr: rate(jvm_gc_pause_seconds_count{application="ct-tibet-wms"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "GC频率过高"
+          description: "GC每分钟执行{{ $value | printf \"%.2f\" }}次 (正常应 < 5次/分钟)"
+
+      # Full GC耗时过长
+      - alert: LongFullGCTime
+        expr: rate(jvm_gc_pause_seconds_sum{application="ct-tibet-wms",action="end of major GC"}[5m]) > 1
+        for: 5m
+        labels:
+          severity: critical
+          category: performance
+        annotations:
+          summary: "Full GC耗时过长"
+          description: "Full GC平均耗时超过1秒: {{ $value | printf \"%.2f\" }}秒"
+
+      # 线程数过多
+      - alert: HighThreadCount
+        expr: jvm_threads_live_threads{application="ct-tibet-wms"} > 300
+        for: 10m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "JVM线程数过多"
+          description: "当前线程数: {{ $value }} (正常应 < 300)"
+
+      # 死锁检测
+      - alert: ThreadDeadlock
+        expr: jvm_threads_deadlocked_threads{application="ct-tibet-wms"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "检测到线程死锁"
+          description: "死锁线程数: {{ $value }}"
+
+  # ===========================================================================
+  # 3. 数据库连接池监控
+  # ===========================================================================
+  - name: database_connection_pool
+    interval: 30s
+    rules:
+      # 连接池使用率过高
+      - alert: HighConnectionPoolUsage
+        expr: (hikaricp_connections_active{application="ct-tibet-wms"} / hikaricp_connections_max{application="ct-tibet-wms"}) > 0.80
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "数据库连接池使用率过高"
+          description: "连接池使用率: {{ $value | humanizePercentage }} (最大: {{ hikaricp_connections_max }})"
+
+      # 连接池耗尽
+      - alert: ConnectionPoolExhausted
+        expr: (hikaricp_connections_active{application="ct-tibet-wms"} / hikaricp_connections_max{application="ct-tibet-wms"}) > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "数据库连接池即将耗尽"
+          description: "连接池使用率: {{ $value | humanizePercentage }}"
+
+      # 连接获取超时
+      - alert: ConnectionAcquireTimeout
+        expr: rate(hikaricp_connections_timeout_total{application="ct-tibet-wms"}[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "数据库连接获取超时"
+          description: "连接获取超时次数: {{ $value | printf \"%.2f\" }}/秒"
+
+  # ===========================================================================
+  # 4. MySQL数据库监控
+  # ===========================================================================
+  - name: mysql_monitoring
+    interval: 30s
+    rules:
+      # 数据库连接数过高
+      - alert: HighMySQLConnections
+        expr: mysql_global_status_threads_connected > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "MySQL连接数过高"
+          description: "当前连接数: {{ $value }} (正常应 < 100)"
+
+      # 慢查询过多
+      - alert: HighSlowQueries
+        expr: rate(mysql_global_status_slow_queries[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "MySQL慢查询过多"
+          description: "慢查询速率: {{ $value | printf \"%.2f\" }}/秒"
+
+      # 数据库不可用
+      - alert: MySQLDown
+        expr: mysql_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "MySQL数据库不可用"
+          description: "无法连接到MySQL数据库"
+
+  # ===========================================================================
+  # 5. Redis监控
+  # ===========================================================================
+  - name: redis_monitoring
+    interval: 30s
+    rules:
+      # Redis内存使用率过高
+      - alert: HighRedisMemoryUsage
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "Redis内存使用率过高"
+          description: "内存使用率: {{ $value | humanizePercentage }}"
+
+      # Redis连接数过高
+      - alert: HighRedisConnections
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "Redis连接数过高"
+          description: "当前连接数: {{ $value }}"
+
+      # Redis不可用
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Redis服务不可用"
+          description: "无法连接到Redis服务"
+
+      # Redis缓存命中率低
+      - alert: LowRedisCacheHitRate
+        expr: (rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))) < 0.70
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Redis缓存命中率过低"
+          description: "缓存命中率: {{ $value | humanizePercentage }} (目标 > 70%)"
+
+  # ===========================================================================
+  # 6. 系统资源监控
+  # ===========================================================================
+  - name: system_resources
+    interval: 30s
+    rules:
+      # CPU使用率过高
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "服务器CPU使用率过高"
+          description: "CPU使用率: {{ $value | printf \"%.2f\" }}%"
+
+      # 内存使用率过高
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "服务器内存使用率过高"
+          description: "内存使用率: {{ $value | humanizePercentage }}"
+
+      # 磁盘空间不足
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "磁盘空间不足"
+          description: "可用空间: {{ $value | humanizePercentage }}"
+
+  # ===========================================================================
+  # 7. 业务指标监控
+  # ===========================================================================
+  - name: business_metrics
+    interval: 60s
+    rules:
+      # 库存预警数量激增
+      - alert: InventoryAlertSpike
+        expr: increase(wms_inventory_low_stock_alerts_total[1h]) > 50
+        for: 5m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "库存预警数量激增"
+          description: "过去1小时新增{{ $value }}个低库存预警"
+
+      # 申请审批积压
+      - alert: ApplicationBacklog
+        expr: wms_apply_pending_count > 100
+        for: 30m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "申请单审批积压"
+          description: "待审批申请数: {{ $value }}"

@@ -19,22 +19,39 @@
       >
         <!-- 基本信息 -->
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="申请部门">
               <el-input v-model="userInfo.deptName" disabled />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="申请人">
               <el-input v-model="userInfo.userName" disabled />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="目标仓库" prop="warehouseId">
+              <el-select
+                v-model="form.warehouseId"
+                placeholder="请选择仓库"
+                @change="handleWarehouseChange"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="warehouse in warehouseList"
+                  :key="warehouse.id"
+                  :label="warehouse.name"
+                  :value="warehouse.id"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="24">
-            <el-form-item label="申请原因" prop="remark">
+            <el-form-item label="申请原因" prop="applyReason">
               <el-input
-                v-model="form.remark"
+                v-model="form.applyReason"
                 type="textarea"
                 :rows="3"
                 placeholder="请输入申请原因"
@@ -202,30 +219,34 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { createApply } from '@/api/apply'
+import { listWarehouses } from '@/api/warehouse'
+import { listMaterials } from '@/api/material'
+import { listInventory } from '@/api/inventory'
+import { useUserStore } from '@/store/modules/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 // 用户信息（从store获取）
 const userInfo = reactive({
-  deptName: '网络运维部',
-  userName: '王五'
+  deptName: userStore.deptName || '-',
+  userName: userStore.realName || userStore.username || '-'
 })
 
-// 物资列表（带库存信息）
-const materials = ref([
-  { id: 1, code: 'GX001', name: '光缆12芯', spec: '12芯单模', unit: '条', price: 1500.00, stock: 95 },
-  { id: 2, code: 'GX002', name: '光缆24芯', spec: '24芯多模', unit: '条', price: 2100.00, stock: 150 },
-  { id: 3, code: 'JHJ001', name: '交换机H3C', spec: 'S5130-28S', unit: '台', price: 7800.00, stock: 25 },
-  { id: 4, code: 'PJ001', name: '光纤连接器', spec: 'SC-UPC', unit: '个', price: 20.00, stock: 500 },
-  { id: 5, code: 'PJ002', name: '网线', spec: '超五类', unit: '米', price: 3.50, stock: 0 } // 缺货
-])
+// 仓库列表
+const warehouseList = ref([])
+
+// 物资列表
+const materials = ref([])
 
 // 表单数据
 const form = reactive({
-  remark: '',
+  warehouseId: null,
+  applyReason: '',
   details: []
 })
 
@@ -235,7 +256,10 @@ const saveLoading = ref(false)
 
 // 表单验证规则
 const formRules = {
-  remark: [
+  warehouseId: [
+    { required: true, message: '请选择目标仓库', trigger: 'change' }
+  ],
+  applyReason: [
     { required: true, message: '请输入申请原因', trigger: 'blur' }
   ]
 }
@@ -271,8 +295,39 @@ const handleRemoveMaterial = (index) => {
   form.details.splice(index, 1)
 }
 
+// 加载仓库列表
+const loadWarehouses = async () => {
+  try {
+    const res = await listWarehouses({ status: 0 })
+    warehouseList.value = res.data || []
+  } catch (error) {
+    console.error('加载仓库列表失败:', error)
+  }
+}
+
+// 加载物资列表
+const loadMaterials = async () => {
+  if (!form.warehouseId) return
+
+  try {
+    const res = await listMaterials({ pageNum: 1, pageSize: 1000, status: 0 })
+    materials.value = res.data.list || []
+  } catch (error) {
+    console.error('加载物资列表失败:', error)
+    ElMessage.error('加载物资列表失败')
+  }
+}
+
+// 仓库变化
+const handleWarehouseChange = () => {
+  // 清空明细
+  form.details = []
+  // 重新加载物资
+  loadMaterials()
+}
+
 // 物资选择变化
-const handleMaterialChange = (index) => {
+const handleMaterialChange = async (index) => {
   const detail = form.details[index]
   const material = materials.value.find(m => m.id === detail.materialId)
 
@@ -281,8 +336,23 @@ const handleMaterialChange = (index) => {
     detail.materialName = material.name
     detail.spec = material.spec
     detail.unit = material.unit
-    detail.stock = material.stock
     detail.price = material.price
+
+    // 查询库存
+    try {
+      const res = await listInventory({
+        warehouseId: form.warehouseId,
+        materialId: material.id,
+        pageNum: 1,
+        pageSize: 1
+      })
+      const inventory = res.data.list?.[0]
+      detail.stock = inventory?.quantity || 0
+    } catch (error) {
+      console.error('查询库存失败:', error)
+      detail.stock = 0
+    }
+
     calculateAmount(index)
   }
 }
@@ -339,9 +409,17 @@ const handleSubmit = async () => {
 
     saveLoading.value = true
 
-    // TODO: 调用API提交数据
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 构建提交数据（后端只需要 materialId 和 quantity）
+    const dto = {
+      warehouseId: form.warehouseId,
+      applyReason: form.applyReason,
+      details: form.details.map(item => ({
+        materialId: item.materialId,
+        quantity: item.quantity
+      }))
+    }
 
+    await createApply(dto)
     ElMessage.success('申请提交成功，请等待仓管员审批')
     router.push('/apply/list')
   } catch (error) {
@@ -352,6 +430,11 @@ const handleSubmit = async () => {
     saveLoading.value = false
   }
 }
+
+// 初始化
+onMounted(() => {
+  loadWarehouses()
+})
 
 // 取消
 const handleCancel = () => {

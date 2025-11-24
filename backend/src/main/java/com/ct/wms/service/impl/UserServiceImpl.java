@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.enums.UserStatus;
 import com.ct.wms.common.exception.BusinessException;
+import com.ct.wms.dto.ChangePasswordRequest;
+import com.ct.wms.dto.UpdateProfileRequest;
 import com.ct.wms.dto.UserDTO;
 import com.ct.wms.entity.Dept;
 import com.ct.wms.entity.Role;
@@ -11,13 +13,19 @@ import com.ct.wms.entity.User;
 import com.ct.wms.mapper.DeptMapper;
 import com.ct.wms.mapper.RoleMapper;
 import com.ct.wms.mapper.UserMapper;
+import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.UserService;
+import com.ct.wms.vo.UserProfileVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.time.LocalDateTime;
 
 /**
  * 用户Service实现类
@@ -246,6 +254,99 @@ public class UserServiceImpl implements UserService {
         return userMapper.selectCount(wrapper) > 0;
     }
 
+    @Override
+    public UserProfileVO getCurrentUserProfile() {
+        Long userId = getCurrentUserId();
+
+        // 查询用户信息
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+
+        // 填充关联信息
+        fillUserInfo(user);
+
+        // 构建返回VO
+        return UserProfileVO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .realName(user.getRealName())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .deptId(user.getDeptId())
+                .deptName(user.getDeptName())
+                .roleId(user.getRoleId())
+                .roleName(user.getRoleName())
+                .roleCode(user.getRoleCode())
+                .avatar(user.getAvatar())
+                .lastLoginTime(user.getLastLoginTime())
+                .lastLoginIp(user.getLastLoginIp())
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateCurrentUserProfile(UpdateProfileRequest request) {
+        Long userId = getCurrentUserId();
+
+        // 查询用户
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+
+        // 更新个人信息
+        user.setRealName(request.getRealName());
+        user.setPhone(request.getPhone());
+        user.setEmail(request.getEmail());
+
+        userMapper.updateById(user);
+
+        log.info("更新个人信息: userId={}, realName={}", userId, request.getRealName());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changeCurrentUserPassword(ChangePasswordRequest request) {
+        Long userId = getCurrentUserId();
+
+        // 查询用户
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+
+        // 验证旧密码
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new BusinessException(400, "旧密码不正确");
+        }
+
+        // 验证新密码不能与旧密码相同
+        if (request.getOldPassword().equals(request.getNewPassword())) {
+            throw new BusinessException(400, "新密码不能与旧密码相同");
+        }
+
+        // 更新密码
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordUpdateTime(LocalDateTime.now());
+        userMapper.updateById(user);
+
+        log.info("修改密码: userId={}", userId);
+    }
+
+    /**
+     * 获取当前用户ID
+     */
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            return userDetails.getId();
+        }
+        throw new BusinessException(401, "未登录");
+    }
+
     /**
      * 填充用户关联信息
      */
@@ -256,10 +357,11 @@ public class UserServiceImpl implements UserService {
             user.setDeptName(dept.getDeptName());
         }
 
-        // 填充角色名称
+        // 填充角色名称和编码
         Role role = roleMapper.selectById(user.getRoleId());
         if (role != null) {
             user.setRoleName(role.getRoleName());
+            user.setRoleCode(role.getRoleCode());
         }
     }
 }

@@ -10,6 +10,7 @@ import com.ct.wms.mapper.ApplyMapper;
 import com.ct.wms.mq.NotificationProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +19,8 @@ import java.util.List;
 
 /**
  * 申请超时定时任务
+ *
+ * 说明：NotificationProducer 为可选依赖，如果 RabbitMQ 未启用，将跳过消息通知
  *
  * @author CT Development Team
  * @since 2025-11-11
@@ -28,7 +31,10 @@ import java.util.List;
 public class ApplyTimeoutTask {
 
     private final ApplyMapper applyMapper;
-    private final NotificationProducer notificationProducer;
+
+    // 可选依赖：如果 RabbitMQ 未启用，此字段为 null
+    @Autowired(required = false)
+    private NotificationProducer notificationProducer;
 
     /**
      * 定时检查并提醒超时未审批的申请
@@ -58,6 +64,12 @@ public class ApplyTimeoutTask {
             }
 
             log.info("发现 {} 条超时待审批的申请，开始发送提醒", timeoutApplies.size());
+
+            // 如果 RabbitMQ 未启用，跳过消息通知
+            if (notificationProducer == null) {
+                log.warn("RabbitMQ 未启用，跳过消息队列通知（降级模式）");
+                return;
+            }
 
             int successCount = 0;
 
@@ -139,19 +151,21 @@ public class ApplyTimeoutTask {
                     int updated = applyMapper.update(null, updateWrapper);
 
                     if (updated > 0) {
-                        // 发送通知给申请人
-                        NotificationMessageDTO notification = NotificationMessageDTO.builder()
-                                .receiverId(apply.getApplicantId())
-                                .messageType(MessageType.TIMEOUT_CANCEL.getValue())
-                                .title("申请超时取消通知")
-                                .content(String.format("您的申请单 %s 因超过7天未审批已被系统自动取消。",
-                                        apply.getApplyNo()))
-                                .relatedId(apply.getId())
-                                .relatedType(3) // 3-申请
-                                .sendWechat(true)
-                                .build();
+                        // 发送通知给申请人（如果 RabbitMQ 可用）
+                        if (notificationProducer != null) {
+                            NotificationMessageDTO notification = NotificationMessageDTO.builder()
+                                    .receiverId(apply.getApplicantId())
+                                    .messageType(MessageType.TIMEOUT_CANCEL.getValue())
+                                    .title("申请超时取消通知")
+                                    .content(String.format("您的申请单 %s 因超过7天未审批已被系统自动取消。",
+                                            apply.getApplyNo()))
+                                    .relatedId(apply.getId())
+                                    .relatedType(3) // 3-申请
+                                    .sendWechat(true)
+                                    .build();
 
-                        notificationProducer.sendNotification(notification);
+                            notificationProducer.sendNotification(notification);
+                        }
 
                         successCount++;
                         log.info("成功取消申请: id={}, applyNo={}", apply.getId(), apply.getApplyNo());

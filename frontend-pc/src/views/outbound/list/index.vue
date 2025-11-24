@@ -14,7 +14,7 @@
       <el-form :model="queryForm" :inline="true">
         <el-form-item label="单据编号">
           <el-input
-            v-model="queryForm.code"
+            v-model="queryForm.keyword"
             placeholder="请输入单据编号"
             clearable
             @clear="handleQuery"
@@ -28,12 +28,29 @@
             @clear="handleQuery"
             style="width: 180px"
           >
-            <el-option label="拉萨总仓" :value="1" />
-            <el-option label="日喀则分仓" :value="2" />
-            <el-option label="那曲分仓" :value="3" />
+            <el-option
+              v-for="warehouse in warehouseList"
+              :key="warehouse.id"
+              :label="warehouse.warehouseName"
+              :value="warehouse.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="出库类型">
+          <el-select
+            v-model="queryForm.outboundType"
+            placeholder="请选择"
+            clearable
+            @clear="handleQuery"
+            style="width: 140px"
+          >
+            <el-option label="生产领用" :value="1" />
+            <el-option label="维修领用" :value="2" />
+            <el-option label="项目使用" :value="3" />
+            <el-option label="其他出库" :value="4" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="来源">
           <el-select
             v-model="queryForm.source"
             placeholder="请选择"
@@ -85,22 +102,24 @@
         style="width: 100%"
       >
         <el-table-column type="index" label="序号" width="60" align="center" />
-        <el-table-column prop="code" label="出库单号" width="180">
+        <el-table-column prop="outboundNo" label="出库单号" width="180">
           <template #default="{ row }">
-            <el-link type="primary" @click="handleView(row)">{{ row.code }}</el-link>
+            <el-link type="primary" @click="handleView(row)">{{ row.outboundNo }}</el-link>
           </template>
         </el-table-column>
         <el-table-column prop="warehouseName" label="仓库名称" min-width="150" />
-        <el-table-column prop="source" label="出库类型" width="100" align="center">
+        <el-table-column prop="outboundType" label="出库类型" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag type="primary" size="small">
+              {{ ['', '生产领用', '维修领用', '项目使用', '其他出库'][row.outboundType] }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="source" label="来源" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.source === 1 ? 'success' : 'info'" size="small">
               {{ row.source === 1 ? '直接出库' : '申请出库' }}
             </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="itemCount" label="物资种类" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag size="small">{{ row.itemCount }}种</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="totalAmount" label="出库金额(元)" width="120" align="right">
@@ -118,8 +137,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="receiver" label="领取人" width="100" />
-        <el-table-column prop="createTime" label="创建时间" width="160" />
+        <el-table-column prop="receiverName" label="领取人" width="100" />
+        <el-table-column prop="operatorName" label="操作人" width="100" />
+        <el-table-column prop="outboundTime" label="出库时间" width="160" />
         <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleView(row)">
@@ -161,7 +181,7 @@
       </div>
     </el-card>
 
-    <!-- 详情对话框 -->
+    <!-- 详情对话框（简化版，完整详情请跳转详情页） -->
     <el-dialog
       v-model="detailVisible"
       title="出库单详情"
@@ -169,12 +189,12 @@
     >
       <el-descriptions :column="2" border>
         <el-descriptions-item label="出库单号">
-          {{ currentRow.code }}
+          {{ currentRow.outboundNo }}
         </el-descriptions-item>
         <el-descriptions-item label="仓库名称">
           {{ currentRow.warehouseName }}
         </el-descriptions-item>
-        <el-descriptions-item label="出库类型">
+        <el-descriptions-item label="来源">
           <el-tag :type="currentRow.source === 1 ? 'success' : 'info'">
             {{ currentRow.source === 1 ? '直接出库' : '申请出库' }}
           </el-tag>
@@ -187,13 +207,13 @@
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="领取人">
-          {{ currentRow.receiver }}
+          {{ currentRow.receiverName }}
         </el-descriptions-item>
-        <el-descriptions-item label="创建时间">
-          {{ currentRow.createTime }}
+        <el-descriptions-item label="操作人">
+          {{ currentRow.operatorName }}
         </el-descriptions-item>
-        <el-descriptions-item label="物资种类">
-          <el-tag>{{ currentRow.itemCount }}种</el-tag>
+        <el-descriptions-item label="出库时间">
+          {{ currentRow.outboundTime }}
         </el-descriptions-item>
         <el-descriptions-item label="出库金额">
           <span class="amount">¥{{ currentRow.totalAmount?.toFixed(2) || '0.00' }}</span>
@@ -203,46 +223,32 @@
         </el-descriptions-item>
       </el-descriptions>
 
-      <el-divider content-position="left">出库明细</el-divider>
-
-      <el-table :data="currentRow.details" border stripe style="width: 100%">
-        <el-table-column type="index" label="序号" width="60" align="center" />
-        <el-table-column prop="materialCode" label="物资编码" width="120" />
-        <el-table-column prop="materialName" label="物资名称" min-width="150" />
-        <el-table-column prop="spec" label="规格型号" width="120" />
-        <el-table-column prop="quantity" label="数量" width="80" align="right" />
-        <el-table-column prop="price" label="单价(元)" width="100" align="right">
-          <template #default="{ row }">
-            ¥{{ row.price?.toFixed(2) || '0.00' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="amount" label="金额(元)" width="120" align="right">
-          <template #default="{ row }">
-            <span class="amount">¥{{ row.amount?.toFixed(2) || '0.00' }}</span>
-          </template>
-        </el-table-column>
-      </el-table>
-
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
+        <el-button type="primary" @click="handleView(currentRow)">查看完整详情</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { listOutbounds, confirmOutbound, cancelOutbound } from '@/api/outbound'
+import { listWarehouses } from '@/api/warehouse'
 
 const router = useRouter()
 
 // 查询表单
 const queryForm = reactive({
-  code: '',
+  keyword: '',
   warehouseId: null,
+  outboundType: null,
   source: null,
-  status: null
+  status: null,
+  startDate: '',
+  endDate: ''
 })
 
 // 分页参数
@@ -256,6 +262,9 @@ const pagination = reactive({
 const tableData = ref([])
 const loading = ref(false)
 
+// 仓库列表
+const warehouseList = ref([])
+
 // 对话框
 const detailVisible = ref(false)
 
@@ -264,78 +273,51 @@ const currentRow = ref({
   details: []
 })
 
-// 查询数据
-const handleQuery = () => {
-  loading.value = true
+// 加载仓库列表
+const loadWarehouses = async () => {
+  try {
+    const res = await listWarehouses({ status: 0 })
+    warehouseList.value = res.data || []
+  } catch (error) {
+    console.error('加载仓库列表失败:', error)
+  }
+}
 
-  // TODO: 调用API获取数据
-  // 模拟数据
-  setTimeout(() => {
-    tableData.value = [
-      {
-        id: 1,
-        code: 'CK202511110001',
-        warehouseName: '拉萨总仓',
-        source: 1, // 1=直接出库, 2=申请出库
-        itemCount: 2,
-        totalAmount: 280.00,
-        status: 0, // 0=待领取, 1=已完成, 2=已取消
-        receiver: '王五',
-        createTime: '2025-11-11 15:00:00',
-        remark: '紧急领料',
-        details: [
-          {
-            materialCode: 'PJ001',
-            materialName: '光纤连接器',
-            spec: 'SC-UPC',
-            quantity: 10,
-            price: 20.00,
-            amount: 200.00
-          },
-          {
-            materialCode: 'PJ002',
-            materialName: '网线',
-            spec: '超五类',
-            quantity: 20,
-            price: 4.00,
-            amount: 80.00
-          }
-        ]
-      },
-      {
-        id: 2,
-        code: 'CK202511100002',
-        warehouseName: '拉萨总仓',
-        source: 2, // 申请出库
-        itemCount: 1,
-        totalAmount: 1500.00,
-        status: 1, // 已完成
-        receiver: '赵六',
-        createTime: '2025-11-10 09:30:00',
-        remark: '项目使用',
-        details: [
-          {
-            materialCode: 'GX001',
-            materialName: '光缆12芯',
-            spec: '12芯单模',
-            quantity: 1,
-            price: 1500.00,
-            amount: 1500.00
-          }
-        ]
-      }
-    ]
-    pagination.total = 2
+// 查询数据
+const handleQuery = async () => {
+  loading.value = true
+  try {
+    const params = {
+      pageNum: pagination.page,
+      pageSize: pagination.size,
+      keyword: queryForm.keyword || undefined,
+      warehouseId: queryForm.warehouseId || undefined,
+      outboundType: queryForm.outboundType || undefined,
+      source: queryForm.source || undefined,
+      status: queryForm.status || undefined,
+      startDate: queryForm.startDate || undefined,
+      endDate: queryForm.endDate || undefined
+    }
+
+    const res = await listOutbounds(params)
+    tableData.value = res.data.records || []
+    pagination.total = res.data.total || 0
+  } catch (error) {
+    console.error('查询出库单列表失败:', error)
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
 // 重置查询
 const handleReset = () => {
-  queryForm.code = ''
+  queryForm.keyword = ''
   queryForm.warehouseId = null
+  queryForm.outboundType = null
   queryForm.source = null
   queryForm.status = null
+  queryForm.startDate = ''
+  queryForm.endDate = ''
   pagination.page = 1
   handleQuery()
 }
@@ -352,15 +334,14 @@ const handleCreate = () => {
 
 // 查看详情
 const handleView = (row) => {
-  currentRow.value = row
-  detailVisible.value = true
+  router.push(`/outbound/detail/${row.id}`)
 }
 
 // 确认领取
 const handleConfirm = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `确认"${row.receiver}"已领取物资吗？确认后将扣减库存。`,
+      `确认"${row.receiverName}"已领取物资吗？确认后将扣减库存。`,
       '确认领取',
       {
         confirmButtonText: '确认',
@@ -369,11 +350,11 @@ const handleConfirm = async (row) => {
       }
     )
 
-    // TODO: 调用确认领取API
+    await confirmOutbound(row.id)
     ElMessage.success('确认领取成功，库存已扣减')
     handleQuery()
   } catch (error) {
-    // 用户取消
+    // 用户取消或接口错误
   }
 }
 
@@ -381,7 +362,7 @@ const handleConfirm = async (row) => {
 const handleCancel = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `确定要取消出库单"${row.code}"吗？`,
+      `确定要取消出库单"${row.outboundNo}"吗？`,
       '取消出库',
       {
         confirmButtonText: '确定',
@@ -390,16 +371,19 @@ const handleCancel = async (row) => {
       }
     )
 
-    // TODO: 调用取消API
+    await cancelOutbound(row.id, '手动取消')
     ElMessage.success('取消成功')
     handleQuery()
   } catch (error) {
-    // 用户取消
+    // 用户取消或接口错误
   }
 }
 
-// 初始化加载数据
-handleQuery()
+// 初始化
+onMounted(() => {
+  loadWarehouses()
+  handleQuery()
+})
 </script>
 
 <style lang="scss" scoped>

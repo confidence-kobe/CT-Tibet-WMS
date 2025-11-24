@@ -8,20 +8,13 @@
     <!-- 搜索表单 -->
     <el-card shadow="never" class="search-form">
       <el-form :model="queryForm" :inline="true">
-        <el-form-item label="物资名称">
+        <el-form-item label="物资">
           <el-input
-            v-model="queryForm.materialName"
-            placeholder="请输入物资名称"
+            v-model="queryForm.keyword"
+            placeholder="物资编号/名称"
             clearable
             @clear="handleQuery"
-          />
-        </el-form-item>
-        <el-form-item label="物资编码">
-          <el-input
-            v-model="queryForm.materialCode"
-            placeholder="请输入物资编码"
-            clearable
-            @clear="handleQuery"
+            style="width: 200px"
           />
         </el-form-item>
         <el-form-item label="仓库">
@@ -32,22 +25,25 @@
             @clear="handleQuery"
             style="width: 180px"
           >
-            <el-option label="拉萨总仓" :value="1" />
-            <el-option label="日喀则分仓" :value="2" />
-            <el-option label="那曲分仓" :value="3" />
+            <el-option
+              v-for="warehouse in warehouseList"
+              :key="warehouse.id"
+              :label="warehouse.name"
+              :value="warehouse.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="库存状态">
           <el-select
-            v-model="queryForm.stockStatus"
+            v-model="queryForm.status"
             placeholder="请选择"
             clearable
             @clear="handleQuery"
             style="width: 140px"
           >
-            <el-option label="正常" value="normal" />
-            <el-option label="低库存" value="low" />
-            <el-option label="缺货" value="empty" />
+            <el-option label="充足" :value="0" />
+            <el-option label="预警" :value="1" />
+            <el-option label="紧急" :value="2" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -119,8 +115,8 @@
       <!-- 分页 -->
       <div style="margin-top: 16px; text-align: right;">
         <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.size"
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
@@ -158,21 +154,22 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { listInventories } from '@/api/inventory'
+import { listWarehouses } from '@/api/warehouse'
 
 // 查询表单
 const queryForm = reactive({
-  materialName: '',
-  materialCode: '',
+  keyword: '',
   warehouseId: null,
-  stockStatus: null
+  status: null
 })
 
 // 分页参数
 const pagination = reactive({
-  page: 1,
-  size: 20,
+  pageNum: 1,
+  pageSize: 20,
   total: 0
 })
 
@@ -180,14 +177,25 @@ const pagination = reactive({
 const tableData = ref([])
 const loading = ref(false)
 
+// 仓库列表
+const warehouseList = ref([])
+
 // 统计数据
-const statistics = computed(() => {
-  return {
-    totalItems: tableData.value.length,
-    totalValue: tableData.value.reduce((sum, item) => sum + (item.stock * item.price), 0),
-    warningCount: tableData.value.filter(item => item.stock <= item.minStock).length
-  }
+const statistics = reactive({
+  totalItems: 0,
+  totalValue: 0,
+  warningCount: 0
 })
+
+// 加载仓库列表
+const loadWarehouses = async () => {
+  try {
+    const res = await listWarehouses({ status: 0 })
+    warehouseList.value = res.data || []
+  } catch (error) {
+    console.error('加载仓库列表失败:', error)
+  }
+}
 
 // 获取库存状态类名
 const getStockClass = (row) => {
@@ -211,91 +219,41 @@ const getStockStatusText = (row) => {
 }
 
 // 查询数据
-const handleQuery = () => {
+const handleQuery = async () => {
   loading.value = true
+  try {
+    const params = {
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
+      keyword: queryForm.keyword || undefined,
+      warehouseId: queryForm.warehouseId || undefined,
+      status: queryForm.status != null ? queryForm.status : undefined
+    }
 
-  // TODO: 调用API获取数据
-  // 模拟数据
-  setTimeout(() => {
-    tableData.value = [
-      {
-        id: 1,
-        materialCode: 'GX001',
-        materialName: '光缆12芯',
-        category: '光缆类',
-        spec: '12芯单模',
-        unit: '条',
-        warehouseName: '拉萨总仓',
-        stock: 95,
-        minStock: 100,
-        price: 1500.00,
-        updateTime: '2025-11-11 15:00:00'
-      },
-      {
-        id: 2,
-        materialCode: 'GX002',
-        materialName: '光缆24芯',
-        category: '光缆类',
-        spec: '24芯多模',
-        unit: '条',
-        warehouseName: '拉萨总仓',
-        stock: 150,
-        minStock: 50,
-        price: 2100.00,
-        updateTime: '2025-11-11 10:30:00'
-      },
-      {
-        id: 3,
-        materialCode: 'JHJ001',
-        materialName: '交换机H3C',
-        category: '设备类',
-        spec: 'S5130-28S',
-        unit: '台',
-        warehouseName: '拉萨总仓',
-        stock: 25,
-        minStock: 10,
-        price: 7800.00,
-        updateTime: '2025-11-10 16:20:00'
-      },
-      {
-        id: 4,
-        materialCode: 'PJ001',
-        materialName: '光纤连接器',
-        category: '配件类',
-        spec: 'SC-UPC',
-        unit: '个',
-        warehouseName: '拉萨总仓',
-        stock: 500,
-        minStock: 200,
-        price: 20.00,
-        updateTime: '2025-11-11 15:00:00'
-      },
-      {
-        id: 5,
-        materialCode: 'PJ002',
-        materialName: '网线',
-        category: '配件类',
-        spec: '超五类',
-        unit: '米',
-        warehouseName: '拉萨总仓',
-        stock: 0,
-        minStock: 500,
-        price: 3.50,
-        updateTime: '2025-11-05 10:00:00'
-      }
-    ]
-    pagination.total = 5
+    const res = await listInventories(params)
+    tableData.value = res.data.list || []
+    pagination.total = res.data.total || 0
+
+    // 更新统计数据
+    if (res.data.stats) {
+      statistics.totalItems = res.data.stats.totalItems || 0
+      statistics.totalValue = res.data.stats.totalValue || 0
+      statistics.warningCount = res.data.stats.warningCount || 0
+    }
+  } catch (error) {
+    console.error('查询失败:', error)
+    ElMessage.error('查询失败')
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
 // 重置查询
 const handleReset = () => {
-  queryForm.materialName = ''
-  queryForm.materialCode = ''
+  queryForm.keyword = ''
   queryForm.warehouseId = null
-  queryForm.stockStatus = null
-  pagination.page = 1
+  queryForm.status = null
+  pagination.pageNum = 1
   handleQuery()
 }
 
@@ -310,8 +268,11 @@ const handleViewLog = (row) => {
   // TODO: 跳转到库存流水页面或打开对话框
 }
 
-// 初始化加载数据
-handleQuery()
+// 初始化
+onMounted(() => {
+  loadWarehouses()
+  handleQuery()
+})
 </script>
 
 <style lang="scss" scoped>

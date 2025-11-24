@@ -6,10 +6,14 @@ import com.ct.wms.dto.WechatMessageDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 /**
  * 消息通知生产者
+ *
+ * 说明：此组件仅在 RabbitTemplate bean 存在时才会加载
+ * 如果禁用了 RabbitMQ，此生产者不会被注册，避免启动失败
  *
  * @author CT Development Team
  * @since 2025-11-11
@@ -17,6 +21,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnBean(RabbitTemplate.class)
 public class NotificationProducer {
 
     private final RabbitTemplate rabbitTemplate;

@@ -12,18 +12,10 @@
     <!-- 搜索表单 -->
     <el-card shadow="never" class="search-form">
       <el-form :model="queryForm" :inline="true">
-        <el-form-item label="物资名称">
+        <el-form-item label="关键词">
           <el-input
-            v-model="queryForm.materialName"
-            placeholder="请输入物资名称"
-            clearable
-            @clear="handleQuery"
-          />
-        </el-form-item>
-        <el-form-item label="物资编码">
-          <el-input
-            v-model="queryForm.materialCode"
-            placeholder="请输入物资编码"
+            v-model="queryForm.keyword"
+            placeholder="请输入物资名称或编码"
             clearable
             @clear="handleQuery"
           />
@@ -86,7 +78,7 @@
         <el-table-column prop="unit" label="单位" width="80" align="center" />
         <el-table-column prop="price" label="单价(元)" width="100" align="right">
           <template #default="{ row }">
-            ¥{{ row.price?.toFixed(2) || '0.00' }}
+            ¥{{ row.price || '0.00' }}
           </template>
         </el-table-column>
         <el-table-column prop="minStock" label="最低库存" width="100" align="right" />
@@ -97,7 +89,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="160" />
+        <el-table-column prop="createdAt" label="创建时间" width="160" />
         <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleView(row)">
@@ -116,8 +108,8 @@
       <!-- 分页 -->
       <div style="margin-top: 16px; text-align: right;">
         <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.size"
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
@@ -240,7 +232,7 @@
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="创建时间" :span="2">
-          {{ currentRow.createTime }}
+          {{ currentRow.createdAt }}
         </el-descriptions-item>
         <el-descriptions-item label="描述" :span="2">
           {{ currentRow.description || '-' }}
@@ -253,19 +245,25 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  listMaterials,
+  createMaterial,
+  updateMaterial,
+  deleteMaterial,
+  getMaterialCategories
+} from '@/api/material'
 
 // 查询表单
 const queryForm = reactive({
-  materialName: '',
-  materialCode: '',
+  keyword: '',
   category: '',
   status: null
 })
 
 // 分页参数
 const pagination = reactive({
-  page: 1,
-  size: 20,
+  pageNum: 1,
+  pageSize: 20,
   total: 0
 })
 
@@ -323,52 +321,30 @@ const formRules = {
 const dialogTitle = computed(() => isEdit.value ? '编辑物资' : '新建物资')
 
 // 查询数据
-const handleQuery = () => {
+const handleQuery = async () => {
   loading.value = true
-
-  // TODO: 调用API获取数据
-  // 模拟数据
-  setTimeout(() => {
-    tableData.value = [
-      {
-        id: 1,
-        materialCode: 'GX001',
-        materialName: '光缆12芯',
-        category: '光缆类',
-        spec: '12芯单模',
-        unit: '条',
-        price: 1500.00,
-        minStock: 100,
-        status: 0,
-        createTime: '2025-11-01 10:00:00',
-        description: '12芯单模光缆，用于长距离传输'
-      },
-      {
-        id: 2,
-        materialCode: 'JHJ001',
-        materialName: '交换机H3C',
-        category: '设备类',
-        spec: 'S5130-28S',
-        unit: '台',
-        price: 7800.00,
-        minStock: 10,
-        status: 0,
-        createTime: '2025-11-02 14:30:00',
-        description: 'H3C 24口千兆交换机'
-      }
-    ]
-    pagination.total = 2
+  try {
+    const params = {
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
+      ...queryForm
+    }
+    const res = await listMaterials(params)
+    tableData.value = res.data.list
+    pagination.total = res.data.total
+  } catch (error) {
+    console.error('查询物资列表失败:', error)
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
 // 重置查询
 const handleReset = () => {
-  Object.keys(queryForm).forEach(key => {
-    queryForm[key] = ''
-  })
+  queryForm.keyword = ''
+  queryForm.category = ''
   queryForm.status = null
-  pagination.page = 1
+  pagination.pageNum = 1
   handleQuery()
 }
 
@@ -410,11 +386,13 @@ const handleDelete = async (row) => {
       }
     )
 
-    // TODO: 调用删除API
+    await deleteMaterial(row.id)
     ElMessage.success('删除成功')
     handleQuery()
   } catch (error) {
-    // 用户取消
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+    }
   }
 }
 
@@ -426,10 +404,25 @@ const handleSave = async () => {
     await formRef.value.validate()
     saveLoading.value = true
 
-    // TODO: 调用保存API
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const data = {
+      materialName: form.materialName,
+      materialCode: form.materialCode,
+      category: form.category,
+      spec: form.spec,
+      unit: form.unit,
+      price: form.price,
+      minStock: form.minStock,
+      description: form.description
+    }
 
-    ElMessage.success(isEdit.value ? '修改成功' : '新增成功')
+    if (isEdit.value) {
+      await updateMaterial(form.id, data)
+      ElMessage.success('修改成功')
+    } else {
+      await createMaterial(data)
+      ElMessage.success('新增成功')
+    }
+
     dialogVisible.value = false
     handleQuery()
   } catch (error) {

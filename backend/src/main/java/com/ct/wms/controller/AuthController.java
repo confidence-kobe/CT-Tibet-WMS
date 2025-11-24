@@ -52,4 +52,12 @@ public class AuthController {
         String newToken = authService.refreshToken(oldToken);
         return Result.success(newToken, "Token刷新成功");
     }
+
+    @GetMapping("/user-info")
+    @Operation(summary = "获取当前用户信息", description = "获取当前登录用户的详细信息、角色和权限")
+    public Result<Object> getUserInfo() {
+        log.info("获取当前用户信息");
+        Object userInfo = authService.getCurrentUserInfo();
+        return Result.success(userInfo);
+    }
 }

@@ -108,9 +108,7 @@
               <span>出入库趋势</span>
             </div>
           </template>
-          <div class="chart-placeholder">
-            图表加载中...
-          </div>
+          <EChart :option="trendChartOption" height="350px" />
         </el-card>
       </el-col>
 
@@ -121,9 +119,7 @@
               <span>库存状态分布</span>
             </div>
           </template>
-          <div class="chart-placeholder">
-            图表加载中...
-          </div>
+          <EChart :option="stockChartOption" height="350px" />
         </el-card>
       </el-col>
     </el-row>
@@ -135,6 +131,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store'
 import dayjs from 'dayjs'
+import EChart from '@/components/Chart/EChart.vue'
+import { getDashboardStats } from '@/api/statistics'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -144,10 +142,10 @@ const currentTime = ref(dayjs().format('YYYY年MM月DD日 HH:mm:ss'))
 
 // 统计数据
 const stats = ref({
-  todayInbound: 5,
-  todayOutbound: 12,
-  pendingApproval: 3,
-  stockWarning: 2
+  todayInbound: 0,
+  todayOutbound: 0,
+  pendingApproval: 0,
+  stockWarning: 0
 })
 
 // 快捷操作列表（根据角色显示不同的操作）
@@ -194,9 +192,166 @@ const updateTime = () => {
   currentTime.value = dayjs().format('YYYY年MM月DD日 HH:mm:ss')
 }
 
+// 出入库趋势图表配置
+const trendChartOption = computed(() => ({
+  title: {
+    text: '近7天出入库趋势',
+    left: 'center',
+    textStyle: {
+      fontSize: 14,
+      fontWeight: 'normal'
+    }
+  },
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'cross'
+    }
+  },
+  legend: {
+    data: ['入库', '出库'],
+    bottom: 10
+  },
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '15%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+  },
+  yAxis: {
+    type: 'value',
+    name: '数量',
+    nameTextStyle: {
+      fontSize: 12
+    }
+  },
+  series: [
+    {
+      name: '入库',
+      type: 'line',
+      smooth: true,
+      data: [12, 15, 8, 20, 18, 11, 15],
+      itemStyle: {
+        color: '#409EFF'
+      },
+      areaStyle: {
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [{
+            offset: 0, color: 'rgba(64, 158, 255, 0.3)'
+          }, {
+            offset: 1, color: 'rgba(64, 158, 255, 0.05)'
+          }]
+        }
+      }
+    },
+    {
+      name: '出库',
+      type: 'line',
+      smooth: true,
+      data: [10, 12, 18, 15, 22, 13, 16],
+      itemStyle: {
+        color: '#67C23A'
+      },
+      areaStyle: {
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [{
+            offset: 0, color: 'rgba(103, 194, 58, 0.3)'
+          }, {
+            offset: 1, color: 'rgba(103, 194, 58, 0.05)'
+          }]
+        }
+      }
+    }
+  ]
+}))
+
+// 库存状态分布图表配置
+const stockChartOption = computed(() => ({
+  title: {
+    text: '库存状态分布',
+    left: 'center',
+    textStyle: {
+      fontSize: 14,
+      fontWeight: 'normal'
+    }
+  },
+  tooltip: {
+    trigger: 'item',
+    formatter: '{a} <br/>{b}: {c} ({d}%)'
+  },
+  legend: {
+    orient: 'vertical',
+    left: 'left',
+    top: 'middle'
+  },
+  series: [
+    {
+      name: '库存状态',
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['60%', '50%'],
+      avoidLabelOverlap: false,
+      itemStyle: {
+        borderRadius: 10,
+        borderColor: '#fff',
+        borderWidth: 2
+      },
+      label: {
+        show: true,
+        formatter: '{b}: {d}%'
+      },
+      emphasis: {
+        label: {
+          show: true,
+          fontSize: 14,
+          fontWeight: 'bold'
+        },
+        itemStyle: {
+          shadowBlur: 10,
+          shadowOffsetX: 0,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        }
+      },
+      data: [
+        { value: 245, name: '充足', itemStyle: { color: '#67C23A' } },
+        { value: 89, name: '正常', itemStyle: { color: '#409EFF' } },
+        { value: 34, name: '预警', itemStyle: { color: '#E6A23C' } },
+        { value: 12, name: '紧急', itemStyle: { color: '#F56C6C' } }
+      ]
+    }
+  ]
+}))
+
+// 加载统计数据
+const loadStats = async () => {
+  try {
+    const res = await getDashboardStats()
+    stats.value = res.data
+  } catch (error) {
+    console.error('加载统计数据失败:', error)
+  }
+}
+
 onMounted(() => {
   // 每秒更新时间
   setInterval(updateTime, 1000)
+  // 加载统计数据
+  loadStats()
 })
 </script>
 
@@ -327,14 +482,6 @@ onMounted(() => {
   .charts-row {
     .chart-card {
       margin-bottom: 16px;
-
-      .chart-placeholder {
-        height: 300px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: $text-color-secondary;
-      }
     }
   }
 

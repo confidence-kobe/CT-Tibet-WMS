@@ -1,0 +1,103 @@
+# Prometheus配置文件
+# CT-Tibet-WMS系统监控配置
+
+global:
+  scrape_interval: 15s # 全局抓取间隔
+  evaluation_interval: 15s # 评估规则间隔
+  external_labels:
+    cluster: 'ct-tibet-wms'
+    environment: 'production'
+
+# Alertmanager配置
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - 'alertmanager:9093'
+
+# 告警规则文件
+rule_files:
+  - 'alerts/*.yml'
+
+# 监控目标配置
+scrape_configs:
+  # ===========================================================================
+  # 1. Spring Boot应用监控
+  # ===========================================================================
+  - job_name: 'wms-application'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+          - 'localhost:48888'
+        labels:
+          application: 'ct-tibet-wms'
+          instance: 'wms-app-1'
+          service: 'wms-backend'
+
+    # 监控指标过滤
+    metric_relabel_configs:
+      # 保留重要的JVM指标
+      - source_labels: [__name__]
+        regex: 'jvm_(memory|gc|threads|classes).*'
+        action: keep
+
+      # 保留应用性能指标
+      - source_labels: [__name__]
+        regex: 'http_(server|client).*'
+        action: keep
+
+      # 保留数据库连接池指标
+      - source_labels: [__name__]
+        regex: 'hikaricp.*'
+        action: keep
+
+      # 保留Redis指标
+      - source_labels: [__name__]
+        regex: 'redis.*'
+        action: keep
+
+      # 保留自定义业务指标
+      - source_labels: [__name__]
+        regex: 'wms.*'
+        action: keep
+
+  # ===========================================================================
+  # 2. MySQL数据库监控
+  # ===========================================================================
+  - job_name: 'mysql-exporter'
+    static_configs:
+      - targets:
+          - 'localhost:9104'
+        labels:
+          database: 'ct_tibet_wms'
+          instance: 'mysql-main'
+
+  # ===========================================================================
+  # 3. Redis监控
+  # ===========================================================================
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets:
+          - 'localhost:9121'
+        labels:
+          cache: 'redis'
+          instance: 'redis-main'
+
+  # ===========================================================================
+  # 4. 系统资源监控 (Node Exporter)
+  # ===========================================================================
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+          - 'localhost:9100'
+        labels:
+          hostname: 'wms-server-1'
+          role: 'application-server'
+
+  # ===========================================================================
+  # 5. Prometheus自监控
+  # ===========================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets:
+          - 'localhost:9090'

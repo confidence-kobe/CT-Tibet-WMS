@@ -1,8 +1,11 @@
 package com.ct.wms.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ct.wms.dto.ChangePasswordRequest;
+import com.ct.wms.dto.UpdateProfileRequest;
 import com.ct.wms.dto.UserDTO;
 import com.ct.wms.entity.User;
+import com.ct.wms.vo.UserProfileVO;
 
 /**
  * 用户Service接口
@@ -81,4 +84,25 @@ public interface UserService {
      * @return true-存在 false-不存在
      */
     boolean checkUsernameExists(String username, Long excludeId);
+
+    /**
+     * 获取当前用户个人信息
+     *
+     * @return 用户个人信息VO
+     */
+    UserProfileVO getCurrentUserProfile();
+
+    /**
+     * 更新当前用户个人信息
+     *
+     * @param request 更新个人信息请求
+     */
+    void updateCurrentUserProfile(UpdateProfileRequest request);
+
+    /**
+     * 修改当前用户密码
+     *
+     * @param request 修改密码请求
+     */
+    void changeCurrentUserPassword(ChangePasswordRequest request);
 }

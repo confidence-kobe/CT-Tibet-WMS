@@ -6,16 +6,30 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
  * RabbitMQ配置类
  *
+ * 说明：此配置类仅在 RabbitMQ 启用时才会加载
+ * - ConditionalOnClass: 当 RabbitTemplate 类存在时才加载（确保依赖存在）
+ * - ConditionalOnProperty: 当未禁用 RabbitMQ 自动配置时才加载
+ *
+ * 如果在开发环境禁用了 RabbitMQ（方案A），此配置类不会被加载，避免启动失败
+ *
  * @author CT Development Team
  * @since 2025-11-11
  */
 @Configuration
+@ConditionalOnClass(RabbitTemplate.class)
+@ConditionalOnProperty(
+    prefix = "spring.rabbitmq",
+    name = "host",
+    matchIfMissing = false
+)
 public class RabbitMQConfig {
 
     // =============== 消息通知相关 ===============

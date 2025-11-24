@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    安全扫描插件配置
+    将以下插件配置添加到 backend/pom.xml 的 <build><plugins> 部分
+-->
+
+<!-- ==================== OWASP Dependency-Check 插件 ==================== -->
+<!--
+    功能: 扫描项目依赖中的已知漏洞 (CVE)
+    运行: mvn dependency-check:check
+    报告: target/dependency-check-report.html
+-->
+<plugin>
+    <groupId>org.owasp</groupId>
+    <artifactId>dependency-check-maven</artifactId>
+    <version>9.0.7</version>
+    <configuration>
+        <!-- 输出格式: HTML, JSON, CSV, XML -->
+        <format>ALL</format>
+
+        <!-- 报告输出目录 -->
+        <outputDirectory>${project.build.directory}/dependency-check</outputDirectory>
+
+        <!-- 失败阈值: 发现CVSS≥7.0的漏洞时构建失败 -->
+        <failBuildOnCVSS>7</failBuildOnCVSS>
+
+        <!-- 漏洞数据库更新 (每次运行都更新,首次运行慢) -->
+        <autoUpdate>true</autoUpdate>
+
+        <!-- 缓存数据库到本地 (加速后续扫描) -->
+        <dataDirectory>${user.home}/.owasp-dependency-check-data</dataDirectory>
+
+        <!-- 跳过测试依赖 -->
+        <skipTestScope>true</skipTestScope>
+
+        <!-- 排除特定依赖 (误报) -->
+        <suppressionFiles>
+            <suppressionFile>dependency-check-suppressions.xml</suppressionFile>
+        </suppressionFiles>
+
+        <!-- 分析器配置 -->
+        <analyzers>
+            <jarAnalyzer>true</jarAnalyzer>
+            <assemblyAnalyzer>true</assemblyAnalyzer>
+            <archiveAnalyzer>true</archiveAnalyzer>
+            <!-- 禁用不需要的分析器 (加速扫描) -->
+            <nodePackage>false</nodePackage>
+            <pyPackage>false</pyPackage>
+            <pyDistribution>false</pyDistribution>
+            <rubygemAnalyzer>false</rubygemAnalyzer>
+            <bundleAudit>false</bundleAudit>
+            <cocoapodsAnalyzer>false</cocoapodsAnalyzer>
+            <swiftPackageManagerAnalyzer>false</swiftPackageManagerAnalyzer>
+        </analyzers>
+
+        <!-- NVD API Key (可选,加速数据库更新) -->
+        <!-- 注册地址: https://nvd.nist.gov/developers/request-an-api-key -->
+        <!-- <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey> -->
+
+        <!-- 生成Sarif格式报告 (用于GitHub Security) -->
+        <formats>
+            <format>HTML</format>
+            <format>JSON</format>
+            <format>SARIF</format>
+        </formats>
+    </configuration>
+    <executions>
+        <execution>
+            <id>security-scan</id>
+            <goals>
+                <goal>check</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+
+
+<!-- ==================== SpotBugs 插件 ==================== -->
+<!--
+    功能: 静态代码分析,检测潜在bug和安全漏洞
+    运行: mvn spotbugs:check
+    报告: target/spotbugsXml.xml
+-->
+<plugin>
+    <groupId>com.github.spotbugs</groupId>
+    <artifactId>spotbugs-maven-plugin</artifactId>
+    <version>4.8.1.0</version>
+    <configuration>
+        <!-- 分析级别: Min, Default, Max -->
+        <effort>Max</effort>
+
+        <!-- 报告阈值: Low, Medium, High -->
+        <threshold>Medium</threshold>
+
+        <!-- 输出格式 -->
+        <xmlOutput>true</xmlOutput>
+        <htmlOutput>true</htmlOutput>
+
+        <!-- 排除文件 -->
+        <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
+
+        <!-- 包含安全检查 -->
+        <plugins>
+            <plugin>
+                <groupId>com.h3xstream.findsecbugs</groupId>
+                <artifactId>findsecbugs-plugin</artifactId>
+                <version>1.12.0</version>
+            </plugin>
+        </plugins>
+
+        <!-- 失败时构建失败 -->
+        <failOnError>true</failOnError>
+    </configuration>
+    <executions>
+        <execution>
+            <id>security-analysis</id>
+            <phase>verify</phase>
+            <goals>
+                <goal>check</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+
+
+<!-- ==================== Maven Enforcer 插件 ==================== -->
+<!--
+    功能: 强制依赖版本规则,防止漏洞依赖
+    运行: mvn enforcer:enforce
+-->
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-enforcer-plugin</artifactId>
+    <version>3.4.1</version>
+    <executions>
+        <execution>
+            <id>enforce-banned-dependencies</id>
+            <goals>
+                <goal>enforce</goal>
+            </goals>
+            <configuration>
+                <rules>
+                    <!-- 禁止使用有漏洞的依赖 -->
+                    <bannedDependencies>
+                        <excludes>
+                            <!-- 禁止Log4j 2.x < 2.17.1 (CVE-2021-44228) -->
+                            <exclude>org.apache.logging.log4j:log4j-core:[2.0,2.17.1)</exclude>
+
+                            <!-- 禁止Spring Boot < 2.7.18 -->
+                            <exclude>org.springframework.boot:spring-boot:[2.0,2.7.18)</exclude>
+
+                            <!-- 禁止Fastjson < 1.2.83 -->
+                            <exclude>com.alibaba:fastjson:[1.0,1.2.83)</exclude>
+
+                            <!-- 禁止Jackson < 2.13.0 -->
+                            <exclude>com.fasterxml.jackson.core:jackson-databind:[2.0,2.13.0)</exclude>
+                        </excludes>
+                    </bannedDependencies>
+
+                    <!-- 要求特定依赖版本 -->
+                    <requireJavaVersion>
+                        <version>[11,)</version>
+                    </requireJavaVersion>
+
+                    <requireMavenVersion>
+                        <version>[3.6.0,)</version>
+                    </requireMavenVersion>
+                </rules>
+                <fail>true</fail>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+
+
+<!-- ==================== Versions 插件 ==================== -->
+<!--
+    功能: 检查依赖更新和漏洞
+    运行: mvn versions:display-dependency-updates
+-->
+<plugin>
+    <groupId>org.codehaus.mojo</groupId>
+    <artifactId>versions-maven-plugin</artifactId>
+    <version>2.16.2</version>
+    <configuration>
+        <!-- 排除快照版本 -->
+        <allowSnapshots>false</allowSnapshots>
+        <!-- 生成报告 -->
+        <generateBackupPoms>false</generateBackupPoms>
+    </configuration>
+</plugin>
+
+
+<!-- ==================== Checkstyle 插件 ==================== -->
+<!--
+    功能: 代码风格和安全规范检查
+    运行: mvn checkstyle:check
+-->
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-checkstyle-plugin</artifactId>
+    <version>3.3.1</version>
+    <configuration>
+        <configLocation>checkstyle-security.xml</configLocation>
+        <includeTestSourceDirectory>false</includeTestSourceDirectory>
+        <violationSeverity>warning</violationSeverity>
+        <failOnViolation>false</failOnViolation>
+    </configuration>
+    <executions>
+        <execution>
+            <id>validate</id>
+            <phase>validate</phase>
+            <goals>
+                <goal>check</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+
+
+<!-- ==================== PMD 插件 ==================== -->
+<!--
+    功能: 代码质量和安全问题检测
+    运行: mvn pmd:check
+-->
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-pmd-plugin</artifactId>
+    <version>3.21.2</version>
+    <configuration>
+        <rulesets>
+            <ruleset>/rulesets/java/basic.xml</ruleset>
+            <ruleset>/rulesets/java/security.xml</ruleset>
+        </rulesets>
+        <printFailingErrors>true</printFailingErrors>
+        <failOnViolation>false</failOnViolation>
+    </configuration>
+    <executions>
+        <execution>
+            <goals>
+                <goal>check</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+
+
+<!-- ==================== Git Secrets 检测 (Gitleaks) ==================== -->
+<!--
+    功能: 扫描代码中的敏感信息 (密码/密钥)
+    需要先安装: https://github.com/gitleaks/gitleaks
+-->
+<plugin>
+    <groupId>org.codehaus.mojo</groupId>
+    <artifactId>exec-maven-plugin</artifactId>
+    <version>3.1.1</version>
+    <executions>
+        <execution>
+            <id>gitleaks-scan</id>
+            <phase>validate</phase>
+            <goals>
+                <goal>exec</goal>
+            </goals>
+            <configuration>
+                <executable>gitleaks</executable>
+                <arguments>
+                    <argument>detect</argument>
+                    <argument>--source</argument>
+                    <argument>.</argument>
+                    <argument>--report-path</argument>
+                    <argument>target/gitleaks-report.json</argument>
+                    <argument>--verbose</argument>
+                </arguments>
+                <skip>${skipGitleaks}</skip>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+
+
+<!-- ==================== 使用说明 ==================== -->
+<!--
+    1. 将上述插件配置复制到 backend/pom.xml 的 <build><plugins> 部分
+
+    2. 创建配置文件:
+       - dependency-check-suppressions.xml (OWASP误报抑制)
+       - spotbugs-exclude.xml (SpotBugs排除规则)
+       - checkstyle-security.xml (Checkstyle安全规则)
+
+    3. 运行扫描命令:
+       # 完整安全扫描
+       mvn clean verify -P security-scan
+
+       # 单独运行OWASP依赖检查
+       mvn dependency-check:check
+
+       # 单独运行SpotBugs
+       mvn spotbugs:check
+
+       # 检查依赖更新
+       mvn versions:display-dependency-updates
+
+       # 检查漏洞依赖
+       mvn enforcer:enforce
+
+    4. 查看报告:
+       - target/dependency-check/dependency-check-report.html
+       - target/spotbugsXml.xml
+       - target/site/checkstyle.html
+       - target/site/pmd.html
+
+    5. CI/CD集成:
+       在 GitHub Actions / GitLab CI 中添加:
+       - mvn verify -P security-scan
+       - 上传报告到 GitHub Security
+-->

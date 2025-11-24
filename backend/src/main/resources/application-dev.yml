@@ -3,6 +3,13 @@ server:
   port: 48888
 
 spring:
+  # 禁用 RabbitMQ 自动配置（方案A：快速开发模式）
+  # 说明：开发环境暂时禁用消息队列功能，不影响核心业务
+  # 如需启用消息通知功能，请注释掉此整个配置段并启动 RabbitMQ 服务
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+
   datasource:
     url: jdbc:mysql://localhost:3306/ct_tibet_wms?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
@@ -14,12 +21,6 @@ spring:
     host: localhost
     port: 6379
     password:
-
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
 
 # 日志级别
 logging:

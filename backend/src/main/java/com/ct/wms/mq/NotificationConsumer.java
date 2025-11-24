@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -15,12 +17,16 @@ import java.io.IOException;
 /**
  * 消息通知消费者
  *
+ * 说明：此组件仅在 RabbitTemplate bean 存在时才会加载
+ * 如果禁用了 RabbitMQ，此消费者不会被注册，避免启动失败
+ *
  * @author CT Development Team
  * @since 2025-11-11
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnBean(RabbitTemplate.class)
 public class NotificationConsumer {
 
     private final MessageService messageService;

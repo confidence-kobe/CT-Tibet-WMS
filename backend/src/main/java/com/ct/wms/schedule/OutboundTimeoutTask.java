@@ -14,6 +14,7 @@ import com.ct.wms.mapper.OutboundMapper;
 import com.ct.wms.mq.NotificationProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,8 @@ import java.util.List;
 
 /**
  * 出库超时定时任务
+ *
+ * 说明：NotificationProducer 为可选依赖，如果 RabbitMQ 未启用，将跳过消息通知
  *
  * @author CT Development Team
  * @since 2025-11-11
@@ -33,7 +36,10 @@ public class OutboundTimeoutTask {
 
     private final OutboundMapper outboundMapper;
     private final ApplyMapper applyMapper;
-    private final NotificationProducer notificationProducer;
+
+    // 可选依赖：如果 RabbitMQ 未启用，此字段为 null
+    @Autowired(required = false)
+    private NotificationProducer notificationProducer;
 
     /**
      * 定时检查并取消超时未取货的出库单
@@ -90,19 +96,21 @@ public class OutboundTimeoutTask {
                             applyMapper.update(null, applyUpdateWrapper);
                         }
 
-                        // 3. 发送通知消息
-                        NotificationMessageDTO notification = NotificationMessageDTO.builder()
-                                .receiverId(outbound.getReceiverId())
-                                .messageType(MessageType.TIMEOUT_CANCEL.getValue())
-                                .title("出库单超时取消通知")
-                                .content(String.format("您的出库单 %s 因超过7天未取货已被系统自动取消，请及时关注。",
-                                        outbound.getOutboundNo()))
-                                .relatedId(outbound.getId())
-                                .relatedType(2) // 2-出库
-                                .sendWechat(true)
-                                .build();
+                        // 3. 发送通知消息（如果 RabbitMQ 可用）
+                        if (notificationProducer != null) {
+                            NotificationMessageDTO notification = NotificationMessageDTO.builder()
+                                    .receiverId(outbound.getReceiverId())
+                                    .messageType(MessageType.TIMEOUT_CANCEL.getValue())
+                                    .title("出库单超时取消通知")
+                                    .content(String.format("您的出库单 %s 因超过7天未取货已被系统自动取消，请及时关注。",
+                                            outbound.getOutboundNo()))
+                                    .relatedId(outbound.getId())
+                                    .relatedType(2) // 2-出库
+                                    .sendWechat(true)
+                                    .build();
 
-                        notificationProducer.sendNotification(notification);
+                            notificationProducer.sendNotification(notification);
+                        }
 
                         successCount++;
                         log.info("成功取消出库单: id={}, outboundNo={}", outbound.getId(), outbound.getOutboundNo());
@@ -156,6 +164,12 @@ public class OutboundTimeoutTask {
             log.info("发现 {} 条需要提醒的出库单", pendingOutbounds.size());
 
             int successCount = 0;
+
+            // 如果 RabbitMQ 未启用，跳过消息通知
+            if (notificationProducer == null) {
+                log.warn("RabbitMQ 未启用，跳过消息队列通知（降级模式）");
+                return;
+            }
 
             for (Outbound outbound : pendingOutbounds) {
                 try {

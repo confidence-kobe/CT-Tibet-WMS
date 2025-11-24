@@ -212,6 +212,7 @@ public class ApplyServiceImpl implements ApplyService {
         apply.setApplyNo(applyNo);
         apply.setWarehouseId(dto.getWarehouseId());
         apply.setApplicantId(applicantId);
+        apply.setDeptId(applicant.getDeptId());
         apply.setApplyTime(dto.getApplyTime());
         apply.setStatus(ApplyStatus.PENDING);
         apply.setApplyReason(dto.getApplyReason());
@@ -261,7 +262,7 @@ public class ApplyServiceImpl implements ApplyService {
         }
 
         // 检查申请单状态
-        if (!ApplyStatus.PENDING.getValue().equals(apply.getStatus())) {
+        if (!ApplyStatus.PENDING.equals(apply.getStatus())) {
             throw new BusinessException(400, "申请单状态不正确，当前状态: " + apply.getStatus());
         }
 
@@ -328,7 +329,7 @@ public class ApplyServiceImpl implements ApplyService {
         }
 
         // 检查状态：只能取消待审批的申请
-        if (!ApplyStatus.PENDING.getValue().equals(apply.getStatus())) {
+        if (!ApplyStatus.PENDING.equals(apply.getStatus())) {
             throw new BusinessException(400, "只能取消待审批的申请单");
         }
 

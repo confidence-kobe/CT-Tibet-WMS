@@ -15,7 +15,7 @@
         ref="formRef"
         :model="form"
         :rules="formRules"
-        label-width="100px"
+        label-width="120px"
       >
         <!-- 基本信息 -->
         <el-row :gutter="16">
@@ -25,18 +25,47 @@
                 v-model="form.warehouseId"
                 placeholder="请选择仓库"
                 style="width: 100%"
+                @change="handleWarehouseChange"
               >
-                <el-option label="拉萨总仓" :value="1" />
-                <el-option label="日喀则分仓" :value="2" />
-                <el-option label="那曲分仓" :value="3" />
+                <el-option
+                  v-for="warehouse in warehouseList"
+                  :key="warehouse.id"
+                  :label="warehouse.warehouseName"
+                  :value="warehouse.id"
+                />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="领取人" prop="receiver">
+            <el-form-item label="出库类型" prop="outboundType">
+              <el-select
+                v-model="form.outboundType"
+                placeholder="请选择出库类型"
+                style="width: 100%"
+              >
+                <el-option label="生产领用" :value="1" />
+                <el-option label="维修领用" :value="2" />
+                <el-option label="项目使用" :value="3" />
+                <el-option label="其他出库" :value="4" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="领取人" prop="receiverName">
               <el-input
-                v-model="form.receiver"
+                v-model="form.receiverName"
                 placeholder="请输入领取人姓名"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="联系电话" prop="receiverPhone">
+              <el-input
+                v-model="form.receiverPhone"
+                placeholder="请输入联系电话"
               />
             </el-form-item>
           </el-col>
@@ -73,9 +102,10 @@
                     placeholder="请选择物资"
                     @change="handleMaterialChange($index)"
                     style="width: 100%"
+                    filterable
                   >
                     <el-option
-                      v-for="material in materials"
+                      v-for="material in materialList"
                       :key="material.id"
                       :label="material.name"
                       :value="material.id"
@@ -104,7 +134,7 @@
                 <template #default="{ row, $index }">
                   <el-input-number
                     v-model="row.quantity"
-                    :min="1"
+                    :min="0.01"
                     :max="row.stock"
                     :precision="2"
                     @change="handleQuantityChange($index)"
@@ -113,9 +143,9 @@
                   />
                 </template>
               </el-table-column>
-              <el-table-column prop="price" label="单价(元)" width="90" align="right">
+              <el-table-column prop="unitPrice" label="单价(元)" width="90" align="right">
                 <template #default="{ row }">
-                  ¥{{ row.price?.toFixed(2) || '0.00' }}
+                  ¥{{ row.unitPrice?.toFixed(2) || '0.00' }}
                 </template>
               </el-table-column>
               <el-table-column label="金额(元)" width="110" align="right">
@@ -183,25 +213,28 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { createOutboundDirect } from '@/api/outbound'
+import { listWarehouses } from '@/api/warehouse'
+import { listMaterials } from '@/api/material'
+import { listInventories } from '@/api/inventory'
 
 const router = useRouter()
 
-// 物资列表（带库存信息）
-const materials = ref([
-  { id: 1, code: 'GX001', name: '光缆12芯', spec: '12芯单模', unit: '条', price: 1500.00, stock: 95 },
-  { id: 2, code: 'GX002', name: '光缆24芯', spec: '24芯多模', unit: '条', price: 2100.00, stock: 150 },
-  { id: 3, code: 'JHJ001', name: '交换机H3C', spec: 'S5130-28S', unit: '台', price: 7800.00, stock: 25 },
-  { id: 4, code: 'PJ001', name: '光纤连接器', spec: 'SC-UPC', unit: '个', price: 20.00, stock: 500 },
-  { id: 5, code: 'PJ002', name: '网线', spec: '超五类', unit: '米', price: 3.50, stock: 0 } // 缺货
-])
+// 仓库列表
+const warehouseList = ref([])
+
+// 物资列表
+const materialList = ref([])
 
 // 表单数据
 const form = reactive({
   warehouseId: null,
-  receiver: '',
+  outboundType: null,
+  receiverName: '',
+  receiverPhone: '',
   remark: '',
   details: []
 })
@@ -215,8 +248,15 @@ const formRules = {
   warehouseId: [
     { required: true, message: '请选择仓库', trigger: 'change' }
   ],
-  receiver: [
+  outboundType: [
+    { required: true, message: '请选择出库类型', trigger: 'change' }
+  ],
+  receiverName: [
     { required: true, message: '请输入领取人姓名', trigger: 'blur' }
+  ],
+  receiverPhone: [
+    { required: true, message: '请输入联系电话', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
   ]
 }
 
@@ -230,8 +270,58 @@ const hasStockWarning = computed(() => {
   return form.details.some(item => item.quantity > item.stock)
 })
 
+// 加载仓库列表
+const loadWarehouses = async () => {
+  try {
+    const res = await listWarehouses({ status: 0 })
+    warehouseList.value = res.data || []
+  } catch (error) {
+    console.error('加载仓库列表失败:', error)
+  }
+}
+
+// 加载物资列表
+const loadMaterials = async () => {
+  try {
+    const res = await listMaterials({ pageNum: 1, pageSize: 1000, status: 0 })
+    materialList.value = res.data.records || []
+  } catch (error) {
+    console.error('加载物资列表失败:', error)
+  }
+}
+
+// 仓库变化
+const handleWarehouseChange = () => {
+  // 清空明细，因为需要重新加载库存
+  form.details = []
+}
+
+// 查询物资库存
+const checkInventory = async (warehouseId, materialId) => {
+  try {
+    const res = await listInventories({
+      pageNum: 1,
+      pageSize: 1,
+      warehouseId,
+      materialId
+    })
+    if (res.data.records && res.data.records.length > 0) {
+      return res.data.records[0].quantity || 0
+    }
+    return 0
+  } catch (error) {
+    console.error('查询库存失败:', error)
+    return 0
+  }
+}
+
 // 添加物资行
 const handleAddMaterial = () => {
+  if (!form.warehouseId) {
+    ElMessage.warning('请先选择仓库')
+    return
+  }
+
   form.details.push({
     materialId: null,
     materialCode: '',
@@ -240,7 +330,7 @@ const handleAddMaterial = () => {
     unit: '',
     stock: 0,
     quantity: 1,
-    price: 0,
+    unitPrice: 0,
     amount: 0
   })
 }
@@ -251,21 +341,26 @@ const handleRemoveMaterial = (index) => {
 }
 
 // 物资选择变化
-const handleMaterialChange = (index) => {
+const handleMaterialChange = async (index) => {
   const detail = form.details[index]
-  const material = materials.value.find(m => m.id === detail.materialId)
+  const material = materialList.value.find(m => m.id === detail.materialId)
 
   if (material) {
     detail.materialCode = material.code
     detail.materialName = material.name
-    detail.spec = material.spec
+    detail.spec = material.model || '-'
     detail.unit = material.unit
-    detail.stock = material.stock
-    detail.price = material.price
+    detail.unitPrice = 0 // 单价需要从库存中获取
 
-    // 如果库存不足，将数量设为库存数
-    if (detail.quantity > material.stock) {
-      detail.quantity = material.stock
+    // 查询库存
+    const stock = await checkInventory(form.warehouseId, material.id)
+    detail.stock = stock
+
+    if (stock === 0) {
+      ElMessage.warning(`物资"${material.name}"库存不足`)
+      detail.quantity = 0
+    } else if (detail.quantity > stock) {
+      detail.quantity = stock
     }
 
     calculateAmount(index)
@@ -288,7 +383,7 @@ const handleQuantityChange = (index) => {
 // 计算行金额
 const calculateAmount = (index) => {
   const detail = form.details[index]
-  detail.amount = (detail.quantity || 0) * (detail.price || 0)
+  detail.amount = (detail.quantity || 0) * (detail.unitPrice || 0)
 }
 
 // 提交表单
@@ -336,9 +431,23 @@ const handleSubmit = async () => {
 
     saveLoading.value = true
 
-    // TODO: 调用API提交数据
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 构建提交数据
+    const dto = {
+      warehouseId: form.warehouseId,
+      outboundType: form.outboundType,
+      receiverName: form.receiverName,
+      receiverPhone: form.receiverPhone,
+      remark: form.remark,
+      outboundTime: new Date().toISOString(),
+      details: form.details.map(item => ({
+        materialId: item.materialId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        amount: item.amount
+      }))
+    }
 
+    await createOutboundDirect(dto)
     ElMessage.success('出库单提交成功，库存已扣减')
     router.push('/outbound/list')
   } catch (error) {
@@ -370,6 +479,12 @@ const handleCancel = () => {
     router.push('/outbound/list')
   }
 }
+
+// 初始化
+onMounted(() => {
+  loadWarehouses()
+  loadMaterials()
+})
 </script>
 
 <style lang="scss" scoped>

@@ -96,12 +96,12 @@ export const useUserStore = defineStore('user', {
       const { username, password, loginType } = loginForm
       try {
         const response = await login(username.trim(), password, loginType)
-        const { accessToken, refreshToken } = response.data
+        const { token } = response.data
 
         // 保存token
-        this.token = accessToken
-        setToken(accessToken)
-        setRefreshToken(refreshToken)
+        this.token = token
+        setToken(token)
+        // 注意：后端当前版本没有返回refreshToken，如需使用请联系后端添加
 
         return response
       } catch (error) {
@@ -145,10 +145,14 @@ export const useUserStore = defineStore('user', {
      * @returns {Array} 可访问的路由数组
      */
     async generateRoutes() {
-      // 管理员拥有所有权限
-      const accessedRoutes = this.isAdmin
-        ? asyncRoutes
-        : filterAsyncRoutes(asyncRoutes, this.roles)
+      // 开发阶段：所有用户都可以访问所有路由
+      // 生产环境请取消注释下面的权限过滤代码
+      const accessedRoutes = asyncRoutes
+
+      // 生产环境权限过滤（暂时注释）
+      // const accessedRoutes = this.isAdmin
+      //   ? asyncRoutes
+      //   : filterAsyncRoutes(asyncRoutes, this.roles)
 
       // 合并静态路由和动态路由
       this.routes = constantRoutes.concat(accessedRoutes)

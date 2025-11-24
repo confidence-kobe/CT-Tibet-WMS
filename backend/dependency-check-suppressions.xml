@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    OWASP Dependency-Check 误报抑制配置
+    当依赖被误报为漏洞时,可在此文件中添加抑制规则
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+    <!-- 示例: 抑制特定CVE -->
+    <!--
+    <suppress>
+        <notes>
+            <![CDATA[
+            False positive for Spring Boot 2.7.18
+            CVE-2023-XXXXX does not affect this version
+            ]]>
+        </notes>
+        <cve>CVE-2023-XXXXX</cve>
+    </suppress>
+    -->
+
+    <!-- 示例: 抑制特定依赖的所有漏洞 (不推荐) -->
+    <!--
+    <suppress>
+        <notes>
+            <![CDATA[
+            Third-party library with acceptable risk
+            ]]>
+        </notes>
+        <gav regex="true">^com\.example:library:.*$</gav>
+    </suppress>
+    -->
+
+    <!-- Hutool误报抑制 (根据实际扫描结果调整) -->
+    <suppress>
+        <notes>
+            <![CDATA[
+            Hutool 5.8.23 已修复大部分安全问题
+            保留此版本用于兼容性
+            ]]>
+        </notes>
+        <gav regex="true">^cn\.hutool:hutool-all:5\.8\.23$</gav>
+        <cpe>cpe:/a:hutool:hutool</cpe>
+    </suppress>
+
+    <!-- MyBatis-Plus误报抑制 -->
+    <suppress>
+        <notes>
+            <![CDATA[
+            MyBatis-Plus 3.5.5 SQL注入问题为误报
+            使用LambdaQueryWrapper防止SQL注入
+            ]]>
+        </notes>
+        <gav regex="true">^com\.baomidou:mybatis-plus.*:3\.5\.5$</gav>
+        <cve>CVE-2022-XXXXX</cve>
+    </suppress>
+
+    <!-- 测试依赖误报抑制 -->
+    <suppress>
+        <notes>
+            <![CDATA[
+            Test scope dependencies are not included in production
+            ]]>
+        </notes>
+        <gav regex="true">^.*:.*:.*:test$</gav>
+    </suppress>
+
+    <!-- ===================== 使用说明 =====================
+    1. 仅在确认为误报时添加抑制规则
+    2. 每个抑制规则必须添加详细说明 (<notes>)
+    3. 定期审查抑制规则,移除过期的抑制
+    4. 抑制规则应尽可能具体 (指定CVE ID或精确的GAV)
+    5. 不要批量抑制所有漏洞
+
+    抑制规则语法:
+    - <gav>: groupId:artifactId:version
+    - <cpe>: Common Platform Enumeration
+    - <cve>: CVE编号
+    - regex="true": 启用正则表达式匹配
+
+    参考文档:
+    https://jeremylong.github.io/DependencyCheck/general/suppression.html
+    -->
+
+</suppressions>

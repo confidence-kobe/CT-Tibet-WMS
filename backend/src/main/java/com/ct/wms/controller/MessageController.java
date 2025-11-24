@@ -5,6 +5,7 @@ import com.ct.wms.common.api.PageResult;
 import com.ct.wms.common.api.Result;
 import com.ct.wms.entity.Message;
 import com.ct.wms.service.MessageService;
+import com.ct.wms.vo.MessageVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,8 +30,23 @@ public class MessageController {
 
     private final MessageService messageService;
 
+    @GetMapping
+    @Operation(summary = "查询我的消息列表", description = "分页查询当前用户的消息（带统计信息）")
+    public Result<MessageVO> listMessages(
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
+            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "消息类型") @RequestParam(required = false) Integer type,
+            @Parameter(description = "是否已读: 0-未读 1-已读") @RequestParam(required = false) Integer isRead) {
+
+        log.info("查询我的消息: pageNum={}, pageSize={}, type={}, isRead={}", pageNum, pageSize, type, isRead);
+
+        MessageVO messageVO = messageService.listMyMessagesWithStats(pageNum, pageSize, type, isRead);
+
+        return Result.success(messageVO);
+    }
+
     @GetMapping("/my")
-    @Operation(summary = "查询我的消息列表", description = "分页查询当前用户的消息")
+    @Operation(summary = "查询我的消息列表（简单版）", description = "分页查询当前用户的消息（无统计信息）")
     public Result<PageResult<Message>> listMyMessages(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,

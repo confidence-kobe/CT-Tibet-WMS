@@ -10,6 +10,7 @@ import com.ct.wms.mq.NotificationProducer;
 import com.ct.wms.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,8 @@ import java.math.BigDecimal;
 
 /**
  * 通知服务实现类
+ *
+ * 说明：NotificationProducer 为可选依赖，如果 RabbitMQ 未启用，将降级为仅记录日志
  *
  * @author CT Development Team
  * @since 2025-11-11
@@ -26,7 +29,10 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
 
-    private final NotificationProducer notificationProducer;
+    // 可选依赖：如果 RabbitMQ 未启用，此字段为 null
+    @Autowired(required = false)
+    private NotificationProducer notificationProducer;
+
     private final WarehouseMapper warehouseMapper;
 
     @Async
@@ -34,6 +40,12 @@ public class NotificationServiceImpl implements NotificationService {
     public void notifyApplySubmit(Apply apply) {
         try {
             log.info("发送申请提交通知: applyNo={}, approverId={}", apply.getApplyNo(), apply.getApproverId());
+
+            // 如果 RabbitMQ 未启用，降级为仅记录日志
+            if (notificationProducer == null) {
+                log.warn("RabbitMQ 未启用，跳过消息队列通知（降级模式）");
+                return;
+            }
 
             NotificationMessageDTO notification = NotificationMessageDTO.builder()
                     .receiverId(apply.getApproverId())
@@ -59,6 +71,11 @@ public class NotificationServiceImpl implements NotificationService {
         try {
             log.info("发送申请审批通过通知: applyNo={}, applicantId={}", apply.getApplyNo(), apply.getApplicantId());
 
+            if (notificationProducer == null) {
+                log.warn("RabbitMQ 未启用，跳过消息队列通知（降级模式）");
+                return;
+            }
+
             NotificationMessageDTO notification = NotificationMessageDTO.builder()
                     .receiverId(apply.getApplicantId())
                     .messageType(MessageType.APPLY_APPROVED.getValue())
@@ -82,6 +99,11 @@ public class NotificationServiceImpl implements NotificationService {
     public void notifyApplyRejected(Apply apply) {
         try {
             log.info("发送申请审批拒绝通知: applyNo={}, applicantId={}", apply.getApplyNo(), apply.getApplicantId());
+
+            if (notificationProducer == null) {
+                log.warn("RabbitMQ 未启用，跳过消息队列通知（降级模式）");
+                return;
+            }
 
             NotificationMessageDTO notification = NotificationMessageDTO.builder()
                     .receiverId(apply.getApplicantId())
@@ -107,6 +129,11 @@ public class NotificationServiceImpl implements NotificationService {
         try {
             log.info("发送出库待取货通知: outboundNo={}, receiverId={}", outbound.getOutboundNo(), outbound.getReceiverId());
 
+            if (notificationProducer == null) {
+                log.warn("RabbitMQ 未启用，跳过消息队列通知（降级模式）");
+                return;
+            }
+
             NotificationMessageDTO notification = NotificationMessageDTO.builder()
                     .receiverId(outbound.getReceiverId())
                     .messageType(MessageType.OUTBOUND_PENDING.getValue())
@@ -130,6 +157,11 @@ public class NotificationServiceImpl implements NotificationService {
     public void notifyOutboundCompleted(Outbound outbound) {
         try {
             log.info("发送出库完成通知: outboundNo={}, receiverId={}", outbound.getOutboundNo(), outbound.getReceiverId());
+
+            if (notificationProducer == null) {
+                log.warn("RabbitMQ 未启用，跳过消息队列通知（降级模式）");
+                return;
+            }
 
             NotificationMessageDTO notification = NotificationMessageDTO.builder()
                     .receiverId(outbound.getReceiverId())
@@ -156,6 +188,11 @@ public class NotificationServiceImpl implements NotificationService {
         try {
             log.info("发送库存预警通知: warehouseId={}, materialId={}, materialName={}",
                     warehouseId, materialId, materialName);
+
+            if (notificationProducer == null) {
+                log.warn("RabbitMQ 未启用，跳过消息队列通知（降级模式）");
+                return;
+            }
 
             // 获取仓库信息
             Warehouse warehouse = warehouseMapper.selectById(warehouseId);

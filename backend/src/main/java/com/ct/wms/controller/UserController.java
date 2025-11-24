@@ -3,9 +3,12 @@ package com.ct.wms.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.api.PageResult;
 import com.ct.wms.common.api.Result;
+import com.ct.wms.dto.ChangePasswordRequest;
+import com.ct.wms.dto.UpdateProfileRequest;
 import com.ct.wms.dto.UserDTO;
 import com.ct.wms.entity.User;
 import com.ct.wms.service.UserService;
+import com.ct.wms.vo.UserProfileVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -109,5 +112,31 @@ public class UserController {
         log.info("重置用户密码: id={}", id);
         userService.resetPassword(id, newPassword);
         return Result.success(null, "重置成功");
+    }
+
+    // ========== 个人中心相关接口 ==========
+
+    @GetMapping("/profile")
+    @Operation(summary = "获取个人信息", description = "获取当前登录用户的个人信息")
+    public Result<UserProfileVO> getProfile() {
+        log.info("获取个人信息");
+        UserProfileVO profile = userService.getCurrentUserProfile();
+        return Result.success(profile);
+    }
+
+    @PutMapping("/profile")
+    @Operation(summary = "更新个人信息", description = "更新当前用户的个人信息（真实姓名、手机号、邮箱）")
+    public Result<Void> updateProfile(@Validated @RequestBody UpdateProfileRequest request) {
+        log.info("更新个人信息: request={}", request);
+        userService.updateCurrentUserProfile(request);
+        return Result.success(null, "更新成功");
+    }
+
+    @PutMapping("/password")
+    @Operation(summary = "修改密码", description = "修改当前用户密码")
+    public Result<Void> changePassword(@Validated @RequestBody ChangePasswordRequest request) {
+        log.info("修改密码");
+        userService.changeCurrentUserPassword(request);
+        return Result.success(null, "修改成功");
     }
 }

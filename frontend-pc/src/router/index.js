@@ -471,6 +471,10 @@ router.beforeEach(async (to, from, next) => {
   // 获取token
   const hasToken = getToken()
 
+  console.log('=== 路由守卫调试 ===')
+  console.log('to.path:', to.path)
+  console.log('hasToken:', hasToken)
+
   if (hasToken) {
     // 已登录
     if (to.path === '/login') {
@@ -480,21 +484,73 @@ router.beforeEach(async (to, from, next) => {
       const userStore = useUserStore()
       const hasRoles = userStore.roles && userStore.roles.length > 0
 
+      console.log('hasRoles:', hasRoles)
+      console.log('userStore.roles:', userStore.roles)
+      console.log('userStore.routes.length:', userStore.routes.length)
+      console.log('当前所有路由:', router.getRoutes().map(r => r.path))
+
       if (hasRoles) {
-        // 已获取用户信息，直接放行
-        next()
+        // 已获取用户信息，但需要检查 router 中是否已实际注册动态路由
+        // 检查 router 中是否已有动态路由（而不是检查 store 中的 routes）
+        const currentRoutes = router.getRoutes()
+        const hasAsyncRoutes = currentRoutes.some(route =>
+          route.path.startsWith('/basic') ||
+          route.path.startsWith('/inbound') ||
+          route.path.startsWith('/outbound') ||
+          route.path.startsWith('/apply') ||
+          route.path.startsWith('/approval') ||
+          route.path.startsWith('/inventory') ||
+          route.path.startsWith('/statistics')
+        )
+
+        console.log('检查动态路由是否已注册:', hasAsyncRoutes)
+
+        if (!hasAsyncRoutes) {
+          console.log('检测到动态路由未添加，重新生成并添加路由...')
+          try {
+            // 根据角色生成可访问的路由
+            const accessRoutes = await userStore.generateRoutes()
+
+            console.log('生成的路由数量:', accessRoutes.length)
+
+            // 动态添加路由
+            accessRoutes.forEach(route => {
+              console.log('Adding route:', route.path)
+              router.addRoute(route)
+            })
+
+            console.log('路由添加完成，当前所有路由:', router.getRoutes().map(r => r.path))
+
+            // 使用 replace 确保导航不会留下历史记录
+            next({ ...to, replace: true })
+          } catch (error) {
+            console.error('生成路由失败:', error)
+            await userStore.logout()
+            next(`/login?redirect=${to.path}`)
+          }
+        } else {
+          // 路由已存在，直接放行
+          console.log('动态路由已存在，直接放行')
+          next()
+        }
       } else {
         try {
           // 获取用户信息
+          console.log('首次获取用户信息...')
           await userStore.getUserInfo()
 
           // 根据角色生成可访问的路由
           const accessRoutes = await userStore.generateRoutes()
 
+          console.log('生成的路由数量:', accessRoutes.length)
+
           // 动态添加路由
           accessRoutes.forEach(route => {
+            console.log('Adding route:', route.path)
             router.addRoute(route)
           })
+
+          console.log('路由添加完成，当前所有路由:', router.getRoutes().map(r => r.path))
 
           // 使用 replace 确保导航不会留下历史记录
           next({ ...to, replace: true })

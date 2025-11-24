@@ -1,0 +1,15 @@
+# Grafana仪表板自动加载配置
+
+apiVersion: 1
+
+providers:
+  - name: 'CT-Tibet-WMS'
+    orgId: 1
+    folder: 'WMS Monitoring'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true

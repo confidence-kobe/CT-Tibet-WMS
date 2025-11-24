@@ -10,19 +10,27 @@
       <el-form :model="queryForm" :inline="true">
         <el-form-item label="申请单号">
           <el-input
-            v-model="queryForm.code"
+            v-model="queryForm.keyword"
             placeholder="请输入申请单号"
             clearable
             @clear="handleQuery"
           />
         </el-form-item>
-        <el-form-item label="申请人">
-          <el-input
-            v-model="queryForm.applicant"
-            placeholder="请输入申请人姓名"
+        <el-form-item label="仓库">
+          <el-select
+            v-model="queryForm.warehouseId"
+            placeholder="请选择仓库"
             clearable
             @clear="handleQuery"
-          />
+            style="width: 160px"
+          >
+            <el-option
+              v-for="warehouse in warehouseList"
+              :key="warehouse.id"
+              :label="warehouse.name"
+              :value="warehouse.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="申请日期">
           <el-date-picker
@@ -60,13 +68,14 @@
         style="width: 100%"
       >
         <el-table-column type="index" label="序号" width="60" align="center" />
-        <el-table-column prop="code" label="申请单号" width="180">
+        <el-table-column prop="applyNo" label="申请单号" width="180">
           <template #default="{ row }">
-            <el-link type="primary" @click="handleView(row)">{{ row.code }}</el-link>
+            <el-link type="primary" @click="handleView(row)">{{ row.applyNo }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="applicant" label="申请人" width="100" />
-        <el-table-column prop="deptName" label="部门" min-width="150" />
+        <el-table-column prop="applicantName" label="申请人" width="100" />
+        <el-table-column prop="deptName" label="部门" width="120" />
+        <el-table-column prop="warehouseName" label="仓库" width="120" />
         <el-table-column prop="itemCount" label="物资种类" width="100" align="center">
           <template #default="{ row }">
             <el-tag size="small">{{ row.itemCount }}种</el-tag>
@@ -77,8 +86,8 @@
             <span class="amount">¥{{ row.totalAmount?.toFixed(2) || '0.00' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="申请时间" width="160" />
-        <el-table-column prop="remark" label="申请原因" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="applyTime" label="申请时间" width="160" />
+        <el-table-column prop="applyReason" label="申请原因" min-width="150" show-overflow-tooltip />
         <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
             <el-button link type="success" size="small" @click="handleApprove(row)">
@@ -97,8 +106,8 @@
       <!-- 分页 -->
       <div style="margin-top: 16px; text-align: right;">
         <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.size"
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
@@ -112,31 +121,26 @@
     <el-dialog
       v-model="approvalVisible"
       :title="approvalType === 'approve' ? '审批通过' : '审批拒绝'"
-      width="600px"
+      width="700px"
     >
       <el-form :model="approvalForm" label-width="100px">
         <el-form-item label="申请单号">
-          {{ currentRow.code }}
+          {{ currentRow.applyNo }}
         </el-form-item>
         <el-form-item label="申请人">
-          {{ currentRow.applicant }} - {{ currentRow.deptName }}
+          {{ currentRow.applicantName }} - {{ currentRow.deptName }}
+        </el-form-item>
+        <el-form-item label="仓库">
+          {{ currentRow.warehouseName }}
+        </el-form-item>
+        <el-form-item label="物资种类">
+          <el-tag>{{ currentRow.itemCount }}种</el-tag>
         </el-form-item>
         <el-form-item label="申请金额">
           <span class="amount">¥{{ currentRow.totalAmount?.toFixed(2) || '0.00' }}</span>
         </el-form-item>
-        <el-form-item
-          label="审批意见"
-          :prop="approvalType === 'reject' ? 'opinion' : ''"
-          :rules="approvalType === 'reject' ? [{ required: true, message: '请输入拒绝原因', trigger: 'blur' }] : []"
-        >
-          <el-input
-            v-model="approvalForm.opinion"
-            type="textarea"
-            :rows="3"
-            :placeholder="approvalType === 'approve' ? '请输入审批意见(可选)' : '请输入拒绝原因'"
-            maxlength="200"
-            show-word-limit
-          />
+        <el-form-item label="申请原因">
+          {{ currentRow.applyReason || '-' }}
         </el-form-item>
 
         <!-- 库存检查（通过时） -->
@@ -152,7 +156,41 @@
             部分物资库存不足，审批通过后可能无法正常出库
           </template>
         </el-alert>
+
+        <el-form-item
+          label="审批意见"
+          :prop="approvalType === 'reject' ? 'opinion' : ''"
+          :rules="approvalType === 'reject' ? [{ required: true, message: '请输入拒绝原因', trigger: 'blur' }] : []"
+        >
+          <el-input
+            v-model="approvalForm.opinion"
+            type="textarea"
+            :rows="3"
+            :placeholder="approvalType === 'approve' ? '请输入审批意见(可选)' : '请输入拒绝原因'"
+            maxlength="200"
+            show-word-limit
+          />
+        </el-form-item>
       </el-form>
+
+      <!-- 申请明细 -->
+      <el-divider content-position="left">申请明细</el-divider>
+      <el-table :data="currentRow.details" border stripe style="width: 100%" max-height="300">
+        <el-table-column type="index" label="序号" width="60" align="center" />
+        <el-table-column prop="materialName" label="物资名称" min-width="120" />
+        <el-table-column prop="spec" label="规格型号" width="100" />
+        <el-table-column prop="quantity" label="申请数量" width="90" align="right" />
+        <el-table-column prop="price" label="单价" width="90" align="right">
+          <template #default="{ row }">
+            ¥{{ row.price?.toFixed(2) || '0.00' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="amount" label="金额" width="100" align="right">
+          <template #default="{ row }">
+            <span class="amount">¥{{ row.amount?.toFixed(2) || '0.00' }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
 
       <template #footer>
         <el-button @click="approvalVisible = false">取消</el-button>
@@ -174,16 +212,19 @@
     >
       <el-descriptions :column="2" border>
         <el-descriptions-item label="申请单号">
-          {{ currentRow.code }}
+          {{ currentRow.applyNo }}
         </el-descriptions-item>
         <el-descriptions-item label="申请人">
-          {{ currentRow.applicant }}
+          {{ currentRow.applicantName }}
         </el-descriptions-item>
         <el-descriptions-item label="部门">
           {{ currentRow.deptName }}
         </el-descriptions-item>
+        <el-descriptions-item label="仓库">
+          {{ currentRow.warehouseName }}
+        </el-descriptions-item>
         <el-descriptions-item label="申请时间">
-          {{ currentRow.createTime }}
+          {{ currentRow.applyTime }}
         </el-descriptions-item>
         <el-descriptions-item label="物资种类">
           <el-tag>{{ currentRow.itemCount }}种</el-tag>
@@ -192,7 +233,7 @@
           <span class="amount">¥{{ currentRow.totalAmount?.toFixed(2) || '0.00' }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="申请原因" :span="2">
-          {{ currentRow.remark || '-' }}
+          {{ currentRow.applyReason || '-' }}
         </el-descriptions-item>
       </el-descriptions>
 
@@ -204,16 +245,6 @@
         <el-table-column prop="materialName" label="物资名称" min-width="150" />
         <el-table-column prop="spec" label="规格型号" width="120" />
         <el-table-column prop="quantity" label="申请数量" width="90" align="right" />
-        <el-table-column prop="stock" label="当前库存" width="90" align="right">
-          <template #default="{ row }">
-            <el-tag
-              :type="row.stock >= row.quantity ? 'success' : 'danger'"
-              size="small"
-            >
-              {{ row.stock }}
-            </el-tag>
-          </template>
-        </el-table-column>
         <el-table-column prop="price" label="单价(元)" width="100" align="right">
           <template #default="{ row }">
             ¥{{ row.price?.toFixed(2) || '0.00' }}
@@ -240,26 +271,32 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getPendingApplies, getApplyById, approveApply } from '@/api/apply'
+import { listWarehouses } from '@/api/warehouse'
+import { listInventories } from '@/api/inventory'
 
 // 查询表单
 const queryForm = reactive({
-  code: '',
-  applicant: '',
+  keyword: '',
+  warehouseId: null,
   dateRange: null
 })
 
 // 分页参数
 const pagination = reactive({
-  page: 1,
-  size: 20,
+  pageNum: 1,
+  pageSize: 20,
   total: 0
 })
 
 // 表格数据
 const tableData = ref([])
 const loading = ref(false)
+
+// 仓库列表
+const warehouseList = ref([])
 
 // 对话框
 const approvalVisible = ref(false)
@@ -281,118 +318,156 @@ const currentRow = ref({
 
 // 检查是否有库存警告
 const hasStockWarning = computed(() => {
-  return currentRow.value.details.some(item => item.quantity > item.stock)
+  return currentRow.value.details?.some(item => item.quantity > (item.stock || 0)) || false
 })
 
-// 查询数据
-const handleQuery = () => {
-  loading.value = true
+// 加载仓库列表
+const loadWarehouses = async () => {
+  try {
+    const res = await listWarehouses({ status: 0 })
+    warehouseList.value = res.data || []
+  } catch (error) {
+    console.error('加载仓库列表失败:', error)
+  }
+}
 
-  // TODO: 调用API获取数据
-  // 模拟数据
-  setTimeout(() => {
-    tableData.value = [
-      {
-        id: 1,
-        code: 'SQ202511110001',
-        applicant: '王五',
-        deptName: '网络运维部',
-        itemCount: 2,
-        totalAmount: 280.00,
-        createTime: '2025-11-11 10:00:00',
-        remark: '项目施工需要',
-        details: [
-          {
-            materialCode: 'PJ001',
-            materialName: '光纤连接器',
-            spec: 'SC-UPC',
-            quantity: 10,
-            stock: 500,
-            price: 20.00,
-            amount: 200.00
-          },
-          {
-            materialCode: 'PJ002',
-            materialName: '网线',
-            spec: '超五类',
-            quantity: 20,
-            stock: 1000,
-            price: 4.00,
-            amount: 80.00
-          }
-        ]
-      },
-      {
-        id: 2,
-        code: 'SQ202511100002',
-        applicant: '赵六',
-        deptName: '维护部',
-        itemCount: 1,
-        totalAmount: 1500.00,
-        createTime: '2025-11-10 14:30:00',
-        remark: '线路维修急需',
-        details: [
-          {
-            materialCode: 'GX001',
-            materialName: '光缆12芯',
-            spec: '12芯单模',
-            quantity: 1,
-            stock: 95,
-            price: 1500.00,
-            amount: 1500.00
-          }
-        ]
-      }
-    ]
-    pagination.total = 2
+// 查询数据
+const handleQuery = async () => {
+  loading.value = true
+  try {
+    const params = {
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
+      keyword: queryForm.keyword || undefined,
+      warehouseId: queryForm.warehouseId || undefined,
+      startDate: queryForm.dateRange?.[0] || undefined,
+      endDate: queryForm.dateRange?.[1] || undefined
+    }
+
+    const res = await getPendingApplies(params)
+    tableData.value = res.data.list || []
+    pagination.total = res.data.total || 0
+  } catch (error) {
+    console.error('查询失败:', error)
+    ElMessage.error('查询失败')
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
 // 重置查询
 const handleReset = () => {
-  queryForm.code = ''
-  queryForm.applicant = ''
+  queryForm.keyword = ''
+  queryForm.warehouseId = null
   queryForm.dateRange = null
-  pagination.page = 1
+  pagination.pageNum = 1
   handleQuery()
 }
 
 // 查看详情
-const handleView = (row) => {
-  currentRow.value = row
-  detailVisible.value = true
+const handleView = async (row) => {
+  try {
+    // 加载完整的申请详情（包含明细）
+    const res = await getApplyById(row.id)
+    currentRow.value = res.data || {}
+    detailVisible.value = true
+  } catch (error) {
+    console.error('加载申请详情失败:', error)
+    ElMessage.error('加载详情失败')
+  }
 }
 
 // 审批通过
-const handleApprove = (row) => {
-  currentRow.value = row
-  approvalType.value = 'approve'
-  approvalForm.opinion = ''
-  approvalVisible.value = true
+const handleApprove = async (row) => {
+  try {
+    // 加载完整的申请详情（包含明细）
+    const res = await getApplyById(row.id)
+    currentRow.value = res.data || {}
+
+    // 重置审批表单
+    approvalType.value = 'approve'
+    approvalForm.opinion = ''
+
+    approvalVisible.value = true
+  } catch (error) {
+    console.error('加载申请详情失败:', error)
+    ElMessage.error('加载详情失败')
+  }
 }
 
 // 审批拒绝
-const handleReject = (row) => {
-  currentRow.value = row
-  approvalType.value = 'reject'
-  approvalForm.opinion = ''
-  approvalVisible.value = true
+const handleReject = async (row) => {
+  try {
+    // 加载完整的申请详情（包含明细）
+    const res = await getApplyById(row.id)
+    currentRow.value = res.data || {}
+
+    // 重置审批表单
+    approvalType.value = 'reject'
+    approvalForm.opinion = ''
+
+    approvalVisible.value = true
+  } catch (error) {
+    console.error('加载申请详情失败:', error)
+    ElMessage.error('加载详情失败')
+  }
+}
+
+// 库存检查（可选）
+const checkInventory = async (apply) => {
+  try {
+    for (const detail of apply.details || []) {
+      const res = await listInventories({
+        warehouseId: apply.warehouseId,
+        materialId: detail.materialId,
+        pageNum: 1,
+        pageSize: 1
+      })
+      const stock = res.data.list?.[0]?.quantity || 0
+      if (stock < detail.quantity) {
+        return false
+      }
+    }
+    return true
+  } catch (error) {
+    console.error('库存检查失败:', error)
+    return true // 检查失败时不阻止审批
+  }
 }
 
 // 提交审批
 const handleApprovalSubmit = async () => {
   // 拒绝时必须填写原因
-  if (approvalType.value === 'reject' && !approvalForm.opinion) {
+  if (approvalType.value === 'reject' && !approvalForm.opinion.trim()) {
     ElMessage.warning('请输入拒绝原因')
     return
   }
 
-  saveLoading.value = true
+  // 通过时可选库存检查
+  if (approvalType.value === 'approve') {
+    const hasStock = await checkInventory(currentRow.value)
+    if (!hasStock) {
+      try {
+        await ElMessageBox.confirm(
+          '部分物资库存不足，确定要通过审批吗？',
+          '库存警告',
+          { type: 'warning' }
+        )
+      } catch {
+        return // 用户取消
+      }
+    }
+  }
 
+  saveLoading.value = true
   try {
-    // TODO: 调用审批API
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // approvalStatus: 1-通过, 2-拒绝
+    const approvalStatus = approvalType.value === 'approve' ? 1 : 2
+    await approveApply(
+      currentRow.value.id,
+      approvalStatus,
+      approvalStatus === 2 ? approvalForm.opinion : undefined
+    )
 
     const message = approvalType.value === 'approve'
       ? '审批通过成功，已自动创建出库单'
@@ -404,13 +479,17 @@ const handleApprovalSubmit = async () => {
     handleQuery()
   } catch (error) {
     console.error('审批失败:', error)
+    ElMessage.error('审批失败')
   } finally {
     saveLoading.value = false
   }
 }
 
-// 初始化加载数据
-handleQuery()
+// 初始化
+onMounted(() => {
+  loadWarehouses()
+  handleQuery()
+})
 </script>
 
 <style lang="scss" scoped>

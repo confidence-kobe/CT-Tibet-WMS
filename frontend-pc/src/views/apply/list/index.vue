@@ -14,11 +14,27 @@
       <el-form :model="queryForm" :inline="true">
         <el-form-item label="申请单号">
           <el-input
-            v-model="queryForm.code"
+            v-model="queryForm.keyword"
             placeholder="请输入申请单号"
             clearable
             @clear="handleQuery"
           />
+        </el-form-item>
+        <el-form-item label="仓库">
+          <el-select
+            v-model="queryForm.warehouseId"
+            placeholder="请选择仓库"
+            clearable
+            @clear="handleQuery"
+            style="width: 160px"
+          >
+            <el-option
+              v-for="warehouse in warehouseList"
+              :key="warehouse.id"
+              :label="warehouse.name"
+              :value="warehouse.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-select
@@ -71,11 +87,12 @@
         style="width: 100%"
       >
         <el-table-column type="index" label="序号" width="60" align="center" />
-        <el-table-column prop="code" label="申请单号" width="180">
+        <el-table-column prop="applyNo" label="申请单号" width="180">
           <template #default="{ row }">
-            <el-link type="primary" @click="handleView(row)">{{ row.code }}</el-link>
+            <el-link type="primary" @click="handleView(row)">{{ row.applyNo }}</el-link>
           </template>
         </el-table-column>
+        <el-table-column prop="warehouseName" label="仓库" width="120" />
         <el-table-column prop="itemCount" label="物资种类" width="100" align="center">
           <template #default="{ row }">
             <el-tag size="small">{{ row.itemCount }}种</el-tag>
@@ -93,18 +110,18 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="申请时间" width="160" />
-        <el-table-column prop="approveTime" label="审批时间" width="160">
+        <el-table-column prop="applyTime" label="申请时间" width="160" />
+        <el-table-column prop="approvalTime" label="审批时间" width="160">
           <template #default="{ row }">
-            {{ row.approveTime || '-' }}
+            {{ row.approvalTime || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="approver" label="审批人" width="100">
+        <el-table-column prop="approverName" label="审批人" width="100">
           <template #default="{ row }">
-            {{ row.approver || '-' }}
+            {{ row.approverName || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="remark" label="申请原因" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="applyReason" label="申请原因" min-width="150" show-overflow-tooltip />
         <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleView(row)">
@@ -135,8 +152,8 @@
       <!-- 分页 -->
       <div style="margin-top: 16px; text-align: right;">
         <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.size"
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
@@ -154,7 +171,7 @@
     >
       <el-descriptions :column="2" border>
         <el-descriptions-item label="申请单号">
-          {{ currentRow.code }}
+          {{ currentRow.applyNo }}
         </el-descriptions-item>
         <el-descriptions-item label="状态">
           <el-tag :type="getStatusType(currentRow.status)">
@@ -212,29 +229,35 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getMyApplies, cancelApply } from '@/api/apply'
+import { listWarehouses } from '@/api/warehouse'
 
 const router = useRouter()
 
 // 查询表单
 const queryForm = reactive({
-  code: '',
+  keyword: '',
+  warehouseId: null,
   status: null,
   dateRange: null
 })
 
 // 分页参数
 const pagination = reactive({
-  page: 1,
-  size: 20,
+  pageNum: 1,
+  pageSize: 20,
   total: 0
 })
 
 // 表格数据
 const tableData = ref([])
 const loading = ref(false)
+
+// 仓库列表
+const warehouseList = ref([])
 
 // 对话框
 const detailVisible = ref(false)
@@ -256,100 +279,48 @@ const getStatusText = (status) => {
   return texts[status] || '未知'
 }
 
-// 查询数据
-const handleQuery = () => {
-  loading.value = true
+// 加载仓库列表
+const loadWarehouses = async () => {
+  try {
+    const res = await listWarehouses({ status: 0 })
+    warehouseList.value = res.data || []
+  } catch (error) {
+    console.error('加载仓库列表失败:', error)
+  }
+}
 
-  // TODO: 调用API获取数据
-  // 模拟数据
-  setTimeout(() => {
-    tableData.value = [
-      {
-        id: 1,
-        code: 'SQ202511110001',
-        itemCount: 2,
-        totalAmount: 280.00,
-        status: 0, // 0=待审批, 1=已通过, 2=已拒绝, 3=已完成, 4=已取消
-        createTime: '2025-11-11 10:00:00',
-        approveTime: null,
-        approver: null,
-        approvalOpinion: null,
-        remark: '项目施工需要',
-        details: [
-          {
-            materialCode: 'PJ001',
-            materialName: '光纤连接器',
-            spec: 'SC-UPC',
-            quantity: 10,
-            price: 20.00,
-            amount: 200.00
-          },
-          {
-            materialCode: 'PJ002',
-            materialName: '网线',
-            spec: '超五类',
-            quantity: 20,
-            price: 4.00,
-            amount: 80.00
-          }
-        ]
-      },
-      {
-        id: 2,
-        code: 'SQ202511100002',
-        itemCount: 1,
-        totalAmount: 1500.00,
-        status: 1, // 已通过
-        createTime: '2025-11-10 14:30:00',
-        approveTime: '2025-11-10 15:00:00',
-        approver: '张三',
-        approvalOpinion: '同意',
-        remark: '线路维修急需',
-        details: [
-          {
-            materialCode: 'GX001',
-            materialName: '光缆12芯',
-            spec: '12芯单模',
-            quantity: 1,
-            price: 1500.00,
-            amount: 1500.00
-          }
-        ]
-      },
-      {
-        id: 3,
-        code: 'SQ202511090003',
-        itemCount: 1,
-        totalAmount: 7800.00,
-        status: 2, // 已拒绝
-        createTime: '2025-11-09 09:00:00',
-        approveTime: '2025-11-09 10:30:00',
-        approver: '张三',
-        approvalOpinion: '暂无采购预算',
-        remark: '办公室需要',
-        details: [
-          {
-            materialCode: 'JHJ001',
-            materialName: '交换机H3C',
-            spec: 'S5130-28S',
-            quantity: 1,
-            price: 7800.00,
-            amount: 7800.00
-          }
-        ]
-      }
-    ]
-    pagination.total = 3
+// 查询数据
+const handleQuery = async () => {
+  loading.value = true
+  try {
+    const params = {
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
+      keyword: queryForm.keyword || undefined,
+      warehouseId: queryForm.warehouseId || undefined,
+      status: queryForm.status != null ? queryForm.status : undefined,
+      startDate: queryForm.dateRange?.[0] || undefined,
+      endDate: queryForm.dateRange?.[1] || undefined
+    }
+
+    const res = await getMyApplies(params)
+    tableData.value = res.data.list || []
+    pagination.total = res.data.total || 0
+  } catch (error) {
+    console.error('查询失败:', error)
+    ElMessage.error('查询失败')
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
 // 重置查询
 const handleReset = () => {
-  queryForm.code = ''
+  queryForm.keyword = ''
+  queryForm.warehouseId = null
   queryForm.status = null
   queryForm.dateRange = null
-  pagination.page = 1
+  pagination.pageNum = 1
   handleQuery()
 }
 
@@ -360,15 +331,14 @@ const handleCreate = () => {
 
 // 查看详情
 const handleView = (row) => {
-  currentRow.value = row
-  detailVisible.value = true
+  router.push(`/apply/detail/${row.id}`)
 }
 
 // 取消申请
 const handleCancel = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `确定要取消申请"${row.code}"吗？`,
+      `确定要取消申请"${row.applyNo}"吗？`,
       '取消确认',
       {
         confirmButtonText: '确定',
@@ -377,22 +347,30 @@ const handleCancel = async (row) => {
       }
     )
 
-    // TODO: 调用取消API
+    await cancelApply(row.id)
     ElMessage.success('取消成功')
     handleQuery()
   } catch (error) {
-    // 用户取消
+    if (error !== 'cancel') {
+      console.error('取消失败:', error)
+    }
   }
 }
 
 // 去领取
 const handlePickup = (row) => {
-  ElMessage.info('请联系仓管员确认领取物资')
-  // TODO: 可以跳转到具体的领取页面或联系信息页面
+  if (row.outboundNo) {
+    router.push(`/outbound/detail/${row.outboundId || row.outboundNo}`)
+  } else {
+    ElMessage.info('请联系仓管员确认领取物资')
+  }
 }
 
-// 初始化加载数据
-handleQuery()
+// 初始化
+onMounted(() => {
+  loadWarehouses()
+  handleQuery()
+})
 </script>
 
 <style lang="scss" scoped>

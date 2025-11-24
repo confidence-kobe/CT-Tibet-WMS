@@ -44,9 +44,8 @@ public class Apply extends BaseEntity {
     private Long deptId;
 
     /**
-     * 目标仓库ID（非数据库字段）
+     * 目标仓库ID
      */
-    @TableField(exist = false)
     @Schema(description = "目标仓库ID")
     private Long warehouseId;
 

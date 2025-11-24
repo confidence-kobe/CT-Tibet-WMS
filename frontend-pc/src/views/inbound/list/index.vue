@@ -28,9 +28,12 @@
             @clear="handleQuery"
             style="width: 180px"
           >
-            <el-option label="拉萨总仓" :value="1" />
-            <el-option label="日喀则分仓" :value="2" />
-            <el-option label="那曲分仓" :value="3" />
+            <el-option
+              v-for="warehouse in warehouses"
+              :key="warehouse.id"
+              :label="warehouse.warehouseName"
+              :value="warehouse.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="创建日期">
@@ -73,15 +76,14 @@
         style="width: 100%"
       >
         <el-table-column type="index" label="序号" width="60" align="center" />
-        <el-table-column prop="code" label="入库单号" width="180">
+        <el-table-column prop="inboundNo" label="入库单号" width="180">
           <template #default="{ row }">
-            <el-link type="primary" @click="handleView(row)">{{ row.code }}</el-link>
+            <el-link type="primary" @click="handleView(row)">{{ row.inboundNo }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="warehouseName" label="仓库名称" min-width="150" />
-        <el-table-column prop="itemCount" label="物资种类" width="100" align="center">
+        <el-table-column prop="warehouseName" label="仓库名称" min-width="150">
           <template #default="{ row }">
-            <el-tag size="small">{{ row.itemCount }}种</el-tag>
+            {{ row.warehouseName || '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="totalAmount" label="入库金额(元)" width="120" align="right">
@@ -89,8 +91,12 @@
             <span class="amount">¥{{ row.totalAmount?.toFixed(2) || '0.00' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="createUser" label="创建人" width="100" />
-        <el-table-column prop="createTime" label="创建时间" width="160" />
+        <el-table-column prop="operatorName" label="操作人" width="100">
+          <template #default="{ row }">
+            {{ row.operatorName || row.createBy || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="inboundTime" label="入库时间" width="160" />
         <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.remark || '-' }}
@@ -122,69 +128,21 @@
       </div>
     </el-card>
 
-    <!-- 详情对话框 -->
-    <el-dialog
-      v-model="detailVisible"
-      title="入库单详情"
-      width="900px"
-    >
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="入库单号">
-          {{ currentRow.code }}
-        </el-descriptions-item>
-        <el-descriptions-item label="仓库名称">
-          {{ currentRow.warehouseName }}
-        </el-descriptions-item>
-        <el-descriptions-item label="创建人">
-          {{ currentRow.createUser }}
-        </el-descriptions-item>
-        <el-descriptions-item label="创建时间">
-          {{ currentRow.createTime }}
-        </el-descriptions-item>
-        <el-descriptions-item label="物资种类">
-          <el-tag>{{ currentRow.itemCount }}种</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="入库金额">
-          <span class="amount">¥{{ currentRow.totalAmount?.toFixed(2) || '0.00' }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="备注" :span="2">
-          {{ currentRow.remark || '-' }}
-        </el-descriptions-item>
-      </el-descriptions>
-
-      <el-divider content-position="left">入库明细</el-divider>
-
-      <el-table :data="currentRow.details" border stripe style="width: 100%">
-        <el-table-column type="index" label="序号" width="60" align="center" />
-        <el-table-column prop="materialCode" label="物资编码" width="120" />
-        <el-table-column prop="materialName" label="物资名称" min-width="150" />
-        <el-table-column prop="spec" label="规格型号" width="120" />
-        <el-table-column prop="quantity" label="数量" width="80" align="right" />
-        <el-table-column prop="price" label="单价(元)" width="100" align="right">
-          <template #default="{ row }">
-            ¥{{ row.price?.toFixed(2) || '0.00' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="amount" label="金额(元)" width="120" align="right">
-          <template #default="{ row }">
-            <span class="amount">¥{{ row.amount?.toFixed(2) || '0.00' }}</span>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
+    <!-- 注意：列表页不再使用详情对话框，直接跳转到详情页面 -->
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { listInbounds } from '@/api/inbound'
+import { listWarehouses } from '@/api/warehouse'
 
 const router = useRouter()
+
+// 仓库列表
+const warehouses = ref([])
 
 // 查询表单
 const queryForm = reactive({
@@ -204,82 +162,46 @@ const pagination = reactive({
 const tableData = ref([])
 const loading = ref(false)
 
-// 对话框
-const detailVisible = ref(false)
-
-// 当前行数据
-const currentRow = ref({
-  details: []
-})
+// 加载仓库列表
+const loadWarehouses = async () => {
+  try {
+    const res = await listWarehouses({ status: 0 })
+    if (res.code === 200) {
+      warehouses.value = res.data || []
+    }
+  } catch (error) {
+    console.error('加载仓库列表失败:', error)
+  }
+}
 
 // 查询数据
-const handleQuery = () => {
+const handleQuery = async () => {
   loading.value = true
 
-  // TODO: 调用API获取数据
-  // 模拟数据
-  setTimeout(() => {
-    tableData.value = [
-      {
-        id: 1,
-        code: 'RK202511110001',
-        warehouseName: '拉萨总仓',
-        itemCount: 3,
-        totalAmount: 11200.00,
-        createUser: '张三',
-        createTime: '2025-11-11 10:30:00',
-        remark: '月度采购入库',
-        details: [
-          {
-            materialCode: 'GX001',
-            materialName: '光缆12芯',
-            spec: '12芯单模',
-            quantity: 5,
-            price: 1500.00,
-            amount: 7500.00
-          },
-          {
-            materialCode: 'JHJ001',
-            materialName: '交换机H3C',
-            spec: 'S5130-28S',
-            quantity: 1,
-            price: 3700.00,
-            amount: 3700.00
-          }
-        ]
-      },
-      {
-        id: 2,
-        code: 'RK202511100002',
-        warehouseName: '日喀则分仓',
-        itemCount: 2,
-        totalAmount: 8300.00,
-        createUser: '李四',
-        createTime: '2025-11-10 14:20:00',
-        remark: '紧急补货',
-        details: [
-          {
-            materialCode: 'GX002',
-            materialName: '光缆24芯',
-            spec: '24芯多模',
-            quantity: 3,
-            price: 2100.00,
-            amount: 6300.00
-          },
-          {
-            materialCode: 'PJ001',
-            materialName: '光纤连接器',
-            spec: 'SC-UPC',
-            quantity: 100,
-            price: 20.00,
-            amount: 2000.00
-          }
-        ]
-      }
-    ]
-    pagination.total = 2
+  try {
+    const params = {
+      pageNum: pagination.page,
+      pageSize: pagination.size,
+      warehouseId: queryForm.warehouseId,
+      keyword: queryForm.code || undefined,
+      startDate: queryForm.dateRange ? queryForm.dateRange[0] : undefined,
+      endDate: queryForm.dateRange ? queryForm.dateRange[1] : undefined
+    }
+
+    const res = await listInbounds(params)
+
+    if (res.code === 200) {
+      tableData.value = res.data.list || []
+      pagination.total = res.data.total || 0
+    } else {
+      ElMessage.error(res.msg || '查询失败')
+    }
+  } catch (error) {
+    console.error('查询入库单列表失败:', error)
+    ElMessage.error('查询失败，请稍后重试')
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
 // 重置查询
@@ -303,8 +225,8 @@ const handleCreate = () => {
 
 // 查看详情
 const handleView = (row) => {
-  currentRow.value = row
-  detailVisible.value = true
+  // 跳转到详情页
+  router.push(`/inbound/detail/${row.id}`)
 }
 
 // 删除
@@ -320,16 +242,24 @@ const handleDelete = async (row) => {
       }
     )
 
-    // TODO: 调用删除API
-    ElMessage.success('删除成功')
-    handleQuery()
+    // TODO: 后端暂未提供删除接口，需要后续添加
+    ElMessage.warning('删除功能暂未开放')
+    // 待后端添加接口后实现:
+    // const res = await deleteInbound(row.id)
+    // if (res.code === 200) {
+    //   ElMessage.success('删除成功')
+    //   handleQuery()
+    // }
   } catch (error) {
     // 用户取消
   }
 }
 
-// 初始化加载数据
-handleQuery()
+// 初始化
+onMounted(() => {
+  loadWarehouses()
+  handleQuery()
+})
 </script>
 
 <style lang="scss" scoped>

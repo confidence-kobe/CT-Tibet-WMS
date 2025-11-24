@@ -2,11 +2,13 @@ package com.ct.wms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ct.wms.common.enums.MessageType;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.entity.Message;
 import com.ct.wms.mapper.MessageMapper;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.MessageService;
+import com.ct.wms.vo.MessageVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -28,6 +30,59 @@ import java.util.List;
 public class MessageServiceImpl implements MessageService {
 
     private final MessageMapper messageMapper;
+
+    @Override
+    public MessageVO listMyMessagesWithStats(Integer pageNum, Integer pageSize, Integer type, Integer isRead) {
+        Long userId = getCurrentUserId();
+
+        // 查询消息列表
+        Page<Message> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Message::getReceiverId, userId);
+
+        if (type != null) {
+            // 根据type值找到对应的MessageType枚举
+            for (MessageType mt : MessageType.values()) {
+                if (mt.getCode().equals(type)) {
+                    wrapper.eq(Message::getType, mt);
+                    break;
+                }
+            }
+        }
+
+        if (isRead != null) {
+            wrapper.eq(Message::getIsRead, isRead);
+        }
+
+        wrapper.orderByDesc(Message::getCreateTime);
+        Page<Message> messagePage = messageMapper.selectPage(page, wrapper);
+
+        // 查询统计信息
+        LambdaQueryWrapper<Message> totalWrapper = new LambdaQueryWrapper<>();
+        totalWrapper.eq(Message::getReceiverId, userId);
+        Long total = messageMapper.selectCount(totalWrapper);
+
+        LambdaQueryWrapper<Message> unreadWrapper = new LambdaQueryWrapper<>();
+        unreadWrapper.eq(Message::getReceiverId, userId);
+        unreadWrapper.eq(Message::getIsRead, 0);
+        Long unread = messageMapper.selectCount(unreadWrapper);
+
+        Long read = total - unread;
+
+        // 构建统计信息
+        MessageVO.MessageStats stats = MessageVO.MessageStats.builder()
+                .total(total)
+                .unread(unread)
+                .read(read)
+                .build();
+
+        // 构建返回结果
+        return MessageVO.builder()
+                .list(messagePage.getRecords())
+                .total(messagePage.getTotal())
+                .stats(stats)
+                .build();
+    }
 
     @Override
     public Page<Message> listMyMessages(Integer pageNum, Integer pageSize, Integer isRead) {

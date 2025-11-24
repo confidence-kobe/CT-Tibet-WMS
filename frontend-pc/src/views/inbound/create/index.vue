@@ -19,20 +19,52 @@
       >
         <!-- 基本信息 -->
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="选择仓库" prop="warehouseId">
               <el-select
                 v-model="form.warehouseId"
                 placeholder="请选择仓库"
                 style="width: 100%"
+                filterable
               >
-                <el-option label="拉萨总仓" :value="1" />
-                <el-option label="日喀则分仓" :value="2" />
-                <el-option label="那曲分仓" :value="3" />
+                <el-option
+                  v-for="warehouse in warehouses"
+                  :key="warehouse.id"
+                  :label="warehouse.warehouseName"
+                  :value="warehouse.id"
+                />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
+            <el-form-item label="入库类型" prop="inboundType">
+              <el-select
+                v-model="form.inboundType"
+                placeholder="请选择入库类型"
+                style="width: 100%"
+              >
+                <el-option label="采购入库" :value="1" />
+                <el-option label="退货入库" :value="2" />
+                <el-option label="调拨入库" :value="3" />
+                <el-option label="其他入库" :value="4" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="入库时间" prop="inboundTime">
+              <el-date-picker
+                v-model="form.inboundTime"
+                type="datetime"
+                placeholder="选择入库时间"
+                format="YYYY-MM-DD HH:mm:ss"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="24">
             <el-form-item label="备注">
               <el-input
                 v-model="form.remark"
@@ -60,18 +92,19 @@
               stripe
               style="width: 100%"
             >
-              <el-table-column label="物资" width="200">
+              <el-table-column label="物资" width="250">
                 <template #default="{ row, $index }">
                   <el-select
                     v-model="row.materialId"
                     placeholder="请选择物资"
                     @change="handleMaterialChange($index)"
                     style="width: 100%"
+                    filterable
                   >
                     <el-option
                       v-for="material in materials"
                       :key="material.id"
-                      :label="material.name"
+                      :label="`${material.code} - ${material.name}`"
                       :value="material.id"
                     />
                   </el-select>
@@ -163,24 +196,26 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { createInbound } from '@/api/inbound'
+import { listWarehouses } from '@/api/warehouse'
+import { listMaterials } from '@/api/material'
 
 const router = useRouter()
 
+// 仓库列表
+const warehouses = ref([])
+
 // 物资列表
-const materials = ref([
-  { id: 1, code: 'GX001', name: '光缆12芯', spec: '12芯单模', unit: '条', price: 1500.00 },
-  { id: 2, code: 'GX002', name: '光缆24芯', spec: '24芯多模', unit: '条', price: 2100.00 },
-  { id: 3, code: 'JHJ001', name: '交换机H3C', spec: 'S5130-28S', unit: '台', price: 7800.00 },
-  { id: 4, code: 'PJ001', name: '光纤连接器', spec: 'SC-UPC', unit: '个', price: 20.00 },
-  { id: 5, code: 'PJ002', name: '网线', spec: '超五类', unit: '米', price: 3.50 }
-])
+const materials = ref([])
 
 // 表单数据
 const form = reactive({
   warehouseId: null,
+  inboundType: 1, // 默认采购入库
+  inboundTime: null,
   remark: '',
   details: []
 })
@@ -189,10 +224,44 @@ const form = reactive({
 const formRef = ref(null)
 const saveLoading = ref(false)
 
+// 加载仓库列表
+const loadWarehouses = async () => {
+  try {
+    const res = await listWarehouses({ status: 0 })
+    if (res.code === 200) {
+      warehouses.value = res.data || []
+    }
+  } catch (error) {
+    console.error('加载仓库列表失败:', error)
+  }
+}
+
+// 加载物资列表
+const loadMaterials = async () => {
+  try {
+    const res = await listMaterials({
+      pageNum: 1,
+      pageSize: 1000,
+      status: 0
+    })
+    if (res.code === 200) {
+      materials.value = res.data.list || []
+    }
+  } catch (error) {
+    console.error('加载物资列表失败:', error)
+  }
+}
+
 // 表单验证规则
 const formRules = {
   warehouseId: [
     { required: true, message: '请选择仓库', trigger: 'change' }
+  ],
+  inboundType: [
+    { required: true, message: '请选择入库类型', trigger: 'change' }
+  ],
+  inboundTime: [
+    { required: true, message: '请选择入库时间', trigger: 'change' }
   ]
 }
 
@@ -228,9 +297,10 @@ const handleMaterialChange = (index) => {
   if (material) {
     detail.materialCode = material.code
     detail.materialName = material.name
-    detail.spec = material.spec
+    detail.spec = material.model || ''
     detail.unit = material.unit
-    detail.price = material.price
+    // 注意：后端物资表可能没有price字段，需要手动输入
+    detail.price = material.price || 0
     calculateAmount(index)
   }
 }
@@ -295,14 +365,31 @@ const handleSubmit = async () => {
 
     saveLoading.value = true
 
-    // TODO: 调用API提交数据
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 构建提交数据（符合后端InboundDTO结构）
+    const submitData = {
+      warehouseId: form.warehouseId,
+      inboundType: form.inboundType,
+      inboundTime: form.inboundTime,
+      remark: form.remark || undefined,
+      details: form.details.map(detail => ({
+        materialId: detail.materialId,
+        quantity: detail.quantity,
+        unitPrice: detail.price // 后端字段名是 unitPrice
+      }))
+    }
 
-    ElMessage.success('入库单提交成功')
-    router.push('/inbound/list')
+    const res = await createInbound(submitData)
+
+    if (res.code === 200) {
+      ElMessage.success('入库单创建成功')
+      router.push('/inbound/list')
+    } else {
+      ElMessage.error(res.msg || '创建失败')
+    }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('提交失败:', error)
+      ElMessage.error('提交失败，请稍后重试')
     }
   } finally {
     saveLoading.value = false
@@ -329,6 +416,27 @@ const handleCancel = () => {
     router.push('/inbound/list')
   }
 }
+
+// 格式化当前时间
+const formatDateTime = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  const seconds = String(now.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
+
+// 初始化
+onMounted(() => {
+  // 设置默认入库时间为当前时间
+  form.inboundTime = formatDateTime()
+
+  loadWarehouses()
+  loadMaterials()
+})
 </script>
 
 <style lang="scss" scoped>
