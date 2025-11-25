@@ -57,7 +57,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 
 export default {
   data() {
@@ -138,16 +138,15 @@ export default {
     // 调用后端登录接口
     async loginToBackend(code, encryptedData, iv) {
       try {
-        const res = await $uRequest({
-          url: '/api/auth/wechat-login',
-          method: 'POST',
-          data: {
-            code: code,
-            encryptedData: encryptedData,
-            iv: iv
-          }
+        uni.showLoading({ title: '登录中...' })
+
+        const res = await api.auth.wechatLogin({
+          code: code,
+          encryptedData: encryptedData,
+          iv: iv
         })
 
+        uni.hideLoading()
         console.log('登录成功', res)
 
         if (res.code === 200) {
@@ -170,20 +169,12 @@ export default {
               url: '/pages/index/index'
             })
           }, 1500)
-        } else {
-          this.loading = false
-          uni.showToast({
-            title: res.message || '登录失败',
-            icon: 'none'
-          })
         }
       } catch (err) {
         this.loading = false
+        uni.hideLoading()
         console.error('登录失败', err)
-        uni.showToast({
-          title: '登录失败，请重试',
-          icon: 'none'
-        })
+        // 错误已由request.js自动处理，这里只需记录日志
       }
     }
   },

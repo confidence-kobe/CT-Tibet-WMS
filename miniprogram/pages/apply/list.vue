@@ -92,7 +92,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 
 export default {
   data() {
@@ -139,15 +139,10 @@ export default {
       try {
         const status = this.tabs[this.activeTab].status
 
-        const res = await $uRequest({
-          url: '/api/applies',
-          method: 'GET',
-          data: {
-            pageNum: this.pageNum,
-            pageSize: this.pageSize,
-            status: status,
-            applicantId: this.$store.state.userInfo ? this.$store.state.userInfo.id : null
-          }
+        const res = await api.apply.getMyApplies({
+          pageNum: this.pageNum,
+          pageSize: this.pageSize,
+          status: status
         })
 
         if (res.code === 200) {
@@ -223,13 +218,11 @@ export default {
         success: async (res) => {
           if (res.confirm) {
             try {
-              const result = await $uRequest({
-                url: `/api/applies/${item.id}/cancel`,
-                method: 'PUT',
-                data: {
-                  cancelReason: '用户主动撤销'
-                }
-              })
+              uni.showLoading({ title: '处理中...' })
+
+              const result = await api.apply.cancelApply(item.id)
+
+              uni.hideLoading()
 
               if (result.code === 200) {
                 uni.showToast({
@@ -239,6 +232,7 @@ export default {
                 this.onRefresh()
               }
             } catch (err) {
+              uni.hideLoading()
               console.error('撤销申请失败', err)
             }
           }
@@ -264,13 +258,10 @@ export default {
     // 加载统计
     async loadStats() {
       try {
-        const res = await $uRequest({
-          url: '/api/stats/dashboard',
-          method: 'GET'
-        })
+        const res = await api.apply.getApplyStats()
 
-        if (res.code === 200 && res.data.myApplies) {
-          const { pendingCount, approvedCount, rejectedCount } = res.data.myApplies
+        if (res.code === 200) {
+          const { pendingCount, approvedCount, rejectedCount } = res.data
           this.tabs[0].count = pendingCount || 0
           this.tabs[1].count = approvedCount || 0
           this.tabs[2].count = rejectedCount || 0

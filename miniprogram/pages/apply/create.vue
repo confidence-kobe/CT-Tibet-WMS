@@ -183,7 +183,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 
 export default {
   data() {
@@ -222,12 +222,9 @@ export default {
     // 加载物资列表
     async loadMaterials() {
       try {
-        const res = await $uRequest({
-          url: '/api/materials',
-          method: 'GET',
-          data: {
-            status: 0 // 只获取启用的物资
-          }
+        const res = await api.common.getMaterials({
+          status: 0, // 只获取启用的物资
+          pageSize: 1000 // 获取所有物资
         })
 
         if (res.code === 200) {
@@ -245,6 +242,10 @@ export default {
         }
       } catch (err) {
         console.error('加载物资列表失败', err)
+        uni.showToast({
+          title: '加载物资列表失败',
+          icon: 'none'
+        })
       }
     },
 
@@ -308,10 +309,7 @@ export default {
 
       // 获取库存信息
       try {
-        const res = await $uRequest({
-          url: `/api/materials/${material.id}`,
-          method: 'GET'
-        })
+        const res = await api.common.getMaterialById(material.id)
 
         if (res.code === 200) {
           this.selectedMaterial = {
@@ -326,6 +324,10 @@ export default {
         }
       } catch (err) {
         console.error('获取物资信息失败', err)
+        uni.showToast({
+          title: '获取物资信息失败',
+          icon: 'none'
+        })
       }
     },
 
@@ -461,21 +463,20 @@ export default {
       }
 
       this.submitting = true
+      uni.showLoading({ title: '提交中...' })
 
       try {
-        const res = await $uRequest({
-          url: '/api/applies',
-          method: 'POST',
-          data: {
-            purpose: this.form.purpose.trim(),
-            details: this.form.details.map(item => ({
-              materialId: item.materialId,
-              quantity: item.quantity
-            }))
-          }
+        const res = await api.apply.createApply({
+          purpose: this.form.purpose.trim(),
+          details: this.form.details.map(item => ({
+            materialId: item.materialId,
+            quantity: item.quantity
+          }))
         })
 
-        if (res.code === 201) {
+        uni.hideLoading()
+
+        if (res.code === 200 || res.code === 201) {
           uni.showToast({
             title: '申请提交成功',
             icon: 'success',
@@ -487,7 +488,12 @@ export default {
           }, 2000)
         }
       } catch (err) {
+        uni.hideLoading()
         console.error('提交申请失败', err)
+        uni.showToast({
+          title: err.message || '提交失败,请重试',
+          icon: 'none'
+        })
       } finally {
         this.submitting = false
       }

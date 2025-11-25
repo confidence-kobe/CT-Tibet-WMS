@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>占位图生成器 - CT-Tibet-WMS</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      background: #f9fafb;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: #1f2937;
+      margin-bottom: 40px;
+      font-size: 32px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .card h2 {
+      color: #7c3aed;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+
+    .preview-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+
+    .preview-label {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 10px;
+    }
+
+    canvas {
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      max-width: 100%;
+      height: auto;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background: #7c3aed;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn:hover {
+      background: #6d28d9;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .info {
+      background: #ede9fe;
+      border-left: 4px solid #7c3aed;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+
+    .info p {
+      color: #4b5563;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+
+    .info p:last-child {
+      margin-bottom: 0;
+    }
+
+    .specs {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    .footer {
+      text-align: center;
+      color: #6b7280;
+      font-size: 14px;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 占位图生成器</h1>
+
+    <div class="info">
+      <p><strong>使用说明：</strong></p>
+      <p>1. 点击下方"下载"按钮即可保存对应的占位图</p>
+      <p>2. 将下载的图片放入 <code>miniprogram/static/images/</code> 目录</p>
+      <p>3. 这些是临时占位图，建议后续替换为正式设计图</p>
+    </div>
+
+    <div class="grid">
+      <!-- 默认头像 -->
+      <div class="card">
+        <h2>默认头像</h2>
+        <div class="preview-container">
+          <div class="preview-label">avatar-default.png</div>
+          <canvas id="avatar-canvas" width="200" height="200"></canvas>
+          <div class="specs">200×200px | PNG</div>
+        </div>
+        <button class="btn" onclick="downloadCanvas('avatar-canvas', 'avatar-default.png')">
+          下载头像
+        </button>
+      </div>
+
+      <!-- Logo -->
+      <div class="card">
+        <h2>应用Logo</h2>
+        <div class="preview-container">
+          <div class="preview-label">logo.png</div>
+          <canvas id="logo-canvas" width="256" height="256"></canvas>
+          <div class="specs">256×256px | PNG</div>
+        </div>
+        <button class="btn" onclick="downloadCanvas('logo-canvas', 'logo.png')">
+          下载Logo
+        </button>
+      </div>
+
+      <!-- 空状态 - 无数据 -->
+      <div class="card">
+        <h2>空状态 - 无数据</h2>
+        <div class="preview-container">
+          <div class="preview-label">empty-data.png</div>
+          <canvas id="empty-data-canvas" width="300" height="200"></canvas>
+          <div class="specs">300×200px | PNG</div>
+        </div>
+        <button class="btn" onclick="downloadCanvas('empty-data-canvas', 'empty-data.png')">
+          下载图片
+        </button>
+      </div>
+
+      <!-- 空状态 - 搜索无结果 -->
+      <div class="card">
+        <h2>空状态 - 搜索无结果</h2>
+        <div class="preview-container">
+          <div class="preview-label">empty-search.png</div>
+          <canvas id="empty-search-canvas" width="300" height="200"></canvas>
+          <div class="specs">300×200px | PNG</div>
+        </div>
+        <button class="btn" onclick="downloadCanvas('empty-search-canvas', 'empty-search.png')">
+          下载图片
+        </button>
+      </div>
+
+      <!-- 空状态 - 无消息 -->
+      <div class="card">
+        <h2>空状态 - 无消息</h2>
+        <div class="preview-container">
+          <div class="preview-label">empty-message.png</div>
+          <canvas id="empty-message-canvas" width="300" height="200"></canvas>
+          <div class="specs">300×200px | PNG</div>
+        </div>
+        <button class="btn" onclick="downloadCanvas('empty-message-canvas', 'empty-message.png')">
+          下载图片
+        </button>
+      </div>
+
+      <!-- 空状态 - 无申请 -->
+      <div class="card">
+        <h2>空状态 - 无申请</h2>
+        <div class="preview-container">
+          <div class="preview-label">empty-apply.png</div>
+          <canvas id="empty-apply-canvas" width="300" height="200"></canvas>
+          <div class="specs">300×200px | PNG</div>
+        </div>
+        <button class="btn" onclick="downloadCanvas('empty-apply-canvas', 'empty-apply.png')">
+          下载图片
+        </button>
+      </div>
+
+      <!-- 空状态 - 无库存 -->
+      <div class="card">
+        <h2>空状态 - 无库存</h2>
+        <div class="preview-container">
+          <div class="preview-label">empty-inventory.png</div>
+          <canvas id="empty-inventory-canvas" width="300" height="200"></canvas>
+          <div class="specs">300×200px | PNG</div>
+        </div>
+        <button class="btn" onclick="downloadCanvas('empty-inventory-canvas', 'empty-inventory.png')">
+          下载图片
+        </button>
+      </div>
+
+      <!-- 空状态 - 网络错误 -->
+      <div class="card">
+        <h2>空状态 - 网络错误</h2>
+        <div class="preview-container">
+          <div class="preview-label">empty-network.png</div>
+          <canvas id="empty-network-canvas" width="300" height="200"></canvas>
+          <div class="specs">300×200px | PNG</div>
+        </div>
+        <button class="btn" onclick="downloadCanvas('empty-network-canvas', 'empty-network.png')">
+          下载图片
+        </button>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>CT-Tibet-WMS 占位图生成器 | 2025-11-25</p>
+      <p style="margin-top: 10px; font-size: 12px;">
+        这些是临时占位图，建议使用 Undraw、Storyset 等网站获取更专业的插画
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // 品牌颜色
+    const colors = {
+      primary: '#7C3AED',
+      primaryLight: '#A78BFA',
+      primaryDark: '#6D28D9',
+      gray: '#9CA3AF',
+      lightGray: '#E5E7EB',
+      white: '#FFFFFF'
+    };
+
+    // 绘制头像
+    function drawAvatar() {
+      const canvas = document.getElementById('avatar-canvas');
+      const ctx = canvas.getContext('2d');
+
+      // 背景渐变
+      const gradient = ctx.createLinearGradient(0, 0, 200, 200);
+      gradient.addColorStop(0, colors.primary);
+      gradient.addColorStop(1, colors.primaryLight);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 200, 200);
+
+      // 绘制用户图标
+      ctx.fillStyle = colors.white;
+
+      // 头部（圆形）
+      ctx.beginPath();
+      ctx.arc(100, 70, 30, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 身体（半圆）
+      ctx.beginPath();
+      ctx.arc(100, 140, 50, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 裁剪下半部分
+      ctx.fillStyle = colors.primary;
+      ctx.fillRect(0, 140, 200, 60);
+    }
+
+    // 绘制Logo
+    function drawLogo() {
+      const canvas = document.getElementById('logo-canvas');
+      const ctx = canvas.getContext('2d');
+
+      // 圆角矩形背景
+      const gradient = ctx.createLinearGradient(0, 0, 256, 256);
+      gradient.addColorStop(0, colors.primary);
+      gradient.addColorStop(1, colors.primaryLight);
+      ctx.fillStyle = gradient;
+      roundRect(ctx, 20, 20, 216, 216, 50);
+      ctx.fill();
+
+      // 文字
+      ctx.fillStyle = colors.white;
+      ctx.font = 'bold 80px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('WMS', 128, 128);
+    }
+
+    // 绘制空状态
+    function drawEmptyState(canvasId, emoji, text) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+
+      // 背景
+      ctx.fillStyle = '#F9FAFB';
+      ctx.fillRect(0, 0, 300, 200);
+
+      // 圆形背景
+      ctx.fillStyle = colors.lightGray;
+      ctx.beginPath();
+      ctx.arc(150, 80, 40, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Emoji
+      ctx.font = '50px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, 150, 80);
+
+      // 文字
+      ctx.fillStyle = colors.gray;
+      ctx.font = '16px Arial';
+      ctx.fillText(text, 150, 150);
+    }
+
+    // 圆角矩形
+    function roundRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    }
+
+    // 下载Canvas
+    function downloadCanvas(canvasId, filename) {
+      const canvas = document.getElementById(canvasId);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // 初始化所有图片
+    function init() {
+      drawAvatar();
+      drawLogo();
+      drawEmptyState('empty-data-canvas', '📦', '暂无数据');
+      drawEmptyState('empty-search-canvas', '🔍', '搜索无结果');
+      drawEmptyState('empty-message-canvas', '📮', '暂无消息');
+      drawEmptyState('empty-apply-canvas', '📝', '暂无申请记录');
+      drawEmptyState('empty-inventory-canvas', '📊', '暂无库存数据');
+      drawEmptyState('empty-network-canvas', '🌐', '网络连接失败');
+    }
+
+    // 页面加载时初始化
+    window.onload = init;
+  </script>
+</body>
+</html>

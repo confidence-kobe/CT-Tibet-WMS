@@ -126,7 +126,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 
 export default {
   data() {
@@ -158,12 +158,12 @@ export default {
       if (this.loading) return
 
       this.loading = true
+      uni.showLoading({ title: '加载中...' })
 
       try {
-        const res = await $uRequest({
-          url: `/api/applies/${this.id}`,
-          method: 'GET'
-        })
+        const res = await api.apply.getApplyDetail(this.id)
+
+        uni.hideLoading()
 
         if (res.code === 200) {
           this.detail = res.data
@@ -174,9 +174,10 @@ export default {
           })
         }
       } catch (err) {
+        uni.hideLoading()
         console.error('加载详情失败', err)
         uni.showToast({
-          title: '加载失败',
+          title: err.message || '加载失败',
           icon: 'none'
         })
       } finally {
@@ -203,13 +204,11 @@ export default {
         success: async (res) => {
           if (res.confirm) {
             try {
-              const result = await $uRequest({
-                url: `/api/applies/${this.id}/cancel`,
-                method: 'PUT',
-                data: {
-                  cancelReason: '用户主动撤销'
-                }
-              })
+              uni.showLoading({ title: '处理中...' })
+
+              const result = await api.apply.cancelApply(this.id)
+
+              uni.hideLoading()
 
               if (result.code === 200) {
                 uni.showToast({
@@ -223,7 +222,12 @@ export default {
                 }, 2000)
               }
             } catch (err) {
+              uni.hideLoading()
               console.error('撤销失败', err)
+              uni.showToast({
+                title: err.message || '撤销失败',
+                icon: 'none'
+              })
             }
           }
         }

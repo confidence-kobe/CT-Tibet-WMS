@@ -121,7 +121,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 
 export default {
   data() {
@@ -158,14 +158,9 @@ export default {
       this.loading = true
 
       try {
-        const res = await $uRequest({
-          url: '/api/applies',
-          method: 'GET',
-          data: {
-            pageNum: this.pageNum,
-            pageSize: this.pageSize,
-            status: 0 // 待审批
-          }
+        const res = await api.approval.getPendingApproval({
+          pageNum: this.pageNum,
+          pageSize: this.pageSize
         })
 
         if (res.code === 200) {
@@ -216,10 +211,11 @@ export default {
     async approveApply(item) {
       // 获取详情（包含库存检查）
       try {
-        const res = await $uRequest({
-          url: `/api/applies/${item.id}`,
-          method: 'GET'
-        })
+        uni.showLoading({ title: '加载中...' })
+
+        const res = await api.apply.getApplyDetail(item.id)
+
+        uni.hideLoading()
 
         if (res.code === 200) {
           this.currentApply = res.data
@@ -228,6 +224,7 @@ export default {
           this.showApprovalModal = true
         }
       } catch (err) {
+        uni.hideLoading()
         console.error('获取详情失败', err)
       }
     },
@@ -257,15 +254,14 @@ export default {
       this.submitting = true
 
       try {
-        const res = await $uRequest({
-          url: `/api/applies/${this.currentApply.id}/approve`,
-          method: 'PUT',
-          data: {
-            result: this.approvalType === 'approve' ? 1 : 2,
-            opinion: this.approvalForm.opinion.trim(),
-            rejectReason: this.approvalType === 'reject' ? this.approvalForm.opinion.trim() : ''
-          }
+        uni.showLoading({ title: '处理中...' })
+
+        const res = await api.approval.approveApply(this.currentApply.id, {
+          approvalStatus: this.approvalType === 'approve' ? 1 : 2,
+          rejectReason: this.approvalType === 'reject' ? this.approvalForm.opinion.trim() : ''
         })
+
+        uni.hideLoading()
 
         if (res.code === 200) {
           uni.showToast({
@@ -282,6 +278,7 @@ export default {
           }, 1500)
         }
       } catch (err) {
+        uni.hideLoading()
         console.error('审批失败', err)
       } finally {
         this.submitting = false

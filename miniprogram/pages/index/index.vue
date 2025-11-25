@@ -195,7 +195,7 @@
 
 <script>
 import { mapState, mapGetters } from 'vuex'
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 
 export default {
   data() {
@@ -235,30 +235,52 @@ export default {
     // 加载数据
     async loadData() {
       try {
-        const res = await $uRequest({
-          url: '/api/stats/dashboard',
-          method: 'GET'
-        })
+        const res = await api.common.getStatistics()
 
         if (res.code === 200) {
           if (this.isEmployee) {
             // 员工数据
-            this.myApplies = res.data.myApplies || {}
-            this.messages = res.data.messages || []
+            this.myApplies = res.data.myApplies || {
+              pendingCount: 0,
+              approvedCount: 0,
+              pickupCount: 0
+            }
+            this.messages = (res.data.messages || []).slice(0, 3) // 只显示最新3条
           } else if (this.isWarehouse) {
             // 仓管数据
-            this.todayData = res.data.todayData || {}
-            this.recentOperations = res.data.recentOperations || []
+            this.todayData = res.data.todayData || {
+              inboundCount: 0,
+              outboundCount: 0,
+              pendingApprovalCount: 0,
+              materialCount: 0
+            }
+            this.recentOperations = (res.data.recentOperations || []).slice(0, 5)
 
             // 更新待办事项
-            this.$store.commit('SET_PENDING_TASKS', res.data.pendingTasks || {})
+            this.$store.commit('SET_PENDING_TASKS', res.data.pendingTasks || {
+              pendingApproval: 0,
+              pendingPickup: 0,
+              lowStockAlert: 0
+            })
           }
         }
 
         // 更新未读消息数
-        this.$store.dispatch('getUnreadCount')
+        await this.loadUnreadCount()
       } catch (err) {
         console.error('加载数据失败', err)
+      }
+    },
+
+    // 加载未读消息数
+    async loadUnreadCount() {
+      try {
+        const res = await api.message.getUnreadCount()
+        if (res.code === 200) {
+          this.$store.commit('SET_UNREAD_COUNT', res.data.count || 0)
+        }
+      } catch (err) {
+        console.error('获取未读消息数失败', err)
       }
     },
 

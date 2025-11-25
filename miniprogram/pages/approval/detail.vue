@@ -159,7 +159,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 import { mapState } from 'vuex'
 
 export default {
@@ -207,12 +207,12 @@ export default {
       if (this.loading) return
 
       this.loading = true
+      uni.showLoading({ title: '加载中...' })
 
       try {
-        const res = await $uRequest({
-          url: `/api/applies/${this.id}`,
-          method: 'GET'
-        })
+        const res = await api.apply.getApplyDetail(this.id)
+
+        uni.hideLoading()
 
         if (res.code === 200) {
           this.detail = res.data
@@ -223,9 +223,10 @@ export default {
           })
         }
       } catch (err) {
+        uni.hideLoading()
         console.error('加载详情失败', err)
         uni.showToast({
-          title: '加载失败',
+          title: err.message || '加载失败',
           icon: 'none'
         })
       } finally {
@@ -264,17 +265,11 @@ export default {
 
     async handleApprove() {
       try {
-        uni.showLoading({
-          title: '处理中...'
-        })
+        uni.showLoading({ title: '处理中...' })
 
-        const result = await $uRequest({
-          url: `/api/applies/${this.id}/approve`,
-          method: 'PUT',
-          data: {
-            approved: true,
-            opinion: this.approvalForm.opinion
-          }
+        const result = await api.approval.approveApply(this.id, {
+          approvalStatus: 1,
+          approvalOpinion: this.approvalForm.opinion
         })
 
         uni.hideLoading()
@@ -295,6 +290,10 @@ export default {
       } catch (err) {
         uni.hideLoading()
         console.error('审批失败', err)
+        uni.showToast({
+          title: err.message || '审批失败',
+          icon: 'none'
+        })
       }
     },
 
@@ -308,17 +307,11 @@ export default {
       }
 
       try {
-        uni.showLoading({
-          title: '处理中...'
-        })
+        uni.showLoading({ title: '处理中...' })
 
-        const result = await $uRequest({
-          url: `/api/applies/${this.id}/approve`,
-          method: 'PUT',
-          data: {
-            approved: false,
-            rejectReason: this.rejectForm.reason
-          }
+        const result = await api.approval.approveApply(this.id, {
+          approvalStatus: 2,
+          rejectReason: this.rejectForm.reason
         })
 
         uni.hideLoading()
@@ -339,6 +332,10 @@ export default {
       } catch (err) {
         uni.hideLoading()
         console.error('拒绝失败', err)
+        uni.showToast({
+          title: err.message || '拒绝失败',
+          icon: 'none'
+        })
       }
     }
   },
