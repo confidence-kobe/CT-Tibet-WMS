@@ -128,7 +128,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 
 export default {
   data() {
@@ -162,16 +162,12 @@ export default {
       this.loading = true
 
       try {
-        const res = await $uRequest({
-          url: '/api/inventory',
-          method: 'GET',
-          data: {
-            pageNum: this.pageNum,
-            pageSize: this.pageSize,
-            category: this.selectedCategory === '全部' ? '' : this.selectedCategory,
-            status: this.statusOptions[this.selectedStatusIndex].value,
-            keyword: this.keyword
-          }
+        const res = await api.inventory.getList({
+          pageNum: this.pageNum,
+          pageSize: this.pageSize,
+          category: this.selectedCategory === '全部' ? '' : this.selectedCategory,
+          status: this.statusOptions[this.selectedStatusIndex].value,
+          keyword: this.keyword
         })
 
         if (res.code === 200) {
@@ -198,10 +194,7 @@ export default {
 
     async loadCategories() {
       try {
-        const res = await $uRequest({
-          url: '/api/materials/categories',
-          method: 'GET'
-        })
+        const res = await api.common.getCategories()
 
         if (res.code === 200) {
           this.categories = ['全部'].concat(res.data || [])

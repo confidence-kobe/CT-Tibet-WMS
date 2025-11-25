@@ -196,7 +196,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 import { mapState } from 'vuex'
 
 export default {
@@ -252,11 +252,7 @@ export default {
   methods: {
     async loadWarehouses() {
       try {
-        const res = await $uRequest({
-          url: '/api/warehouses',
-          method: 'GET',
-          data: { status: 0 }
-        })
+        const res = await api.common.getWarehouses({ status: 0 })
 
         if (res.code === 200) {
           this.warehouses = res.data || []
@@ -303,13 +299,9 @@ export default {
       }
 
       try {
-        const res = await $uRequest({
-          url: '/api/inventory',
-          method: 'GET',
-          data: {
-            warehouseId: this.form.warehouseId,
-            pageSize: 1000
-          }
+        const res = await api.inventory.getList({
+          warehouseId: this.form.warehouseId,
+          pageSize: 1000
         })
 
         if (res.code === 200) {
@@ -403,14 +395,10 @@ export default {
 
     async loadUsers() {
       try {
-        const res = await $uRequest({
-          url: '/api/users',
-          method: 'GET',
-          data: {
-            deptId: this.userInfo ? this.userInfo.deptId : null,
-            status: 0,
-            pageSize: 1000
-          }
+        const res = await api.common.getUsers({
+          deptId: this.userInfo ? this.userInfo.deptId : null,
+          status: 0,
+          pageSize: 1000
         })
 
         if (res.code === 200) {
@@ -499,20 +487,16 @@ export default {
       this.submitting = true
 
       try {
-        const res = await $uRequest({
-          url: '/api/outbounds',
-          method: 'POST',
-          data: {
-            warehouseId: this.form.warehouseId,
-            outboundType: this.form.outboundType,
-            receiverId: this.form.receiverId,
-            purpose: this.form.purpose.trim(),
-            remark: this.form.remark.trim(),
-            details: this.form.details.map(item => ({
-              materialId: item.materialId,
-              quantity: parseFloat(item.quantity)
-            }))
-          }
+        const res = await api.outbound.create({
+          warehouseId: this.form.warehouseId,
+          outboundType: this.form.outboundType,
+          receiverId: this.form.receiverId,
+          purpose: this.form.purpose.trim(),
+          remark: this.form.remark.trim(),
+          details: this.form.details.map(item => ({
+            materialId: item.materialId,
+            quantity: parseFloat(item.quantity)
+          }))
         })
 
         if (res.code === 201) {

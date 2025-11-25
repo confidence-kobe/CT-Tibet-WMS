@@ -144,7 +144,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 import { mapState, mapGetters } from 'vuex'
 
 export default {
@@ -205,19 +205,13 @@ export default {
       this.loading = true
 
       try {
-        const params = {
+        const res = await api.inbound.getList({
           page: this.page,
           pageSize: this.pageSize,
           startDate: this.filters.startDate || undefined,
           endDate: this.filters.endDate || undefined,
           inboundType: this.filters.inboundType,
           status: this.filters.status
-        }
-
-        const res = await $uRequest({
-          url: '/api/inbounds',
-          method: 'GET',
-          data: params
         })
 
         if (res.code === 200) {

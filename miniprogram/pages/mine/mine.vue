@@ -56,6 +56,7 @@
 </template>
 
 <script>
+import api from '@/api'
 import { mapState } from 'vuex'
 
 export default {
@@ -84,12 +85,19 @@ export default {
       })
     },
 
-    handleLogout() {
+    async handleLogout() {
       uni.showModal({
         title: '提示',
         content: '确定要退出登录吗？',
-        success: (res) => {
+        success: async (res) => {
           if (res.confirm) {
+            try {
+              // 调用退出登录API
+              await api.auth.logout()
+            } catch (err) {
+              console.error('退出登录失败', err)
+            }
+
             // 清除登录状态
             this.$store.commit('LOGOUT')
 

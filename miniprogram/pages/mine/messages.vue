@@ -81,7 +81,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 import { mapState } from 'vuex'
 
 export default {
@@ -122,16 +122,10 @@ export default {
 
       try {
         const currentTab = this.tabs[this.activeTab]
-        const params = {
+        const res = await api.message.getList({
           page: this.page,
           pageSize: this.pageSize,
           isRead: currentTab.isRead
-        }
-
-        const res = await $uRequest({
-          url: '/api/messages',
-          method: 'GET',
-          data: params
         })
 
         if (res.code === 200) {
@@ -183,10 +177,7 @@ export default {
       // 标记为已读
       if (item.isRead === 0) {
         try {
-          await $uRequest({
-            url: `/api/messages/${item.id}/read`,
-            method: 'PUT'
-          })
+          await api.message.markRead(item.id)
 
           item.isRead = 1
           this.unreadCount = Math.max(0, this.unreadCount - 1)
@@ -239,10 +230,7 @@ export default {
         success: async (res) => {
           if (res.confirm) {
             try {
-              await $uRequest({
-                url: '/api/messages/read-all',
-                method: 'PUT'
-              })
+              await api.message.markAllRead()
 
               // 更新列表中的消息状态
               this.messages.forEach(item => {

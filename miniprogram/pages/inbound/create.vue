@@ -155,7 +155,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 import { mapState } from 'vuex'
 
 export default {
@@ -212,12 +212,8 @@ export default {
     // 加载仓库列表
     async loadWarehouses() {
       try {
-        const res = await $uRequest({
-          url: '/api/warehouses',
-          method: 'GET',
-          data: {
-            status: 0
-          }
+        const res = await api.common.getWarehouses({
+          status: 0
         })
 
         if (res.code === 200) {
@@ -256,12 +252,8 @@ export default {
     // 加载物资列表
     async loadMaterials() {
       try {
-        const res = await $uRequest({
-          url: '/api/materials',
-          method: 'GET',
-          data: {
-            status: 0
-          }
+        const res = await api.common.getMaterials({
+          status: 0
         })
 
         if (res.code === 200) {
@@ -387,20 +379,16 @@ export default {
       this.submitting = true
 
       try {
-        const res = await $uRequest({
-          url: '/api/inbounds',
-          method: 'POST',
-          data: {
-            warehouseId: this.form.warehouseId,
-            inboundType: this.form.inboundType,
-            inboundTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
-            remark: this.form.remark.trim(),
-            details: this.form.details.map(item => ({
-              materialId: item.materialId,
-              quantity: parseFloat(item.quantity),
-              unitPrice: parseFloat(item.unitPrice) || 0
-            }))
-          }
+        const res = await api.inbound.create({
+          warehouseId: this.form.warehouseId,
+          inboundType: this.form.inboundType,
+          inboundTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          remark: this.form.remark.trim(),
+          details: this.form.details.map(item => ({
+            materialId: item.materialId,
+            quantity: parseFloat(item.quantity),
+            unitPrice: parseFloat(item.unitPrice) || 0
+          }))
         })
 
         if (res.code === 201) {

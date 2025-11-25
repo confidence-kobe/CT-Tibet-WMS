@@ -137,7 +137,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 
 export default {
   data() {
@@ -167,14 +167,9 @@ export default {
       this.loading = true
 
       try {
-        const res = await $uRequest({
-          url: '/api/outbounds',
-          method: 'GET',
-          data: {
-            pageNum: this.pageNum,
-            pageSize: this.pageSize,
-            status: 0 // 待领取
-          }
+        const res = await api.outbound.getPendingList({
+          pageNum: this.pageNum,
+          pageSize: this.pageSize
         })
 
         if (res.code === 200) {
@@ -248,12 +243,8 @@ export default {
       this.submitting = true
 
       try {
-        const res = await $uRequest({
-          url: `/api/outbounds/${this.currentOutbound.id}/confirm`,
-          method: 'PUT',
-          data: {
-            remark: '员工已签字确认'
-          }
+        const res = await api.outbound.confirmPickup(this.currentOutbound.id, {
+          remark: '员工已签字确认'
         })
 
         if (res.code === 200) {
@@ -285,12 +276,8 @@ export default {
         success: async (res) => {
           if (res.confirm) {
             try {
-              const result = await $uRequest({
-                url: `/api/outbounds/${item.id}/cancel`,
-                method: 'PUT',
-                data: {
-                  cancelReason: res.content || '仓管取消'
-                }
+              const result = await api.outbound.cancel(item.id, {
+                cancelReason: res.content || '仓管取消'
               })
 
               if (result.code === 200) {

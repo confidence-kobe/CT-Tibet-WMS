@@ -124,7 +124,7 @@
 </template>
 
 <script>
-import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
 
 export default {
   data() {
@@ -157,10 +157,7 @@ export default {
       this.loading = true
 
       try {
-        const res = await $uRequest({
-          url: `/api/inventory/${this.id || this.materialCode}`,
-          method: 'GET'
-        })
+        const res = await api.inventory.getDetail(this.id || this.materialCode)
 
         if (res.code === 200) {
           this.detail = res.data
