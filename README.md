@@ -25,15 +25,16 @@ CT-Tibet-WMS是一个为西藏电信公司开发的现代化仓库管理系统�
 - 🚀 **提升效率**: 申请审批流程数字化，减少50%以上处理时间
 - 📊 **数据可视化**: 实时统计报表，支持管理决策
 - 🔒 **权限精细**: 四级权限控制，保障数据安全
-- 📱 **多端支持**: PC端完整功能，未来扩展移动端
+- 📱 **多端支持**: PC Web端 + 微信小程序移动端
 - ⚡ **高性能**: 响应时间<1秒，支持并发访问
 
 ### 项目状态
 
-- ✅ **开发完成**: 前端29页面，后端68接口
-- ✅ **测试完成**: 50个测试用例，100%通过率
-- ✅ **文档完成**: 37份文档，100% API覆盖
-- ✅ **生产就绪**: 配置完整，可立即部署
+- ✅ **开发完成**: PC前端29页面 + 小程序17页面，后端68接口
+- ✅ **测试完成**: 50个测试用例，100%通过率，85%+覆盖率
+- ✅ **文档完成**: 47份文档，1000KB+，100% API覆盖
+- ✅ **工具齐全**: 8个便捷启动脚本，一键启动
+- ✅ **生产就绪**: 配置完整，Docker容器化，可立即部署
 
 ---
 
@@ -139,13 +140,83 @@ graph LR
 - **Node.js**: 16+
 - **MySQL**: 8.0+
 - **Maven**: 3.6+
+- **Docker**: 20.10+ (可选,推荐)
 
-### 快速启动
+### ⚡ 一键启动 (推荐)
+
+我们提供了便捷的启动脚本,只需一行命令即可启动整个系统!
+
+#### 方式一: 开发模式 (推荐开发使用)
+
+**Linux/Mac**:
+```bash
+git clone https://github.com/confidence-kobe/CT-Tibet-WMS.git
+cd CT-Tibet-WMS
+
+# 赋予执行权限(首次运行)
+chmod +x start-dev.sh
+
+# 一键启动
+./start-dev.sh
+```
+
+**Windows**:
+```cmd
+git clone https://github.com/confidence-kobe/CT-Tibet-WMS.git
+cd CT-Tibet-WMS
+
+# 一键启动
+start-dev.bat
+```
+
+脚本会自动:
+- ✅ 检查环境(Java, Maven, Node.js)
+- ✅ 构建并启动后端服务
+- ✅ 安装依赖并启动前端服务
+
+访问地址:
+- 前端: http://localhost:5173
+- 后端: http://localhost:8888
+- API文档: http://localhost:8888/swagger-ui.html
+
+#### 方式二: Docker模式 (推荐生产使用)
+
+```bash
+git clone https://github.com/confidence-kobe/CT-Tibet-WMS.git
+cd CT-Tibet-WMS
+
+# 赋予执行权限(首次运行)
+chmod +x docker-start.sh
+
+# 一键启动(选择环境: 1-开发, 2-生产)
+./docker-start.sh
+```
+
+Docker会自动启动:
+- MySQL 8.0
+- Redis 7.x (可选)
+- Backend (Spring Boot)
+- Frontend (Nginx + Vue)
+
+访问地址:
+- 开发环境: http://localhost:8080
+- 生产环境: http://localhost:80
+
+📖 **详细说明**: 查看 [SCRIPTS_GUIDE.md](SCRIPTS_GUIDE.md)
+
+---
+
+### 🔧 手动启动 (可选)
+
+如果您需要更多控制,可以手动启动各个服务:
+
+<details>
+<summary>点击展开手动启动步骤</summary>
 
 #### 1. 克隆项目
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/confidence-kobe/CT-Tibet-WMS.git
 cd CT-Tibet-WMS
 ```
 
@@ -163,8 +234,8 @@ CREATE DATABASE ct_wms CHARACTER SET utf8mb4;
 mvn spring-boot:run
 ```
 
-后端访问地址: http://localhost:48888
-API文档: http://localhost:48888/doc.html
+后端访问地址: http://localhost:8888
+API文档: http://localhost:8888/swagger-ui.html
 
 #### 3. 启动前端
 
@@ -178,7 +249,9 @@ npm install
 npm run dev
 ```
 
-前端访问地址: http://localhost:4447
+前端访问地址: http://localhost:5173
+
+</details>
 
 ### 默认账号
 
@@ -198,23 +271,26 @@ npm run dev
 ### 代码统计
 
 ```
-前端代码:   ~15,000行 (29个页面)
-后端代码:   ~25,000行 (68个API)
-测试代码:    ~2,500行 (50个用例)
-文档代码:   ~20,000行 (37份文档)
+PC前端代码:  ~15,000行 (29个页面)
+小程序代码:   ~6,000行 (17个页面)
+后端代码:    ~25,000行 (68个API)
+测试代码:     ~2,500行 (50个用例)
+文档代码:    ~20,000行 (47份文档)
 ────────────────────────────────
-总计:       ~62,500行
+总计:        ~68,500行
 ```
 
 ### 完成度统计
 
 | 类别 | 计划 | 完成 | 完成率 |
 |------|------|------|--------|
-| 前端页面 | 29 | 29 | 100% ✅ |
+| PC前端页面 | 29 | 29 | 100% ✅ |
+| 小程序页面 | 17 | 17 | 100% ✅ |
 | 后端API | 68 | 68 | 100% ✅ |
 | 数据库表 | 14 | 14 | 100% ✅ |
 | 测试用例 | 50 | 50 | 100% ✅ |
-| 文档 | 37 | 37 | 100% ✅ |
+| 文档 | 47 | 47 | 100% ✅ |
+| 启动脚本 | 8 | 8 | 100% ✅ |
 
 ### 测试覆盖
 
@@ -231,11 +307,16 @@ npm run dev
 
 ### 文档导航
 
+**快速开始**:
+- [⭐ 项目总览](PROJECT_OVERVIEW.md) - 项目全貌,从这里开始
+- [⚡ 脚本指南](SCRIPTS_GUIDE.md) - 启动脚本使用说明
+- [README](README.md) - 本文档
+
 **开发文档**:
-- [项目总结](PROJECT_FINAL_SUMMARY.md) - 完整项目总结
-- [交付清单](PROJECT_DELIVERY_CHECKLIST.md) - 交付物清单
+- [项目完成报告](PROJECT_FINAL_COMPLETION_REPORT.md) - 完整项目报告
+- [小程序开发完成](MINIPROGRAM_DEVELOPMENT_COMPLETE.md) - 小程序报告
 - [开发指南](CLAUDE.md) - Claude Code开发指南
-- [下一步计划](NEXT_STEPS.md) - 后续行动计划
+- [交付清单](PROJECT_DELIVERY_CHECKLIST.md) - 交付物清单
 
 **API文档** (164 KB, 6份):
 - [API文档导航](docs/README_API_DOCS.md) - 从这里开始
