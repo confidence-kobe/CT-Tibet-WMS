@@ -113,26 +113,26 @@
     }
   ],
   "tabBar": {
-    "color": "#8c8c8c",
-    "selectedColor": "#1890ff",
+    "color": "#999999",
+    "selectedColor": "#7C3AED",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "🏠 首页"
+        "text": "首页"
       },
       {
         "pagePath": "pages/apply/list",
-        "text": "📝 申请"
+        "text": "申请"
       },
       {
         "pagePath": "pages/inventory/list",
-        "text": "📦 库存"
+        "text": "库存"
       },
       {
         "pagePath": "pages/mine/mine",
-        "text": "👤 我的"
+        "text": "我的"
       }
     ]
   },
