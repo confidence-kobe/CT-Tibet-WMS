@@ -1,37 +1,17 @@
 /**
- * 申请审批相关API
+ * 申请管理相关API（员工端）
  */
 import { $uRequest } from '@/utils/request.js'
 
 /**
- * 申请列表
- * @param {Object} params - 查询参数
- */
-export function getApplyList(params) {
-  return $uRequest({
-    url: '/api/applies',
-    method: 'GET',
-    data: params
-  })
-}
-
-/**
- * 申请详情
- * @param {Number} id - 申请单ID
- */
-export function getApplyDetail(id) {
-  return $uRequest({
-    url: `/api/applies/${id}`,
-    method: 'GET'
-  })
-}
-
-/**
- * 提交申请
- * @param {Object} data - 申请信息
- * @param {String} data.purpose - 领用用途
- * @param {String} data.remark - 备注
- * @param {Array} data.details - 申请明细
+ * 创建物资申请
+ * @param {Object} data - 申请数据
+ * @param {number} data.warehouseId - 仓库ID
+ * @param {string} data.applyReason - 申请理由
+ * @param {Array} data.details - 申请明细列表
+ * @param {number} data.details[].materialId - 物资ID
+ * @param {number} data.details[].quantity - 数量
+ * @returns {Promise} 返回创建结果
  */
 export function createApply(data) {
   return $uRequest({
@@ -42,72 +22,64 @@ export function createApply(data) {
 }
 
 /**
- * 审批申请
- * @param {Number} id - 申请单ID
- * @param {Object} data - 审批信息
- * @param {Number} data.result - 审批结果：1=通过 2=拒绝
- * @param {String} data.opinion - 审批意见
- * @param {String} data.rejectReason - 拒绝原因（拒绝时必填）
+ * 查询我的申请列表
+ * @param {Object} params - 查询参数
+ * @param {number} params.pageNum - 页码，默认1
+ * @param {number} params.pageSize - 每页条数，默认10
+ * @param {number} params.warehouseId - 仓库ID（可选）
+ * @param {number} params.status - 状态（可选）0-待审批 1-已通过 2-已拒绝 3-已完成 4-已取消
+ * @param {string} params.startDate - 开始日期（可选）
+ * @param {string} params.endDate - 结束日期（可选）
+ * @param {string} params.keyword - 关键词（可选）
+ * @returns {Promise} 返回分页数据
  */
-export function approveApply(id, data) {
+export function getMyApplies(params) {
   return $uRequest({
-    url: `/api/applies/${id}/approve`,
-    method: 'PUT',
-    data
+    url: '/api/applies/my',
+    method: 'GET',
+    data: params
   })
 }
 
 /**
- * 撤销申请
- * @param {Number} id - 申请单ID
- * @param {Object} data - 撤销信息
- * @param {String} data.cancelReason - 撤销原因
+ * 查询申请详情
+ * @param {number} id - 申请单ID
+ * @returns {Promise} 返回申请详情（含明细）
  */
-export function cancelApply(id, data) {
+export function getApplyDetail(id) {
   return $uRequest({
-    url: `/api/applies/${id}/cancel`,
-    method: 'PUT',
-    data
-  })
-}
-
-/**
- * 待审批统计
- */
-export function getPendingStats() {
-  return $uRequest({
-    url: '/api/applies/pending-stats',
+    url: `/api/applies/${id}`,
     method: 'GET'
   })
 }
 
 /**
- * 我的申请列表（快捷接口）
- * @param {Object} params - 查询参数
+ * 撤销申请
+ * @param {number} id - 申请单ID
+ * @returns {Promise} 返回撤销结果
  */
-export function getMyApplies(params) {
-  const userInfo = uni.getStorageSync('userInfo')
+export function cancelApply(id) {
   return $uRequest({
-    url: '/api/applies',
-    method: 'GET',
-    data: {
-      applicantId: userInfo ? userInfo.id : null,
-      ...params
-    }
+    url: `/api/applies/${id}/cancel`,
+    method: 'POST'
   })
 }
 
 /**
- * 待审批列表（快捷接口）
- * @param {Object} params - 查询参数
+ * 查询申请状态统计
+ * @returns {Promise} 返回各状态数量统计
  */
-export function getPendingApplies(params) {
+export function getApplyStats() {
   return $uRequest({
-    url: '/api/applies',
-    method: 'GET',
-    data: {
-      status: 0, // 待审批
-      ...params
-    }
+    url: '/api/applies/stats',
+    method: 'GET'
   })
+}
+
+export default {
+  createApply,
+  getMyApplies,
+  getApplyDetail,
+  cancelApply,
+  getApplyStats
 }
