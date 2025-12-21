@@ -311,7 +311,7 @@ const loadMaterials = async () => {
 
   try {
     const res = await listMaterials({ pageNum: 1, pageSize: 1000, status: 0 })
-    materials.value = res.data.list || []
+    materials.value = res.data || []
   } catch (error) {
     console.error('加载物资列表失败:', error)
     ElMessage.error('加载物资列表失败')
@@ -346,7 +346,7 @@ const handleMaterialChange = async (index) => {
         pageNum: 1,
         pageSize: 1
       })
-      const inventory = res.data.list?.[0]
+      const inventory = res.data?.[0]
       detail.stock = inventory?.quantity || 0
     } catch (error) {
       console.error('查询库存失败:', error)

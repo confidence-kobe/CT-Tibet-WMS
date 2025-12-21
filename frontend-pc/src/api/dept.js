@@ -6,14 +6,22 @@
 import request from './request'
 
 /**
- * 查询部门树
+ * 查询部门列表（树形结构）
  * @returns {Promise} 返回树形结构的部门列表
  */
-export function listDeptTree() {
+export function listDepts() {
   return request({
     url: '/depts/tree',
     method: 'get'
   })
+}
+
+/**
+ * 查询部门树（别名，兼容性）
+ * @returns {Promise} 返回树形结构的部门列表
+ */
+export function listDeptTree() {
+  return listDepts()
 }
 
 /**

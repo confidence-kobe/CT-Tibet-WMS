@@ -21,7 +21,8 @@
         style="width: 100%"
       >
         <el-table-column prop="deptName" label="部门名称" min-width="200" />
-        <el-table-column prop="leader" label="负责人" width="120" />
+        <el-table-column prop="deptCode" label="部门编码" width="120" />
+        <el-table-column prop="leaderName" label="负责人" width="120" />
         <el-table-column prop="phone" label="联系电话" width="140" />
         <el-table-column prop="sort" label="排序" width="80" align="center" />
         <el-table-column prop="status" label="状态" width="90" align="center">
@@ -75,8 +76,11 @@
         <el-form-item label="部门名称" prop="deptName">
           <el-input v-model="form.deptName" placeholder="请输入部门名称" />
         </el-form-item>
-        <el-form-item label="负责人" prop="leader">
-          <el-input v-model="form.leader" placeholder="请输入负责人姓名" />
+        <el-form-item label="部门编码" prop="deptCode">
+          <el-input v-model="form.deptCode" placeholder="请输入部门编码" maxlength="20" />
+        </el-form-item>
+        <el-form-item label="负责人" prop="leaderId">
+          <el-input v-model="form.leaderId" placeholder="请输入负责人用户ID" type="number" />
         </el-form-item>
         <el-form-item label="联系电话" prop="phone">
           <el-input v-model="form.phone" placeholder="请输入联系电话" />
@@ -124,7 +128,8 @@ const form = reactive({
   id: null,
   parentId: null,
   deptName: '',
-  leader: '',
+  deptCode: '',
+  leaderId: null,
   phone: '',
   sort: 0,
   status: 0
@@ -134,11 +139,14 @@ const formRules = {
   deptName: [
     { required: true, message: '请输入部门名称', trigger: 'blur' }
   ],
-  leader: [
-    { required: true, message: '请输入负责人姓名', trigger: 'blur' }
+  deptCode: [
+    { required: true, message: '请输入部门编码', trigger: 'blur' },
+    { pattern: /^[A-Z0-9]{2,20}$/, message: '部门编码为2-20位大写字母或数字', trigger: 'blur' }
+  ],
+  leaderId: [
+    // leaderId is optional
   ],
   phone: [
-    { required: true, message: '请输入联系电话', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
   ],
   sort: [
@@ -195,7 +203,8 @@ const handleEdit = async (row) => {
     id: row.id,
     parentId: row.parentId || null,
     deptName: row.deptName,
-    leader: row.leader,
+    deptCode: row.deptCode,
+    leaderId: row.leaderId,
     phone: row.phone,
     sort: row.sort,
     status: row.status
@@ -264,7 +273,8 @@ const resetForm = () => {
   form.id = null
   form.parentId = null
   form.deptName = ''
-  form.leader = ''
+  form.deptCode = ''
+  form.leaderId = null
   form.phone = ''
   form.sort = 0
   form.status = 0

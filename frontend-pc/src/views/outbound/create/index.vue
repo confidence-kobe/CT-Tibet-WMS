@@ -284,7 +284,7 @@ const loadWarehouses = async () => {
 const loadMaterials = async () => {
   try {
     const res = await listMaterials({ pageNum: 1, pageSize: 1000, status: 0 })
-    materialList.value = res.data.records || []
+    materialList.value = res.data || []
   } catch (error) {
     console.error('加载物资列表失败:', error)
   }
@@ -305,8 +305,8 @@ const checkInventory = async (warehouseId, materialId) => {
       warehouseId,
       materialId
     })
-    if (res.data.records && res.data.records.length > 0) {
-      return res.data.records[0].quantity || 0
+    if (res.data && res.data.length > 0) {
+      return res.data[0].quantity || 0
     }
     return 0
   } catch (error) {

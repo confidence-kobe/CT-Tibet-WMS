@@ -245,7 +245,7 @@ const loadMaterials = async () => {
       status: 0
     })
     if (res.code === 200) {
-      materials.value = res.data.list || []
+      materials.value = res.data || []
     }
   } catch (error) {
     console.error('加载物资列表失败:', error)

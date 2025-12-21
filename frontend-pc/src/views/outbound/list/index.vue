@@ -300,8 +300,8 @@ const handleQuery = async () => {
     }
 
     const res = await listOutbounds(params)
-    tableData.value = res.data.records || []
-    pagination.total = res.data.total || 0
+    tableData.value = res.data || []
+    pagination.total = res.total || 0
   } catch (error) {
     console.error('查询出库单列表失败:', error)
   } finally {
