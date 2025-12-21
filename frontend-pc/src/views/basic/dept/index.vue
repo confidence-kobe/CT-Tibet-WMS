@@ -126,7 +126,7 @@ const isEdit = ref(false)
 
 const form = reactive({
   id: null,
-  parentId: null,
+  parentId: 0,
   deptName: '',
   deptCode: '',
   leaderId: null,
@@ -201,7 +201,7 @@ const handleEdit = async (row) => {
   isEdit.value = true
   Object.assign(form, {
     id: row.id,
-    parentId: row.parentId || null,
+    parentId: row.parentId || 0,
     deptName: row.deptName,
     deptCode: row.deptCode,
     leaderId: row.leaderId,
@@ -245,11 +245,17 @@ const handleSave = async () => {
     await formRef.value.validate()
     saveLoading.value = true
 
+    // 确保parentId不为null，null转换为0（顶级部门）
+    const data = {
+      ...form,
+      parentId: form.parentId || 0
+    }
+
     if (isEdit.value) {
-      await updateDept(form.id, form)
+      await updateDept(form.id, data)
       ElMessage.success('修改成功')
     } else {
-      await createDept(form)
+      await createDept(data)
       ElMessage.success('新增成功')
     }
 
@@ -271,7 +277,7 @@ const handleCloseDialog = () => {
 
 const resetForm = () => {
   form.id = null
-  form.parentId = null
+  form.parentId = 0
   form.deptName = ''
   form.deptCode = ''
   form.leaderId = null
