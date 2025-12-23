@@ -228,9 +228,7 @@ const saveLoading = ref(false)
 const loadWarehouses = async () => {
   try {
     const res = await listWarehouses({ status: 0 })
-    if (res.code === 200) {
-      warehouses.value = res.data || []
-    }
+    warehouses.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
   }
@@ -244,9 +242,7 @@ const loadMaterials = async () => {
       pageSize: 1000,
       status: 0
     })
-    if (res.code === 200) {
-      materials.value = res.data || []
-    }
+    materials.value = res.data || []
   } catch (error) {
     console.error('加载物资列表失败:', error)
   }
@@ -379,13 +375,8 @@ const handleSubmit = async () => {
     }
 
     const res = await createInbound(submitData)
-
-    if (res.code === 200) {
-      ElMessage.success('入库单创建成功')
-      router.push('/inbound/list')
-    } else {
-      ElMessage.error(res.msg || '创建失败')
-    }
+    ElMessage.success('入库单创建成功')
+    router.push('/inbound/list')
   } catch (error) {
     if (error !== 'cancel') {
       console.error('提交失败:', error)

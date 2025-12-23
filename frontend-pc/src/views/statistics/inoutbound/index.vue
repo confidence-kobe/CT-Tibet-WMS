@@ -173,8 +173,8 @@
       </el-table>
 
       <el-pagination
-        v-model:current-page="pagination.page"
-        v-model:page-size="pagination.size"
+        v-model:current-page="pagination.pageNum"
+        v-model:page-size="pagination.pageSize"
         :total="pagination.total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
@@ -482,7 +482,7 @@ const tableData = ref([
 
 // 分页
 const pagination = ref({
-  page: 1,
+  pageNum: 1,
   size: 10,
   total: 150
 })

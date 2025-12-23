@@ -117,8 +117,8 @@
       <!-- 分页 -->
       <div style="margin-top: 16px; text-align: right;">
         <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.size"
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
@@ -153,8 +153,8 @@ const queryForm = reactive({
 
 // 分页参数
 const pagination = reactive({
-  page: 1,
-  size: 20,
+  pageNum: 1,
+  pageSize: 20,
   total: 0
 })
 
@@ -166,9 +166,7 @@ const loading = ref(false)
 const loadWarehouses = async () => {
   try {
     const res = await listWarehouses({ status: 0 })
-    if (res.code === 200) {
-      warehouses.value = res.data || []
-    }
+    warehouses.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
   }
@@ -180,8 +178,8 @@ const handleQuery = async () => {
 
   try {
     const params = {
-      pageNum: pagination.page,
-      pageSize: pagination.size,
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
       warehouseId: queryForm.warehouseId,
       keyword: queryForm.code || undefined,
       startDate: queryForm.dateRange ? queryForm.dateRange[0] : undefined,
@@ -189,13 +187,8 @@ const handleQuery = async () => {
     }
 
     const res = await listInbounds(params)
-
-    if (res.code === 200) {
-      tableData.value = res.data.list || []
-      pagination.total = res.data.total || 0
-    } else {
-      ElMessage.error(res.msg || '查询失败')
-    }
+    tableData.value = res.data || []
+    pagination.total = res.total || 0
   } catch (error) {
     console.error('查询入库单列表失败:', error)
     ElMessage.error('查询失败，请稍后重试')
@@ -209,7 +202,7 @@ const handleReset = () => {
   queryForm.code = ''
   queryForm.warehouseId = null
   queryForm.dateRange = null
-  pagination.page = 1
+  pagination.pageNum = 1
   handleQuery()
 }
 

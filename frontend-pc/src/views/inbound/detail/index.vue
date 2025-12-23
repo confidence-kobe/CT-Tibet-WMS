@@ -119,31 +119,25 @@ const loadDetail = async () => {
 
   try {
     const res = await getInboundById(id)
-
-    if (res.code === 200) {
-      const data = res.data
-      detailData.value = {
-        id: data.id,
-        code: data.inboundNo, // 后端字段名是 inboundNo
-        warehouseName: data.warehouseName,
-        createUser: data.operatorName || data.createBy, // 使用操作人姓名或创建人
-        createTime: data.inboundTime || data.createTime, // 优先使用入库时间
-        itemCount: data.details?.length || 0,
-        totalAmount: data.totalAmount || 0,
-        remark: data.remark || '',
-        details: (data.details || []).map(detail => ({
-          materialCode: detail.materialCode,
-          materialName: detail.materialName,
-          spec: detail.spec,
-          unit: detail.unit,
-          quantity: detail.quantity,
-          price: detail.unitPrice, // 后端字段名是 unitPrice
-          amount: detail.amount
-        }))
-      }
-    } else {
-      ElMessage.error(res.msg || '获取详情失败')
-      router.back()
+    const data = res.data
+    detailData.value = {
+      id: data.id,
+      code: data.inboundNo, // 后端字段名是 inboundNo
+      warehouseName: data.warehouseName,
+      createUser: data.operatorName || data.createBy, // 使用操作人姓名或创建人
+      createTime: data.inboundTime || data.createTime, // 优先使用入库时间
+      itemCount: data.details?.length || 0,
+      totalAmount: data.totalAmount || 0,
+      remark: data.remark || '',
+      details: (data.details || []).map(detail => ({
+        materialCode: detail.materialCode,
+        materialName: detail.materialName,
+        spec: detail.spec,
+        unit: detail.unit,
+        quantity: detail.quantity,
+        price: detail.unitPrice, // 后端字段名是 unitPrice
+        amount: detail.amount
+      }))
     }
   } catch (error) {
     console.error('加载入库单详情失败:', error)

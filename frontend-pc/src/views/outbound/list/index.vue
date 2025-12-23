@@ -170,8 +170,8 @@
       <!-- 分页 -->
       <div style="margin-top: 16px; text-align: right;">
         <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.size"
+          v-model:current-page="pagination.pageNum"
+          v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
@@ -253,8 +253,8 @@ const queryForm = reactive({
 
 // 分页参数
 const pagination = reactive({
-  page: 1,
-  size: 20,
+  pageNum: 1,
+  pageSize: 20,
   total: 0
 })
 
@@ -288,8 +288,8 @@ const handleQuery = async () => {
   loading.value = true
   try {
     const params = {
-      pageNum: pagination.page,
-      pageSize: pagination.size,
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
       keyword: queryForm.keyword || undefined,
       warehouseId: queryForm.warehouseId || undefined,
       outboundType: queryForm.outboundType || undefined,
@@ -318,7 +318,7 @@ const handleReset = () => {
   queryForm.status = null
   queryForm.startDate = ''
   queryForm.endDate = ''
-  pagination.page = 1
+  pagination.pageNum = 1
   handleQuery()
 }
 
