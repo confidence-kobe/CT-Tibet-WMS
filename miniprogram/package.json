@@ -21,11 +21,11 @@
     "@dcloudio/uni-h5": "*",
     "@dcloudio/uni-helper-json": "*",
     "@dcloudio/uni-i18n": "*",
-    "@dcloudio/uni-mp-weixin": "*",
     "@dcloudio/uni-mp-alipay": "*",
     "@dcloudio/uni-mp-baidu": "*",
     "@dcloudio/uni-mp-qq": "*",
     "@dcloudio/uni-mp-toutiao": "*",
+    "@dcloudio/uni-mp-weixin": "*",
     "@dcloudio/uni-quickapp-webview": "*",
     "core-js": "^3.8.3",
     "regenerator-runtime": "^0.13.11",
@@ -47,6 +47,7 @@
     "postcss-comment": "^2.0.0",
     "sass": "^1.49.9",
     "sass-loader": "^10.1.1",
+    "sharp": "^0.34.5",
     "vue-template-compiler": "^2.6.14"
   },
   "browserslist": [

@@ -33,14 +33,15 @@ INSERT INTO `tb_role` (`id`, `role_name`, `role_code`, `role_level`, `descriptio
 -- =============================================
 
 -- 密码均为: 123456 (BCrypt加密后的值)
--- $2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH
+-- 注意: BCrypt每次生成的hash不同，但都能正确验证
+-- 以下hash值由 PasswordHashGenerator 工具生成
 
 INSERT INTO `tb_user` (`id`, `username`, `password`, `real_name`, `phone`, `dept_id`, `role_id`, `status`, `is_first_login`) VALUES
-(1, 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '系统管理员', '13800000000', 1, 1, 0, 0),
-(2, 'wl_admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '网运部管理员', '13800000001', 2, 2, 0, 1),
-(3, 'wl_warehouse', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '李军', '13800000002', 2, 3, 0, 1),
-(4, 'wl_user1', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '张强', '13800000003', 2, 4, 0, 1),
-(5, 'wl_user2', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '王小明', '13800000004', 2, 4, 0, 1);
+(1, 'admin', '$2a$10$j7sCAk4BYfqNqmnW.7QK7eyNjtt01JOcehbxpjg5T7ImShI0751.e', '系统管理员', '13800000000', 1, 1, 0, 0),
+(2, 'wl_admin', '$2a$10$j7sCAk4BYfqNqmnW.7QK7eyNjtt01JOcehbxpjg5T7ImShI0751.e', '网运部管理员', '13800000001', 2, 2, 0, 1),
+(3, 'wl_warehouse', '$2a$10$j7sCAk4BYfqNqmnW.7QK7eyNjtt01JOcehbxpjg5T7ImShI0751.e', '李军', '13800000002', 2, 3, 0, 1),
+(4, 'wl_user1', '$2a$10$j7sCAk4BYfqNqmnW.7QK7eyNjtt01JOcehbxpjg5T7ImShI0751.e', '张强', '13800000003', 2, 4, 0, 1),
+(5, 'wl_user2', '$2a$10$j7sCAk4BYfqNqmnW.7QK7eyNjtt01JOcehbxpjg5T7ImShI0751.e', '王小明', '13800000004', 2, 4, 0, 1);
 
 -- =============================================
 -- 4. 初始化物资数据
