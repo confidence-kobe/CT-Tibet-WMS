@@ -345,8 +345,8 @@ const handleQuery = async () => {
     }
 
     const res = await getPendingApplies(params)
-    tableData.value = res.data.list || []
-    pagination.total = res.data.total || 0
+    tableData.value = res.data || []
+    pagination.total = res.total || 0
   } catch (error) {
     console.error('查询失败:', error)
     ElMessage.error('查询失败')
@@ -423,7 +423,7 @@ const checkInventory = async (apply) => {
         pageNum: 1,
         pageSize: 1
       })
-      const stock = res.data.list?.[0]?.quantity || 0
+      const stock = res.data?.[0]?.quantity || 0
       if (stock < detail.quantity) {
         return false
       }

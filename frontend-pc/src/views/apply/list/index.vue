@@ -304,8 +304,8 @@ const handleQuery = async () => {
     }
 
     const res = await getMyApplies(params)
-    tableData.value = res.data.list || []
-    pagination.total = res.data.total || 0
+    tableData.value = res.data || []
+    pagination.total = res.total || 0
   } catch (error) {
     console.error('查询失败:', error)
     ElMessage.error('查询失败')

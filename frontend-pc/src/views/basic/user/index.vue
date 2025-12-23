@@ -264,8 +264,8 @@ const handleQuery = async () => {
       ...queryForm
     }
     const res = await listUsers(params)
-    tableData.value = res.data.list
-    pagination.total = res.data.total
+    tableData.value = res.data
+    pagination.total = res.total
   } catch (error) {
     console.error('查询失败:', error)
   } finally {

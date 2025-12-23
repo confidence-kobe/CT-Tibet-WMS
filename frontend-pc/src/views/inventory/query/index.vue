@@ -231,8 +231,8 @@ const handleQuery = async () => {
     }
 
     const res = await listInventories(params)
-    tableData.value = res.data.list || []
-    pagination.total = res.data.total || 0
+    tableData.value = res.data || []
+    pagination.total = res.total || 0
 
     // 更新统计数据
     if (res.data.stats) {

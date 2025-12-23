@@ -330,10 +330,11 @@ const handleQuery = async () => {
       ...queryForm
     }
     const res = await listMaterials(params)
-    tableData.value = res.data.list
-    pagination.total = res.data.total
+    tableData.value = res.data || []
+    pagination.total = res.total || 0
   } catch (error) {
     console.error('查询物资列表失败:', error)
+    ElMessage.error('查询物资列表失败')
   } finally {
     loading.value = false
   }
