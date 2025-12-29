@@ -32,7 +32,7 @@ public class InventoryController {
 
     @GetMapping
     @Operation(summary = "分页查询库存列表", description = "支持多条件筛选")
-    public Result<PageResult<Inventory>> listInventories(
+    public PageResult<Inventory> listInventories(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
@@ -45,12 +45,12 @@ public class InventoryController {
         Page<Inventory> page = inventoryService.listInventories(pageNum, pageSize, warehouseId,
                 materialId, keyword);
 
-        return Result.success(PageResult.of(page));
+        return PageResult.of(page);
     }
 
     @GetMapping("/logs")
     @Operation(summary = "分页查询库存流水", description = "支持多条件筛选")
-    public Result<PageResult<InventoryLog>> listInventoryLogs(
+    public PageResult<InventoryLog> listInventoryLogs(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
@@ -65,7 +65,7 @@ public class InventoryController {
         Page<InventoryLog> page = inventoryService.listInventoryLogs(pageNum, pageSize, warehouseId,
                 materialId, changeType, startDate, endDate);
 
-        return Result.success(PageResult.of(page));
+        return PageResult.of(page);
     }
 
     @GetMapping("/low-stock-alerts")
@@ -78,5 +78,14 @@ public class InventoryController {
         List<Inventory> alerts = inventoryService.listLowStockAlerts(warehouseId);
 
         return Result.success(alerts);
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "查询库存详情", description = "根据ID查询库存详细信息")
+    public Result<Inventory> getInventoryById(
+            @Parameter(description = "库存ID") @PathVariable Long id) {
+        log.info("查询库存详情: id={}", id);
+        Inventory inventory = inventoryService.getById(id);
+        return Result.success(inventory);
     }
 }

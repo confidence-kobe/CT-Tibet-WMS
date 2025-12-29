@@ -89,4 +89,12 @@ public class WarehouseController {
         warehouseService.updateStatus(id, status);
         return Result.success("状态更新成功");
     }
+
+    @GetMapping("/my")
+    @Operation(summary = "获取我的仓库列表", description = "获取当前用户有权限的仓库列表")
+    public Result<List<Warehouse>> getMyWarehouses() {
+        log.info("获取我的仓库列表");
+        List<Warehouse> warehouses = warehouseService.getMyWarehouses();
+        return Result.success(warehouses);
+    }
 }

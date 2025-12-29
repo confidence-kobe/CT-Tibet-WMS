@@ -38,7 +38,7 @@ public class MessageServiceImpl implements MessageService {
         // 查询消息列表
         Page<Message> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Message::getReceiverId, userId);
+        wrapper.eq(Message::getUserId, userId);
 
         if (type != null) {
             // 根据type值找到对应的MessageType枚举
@@ -59,11 +59,11 @@ public class MessageServiceImpl implements MessageService {
 
         // 查询统计信息
         LambdaQueryWrapper<Message> totalWrapper = new LambdaQueryWrapper<>();
-        totalWrapper.eq(Message::getReceiverId, userId);
+        totalWrapper.eq(Message::getUserId, userId);
         Long total = messageMapper.selectCount(totalWrapper);
 
         LambdaQueryWrapper<Message> unreadWrapper = new LambdaQueryWrapper<>();
-        unreadWrapper.eq(Message::getReceiverId, userId);
+        unreadWrapper.eq(Message::getUserId, userId);
         unreadWrapper.eq(Message::getIsRead, 0);
         Long unread = messageMapper.selectCount(unreadWrapper);
 
@@ -91,7 +91,7 @@ public class MessageServiceImpl implements MessageService {
         Page<Message> page = new Page<>(pageNum, pageSize);
 
         LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Message::getReceiverId, userId);
+        wrapper.eq(Message::getUserId, userId);
 
         if (isRead != null) {
             wrapper.eq(Message::getIsRead, isRead);
@@ -114,7 +114,7 @@ public class MessageServiceImpl implements MessageService {
         }
 
         // 检查权限：只能标记自己的消息
-        if (!message.getReceiverId().equals(userId)) {
+        if (!message.getUserId().equals(userId)) {
             throw new BusinessException(403, "无权操作此消息");
         }
 
@@ -132,7 +132,7 @@ public class MessageServiceImpl implements MessageService {
 
         for (Long id : ids) {
             Message message = messageMapper.selectById(id);
-            if (message != null && message.getReceiverId().equals(userId)) {
+            if (message != null && message.getUserId().equals(userId)) {
                 message.setIsRead(1);
                 messageMapper.updateById(message);
             }
@@ -148,7 +148,7 @@ public class MessageServiceImpl implements MessageService {
 
         // 查询所有未读消息
         LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Message::getReceiverId, userId);
+        wrapper.eq(Message::getUserId, userId);
         wrapper.eq(Message::getIsRead, 0);
 
         List<Message> unreadMessages = messageMapper.selectList(wrapper);
@@ -166,7 +166,7 @@ public class MessageServiceImpl implements MessageService {
         Long userId = getCurrentUserId();
 
         LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Message::getReceiverId, userId);
+        wrapper.eq(Message::getUserId, userId);
         wrapper.eq(Message::getIsRead, 0);
 
         return messageMapper.selectCount(wrapper);
@@ -177,7 +177,7 @@ public class MessageServiceImpl implements MessageService {
     public void sendMessage(Long receiverId, Integer messageType, String title, String content,
                            Long relatedId, Integer relatedType) {
         Message message = new Message();
-        message.setReceiverId(receiverId);
+        message.setUserId(receiverId);
         message.setMessageType(messageType);
         message.setTitle(title);
         message.setContent(content);
@@ -202,7 +202,7 @@ public class MessageServiceImpl implements MessageService {
         }
 
         // 检查权限：只能删除自己的消息
-        if (!message.getReceiverId().equals(userId)) {
+        if (!message.getUserId().equals(userId)) {
             throw new BusinessException(403, "无权删除此消息");
         }
 

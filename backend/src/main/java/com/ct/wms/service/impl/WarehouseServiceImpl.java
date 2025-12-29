@@ -13,6 +13,8 @@ import com.ct.wms.service.WarehouseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -155,5 +157,49 @@ public class WarehouseServiceImpl implements WarehouseService {
         warehouseMapper.updateById(warehouse);
 
         log.info("更新仓库状态成功: id={}, status={}", id, status);
+    }
+
+    @Override
+    public List<Warehouse> getMyWarehouses() {
+        Long currentUserId = getCurrentUserId();
+        User currentUser = userMapper.selectById(currentUserId);
+
+        if (currentUser == null) {
+            throw new BusinessException(401, "用户未登录");
+        }
+
+        LambdaQueryWrapper<Warehouse> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Warehouse::getStatus, 0); // 只查询启用的仓库
+
+        // 普通用户只能看到自己部门的仓库
+        // 管理员可以看到所有仓库
+        String roleCode = currentUser.getRoleCode();
+        if (!"ADMIN".equals(roleCode)) {
+            wrapper.eq(Warehouse::getDeptId, currentUser.getDeptId());
+        }
+
+        wrapper.orderByAsc(Warehouse::getWarehouseName);
+
+        List<Warehouse> warehouses = warehouseMapper.selectList(wrapper);
+
+        // 填充部门名称
+        warehouses.forEach(warehouse -> {
+            Dept dept = deptMapper.selectById(warehouse.getDeptId());
+            if (dept != null) {
+                warehouse.setDeptName(dept.getDeptName());
+            }
+        });
+
+        return warehouses;
+    }
+
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof com.ct.wms.security.UserDetailsImpl) {
+            com.ct.wms.security.UserDetailsImpl userDetails =
+                    (com.ct.wms.security.UserDetailsImpl) authentication.getPrincipal();
+            return userDetails.getId();
+        }
+        throw new BusinessException(401, "用户未登录");
     }
 }

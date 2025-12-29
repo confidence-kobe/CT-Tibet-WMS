@@ -60,4 +60,11 @@ public interface WarehouseService {
      * @param status 状态(0-启用 1-禁用)
      */
     void updateStatus(Long id, Integer status);
+
+    /**
+     * 获取当前用户有权限的仓库列表
+     *
+     * @return 仓库列表
+     */
+    List<Warehouse> getMyWarehouses();
 }

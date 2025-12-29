@@ -95,4 +95,12 @@ public interface InventoryService {
      * @return 低库存列表
      */
     List<Inventory> listLowStockAlerts(Long warehouseId);
+
+    /**
+     * 根据ID查询库存
+     *
+     * @param id 库存ID
+     * @return 库存对象
+     */
+    Inventory getById(Long id);
 }

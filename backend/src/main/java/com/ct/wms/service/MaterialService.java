@@ -77,4 +77,13 @@ public interface MaterialService {
      * @return true-存在 false-不存在
      */
     boolean checkMaterialCodeExists(String materialCode, Long excludeId);
+
+    /**
+     * 搜索物资（用于选择器）
+     *
+     * @param keyword 关键词
+     * @param status  状态
+     * @return 物资列表
+     */
+    List<Material> searchMaterials(String keyword, Integer status);
 }

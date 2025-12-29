@@ -35,7 +35,7 @@ public class RoleController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "分页查询角色列表", description = "支持关键词搜索")
-    public Result<PageResult<Role>> listRoles(
+    public PageResult<Role> listRoles(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
@@ -44,7 +44,7 @@ public class RoleController {
 
         Page<Role> page = roleService.listRoles(pageNum, pageSize, keyword);
 
-        return Result.success(PageResult.of(page));
+        return PageResult.of(page);
     }
 
     @GetMapping("/all")

@@ -47,7 +47,7 @@ public class MessageController {
 
     @GetMapping("/my")
     @Operation(summary = "查询我的消息列表（简单版）", description = "分页查询当前用户的消息（无统计信息）")
-    public Result<PageResult<Message>> listMyMessages(
+    public PageResult<Message> listMyMessages(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "是否已读: 0-未读 1-已读") @RequestParam(required = false) Integer isRead) {
@@ -56,7 +56,7 @@ public class MessageController {
 
         Page<Message> page = messageService.listMyMessages(pageNum, pageSize, isRead);
 
-        return Result.success(PageResult.of(page));
+        return PageResult.of(page);
     }
 
     @GetMapping("/unread-count")

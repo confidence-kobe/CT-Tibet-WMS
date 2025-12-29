@@ -158,4 +158,27 @@ public class MaterialServiceImpl implements MaterialService {
 
         return materialMapper.selectCount(wrapper) > 0;
     }
+
+    @Override
+    public List<Material> searchMaterials(String keyword, Integer status) {
+        LambdaQueryWrapper<Material> wrapper = new LambdaQueryWrapper<>();
+
+        // 状态筛选
+        if (status != null) {
+            wrapper.eq(Material::getStatus, status);
+        }
+
+        // 关键词搜索（名称或编码）
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like(Material::getMaterialName, keyword)
+                    .or()
+                    .like(Material::getMaterialCode, keyword));
+        }
+
+        // 按名称排序，限制返回100条
+        wrapper.orderByAsc(Material::getMaterialName);
+        wrapper.last("LIMIT 100");
+
+        return materialMapper.selectList(wrapper);
+    }
 }

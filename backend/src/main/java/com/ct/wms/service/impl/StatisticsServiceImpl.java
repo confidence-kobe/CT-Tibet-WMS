@@ -11,8 +11,12 @@ import com.ct.wms.mapper.*;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.StatisticsService;
 import com.ct.wms.vo.DashboardStatsVO;
+import com.ct.wms.vo.MiniProgramDashboardVO;
+import com.ct.wms.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -44,6 +48,8 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final OutboundDetailMapper outboundDetailMapper;
     private final InventoryMapper inventoryMapper;
     private final InventoryService inventoryService;
+    private final MessageMapper messageMapper;
+    private final UserMapper userMapper;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -869,5 +875,119 @@ public class StatisticsServiceImpl implements StatisticsService {
         // 按库存金额降序排序，取前10
         topStockList.sort((a, b) -> b.getValue().compareTo(a.getValue()));
         return topStockList.stream().limit(10).collect(Collectors.toList());
+    }
+
+    @Override
+    public MiniProgramDashboardVO getMiniProgramDashboard() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDetailsImpl)) {
+            throw new RuntimeException("未登录");
+        }
+
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        Long userId = userDetails.getId();
+        String roleCode = userDetails.getRoleCode();
+
+        MiniProgramDashboardVO dashboardVO = new MiniProgramDashboardVO();
+
+        // 根据角色返回不同的数据
+        if ("WAREHOUSE".equals(roleCode) || "DEPT_ADMIN".equals(roleCode)) {
+            // 仓管员视图
+            dashboardVO.setTodayData(buildTodayStats());
+            dashboardVO.setPendingTasks(buildPendingTasks());
+            dashboardVO.setRecentOperations(new ArrayList<>());  // 暂时返回空列表
+        } else {
+            // 普通员工视图
+            dashboardVO.setMyApplies(buildMyApplyStats(userId));
+            dashboardVO.setMessages(buildRecentMessages(userId));
+        }
+
+        return dashboardVO;
+    }
+
+    private MiniProgramDashboardVO.MyApplyStats buildMyApplyStats(Long userId) {
+        MiniProgramDashboardVO.MyApplyStats stats = new MiniProgramDashboardVO.MyApplyStats();
+
+        // 待审批
+        LambdaQueryWrapper<Apply> pendingWrapper = new LambdaQueryWrapper<>();
+        pendingWrapper.eq(Apply::getApplicantId, userId).eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
+        stats.setPendingCount(applyMapper.selectCount(pendingWrapper).intValue());
+
+        // 已通过
+        LambdaQueryWrapper<Apply> approvedWrapper = new LambdaQueryWrapper<>();
+        approvedWrapper.eq(Apply::getApplicantId, userId).eq(Apply::getStatus, ApplyStatus.APPROVED.getValue());
+        stats.setApprovedCount(applyMapper.selectCount(approvedWrapper).intValue());
+
+        // 待领取
+        LambdaQueryWrapper<Apply> pickupWrapper = new LambdaQueryWrapper<>();
+        pickupWrapper.eq(Apply::getApplicantId, userId).eq(Apply::getStatus, ApplyStatus.APPROVED.getValue());
+        stats.setPickupCount(applyMapper.selectCount(pickupWrapper).intValue());
+
+        return stats;
+    }
+
+    private List<MiniProgramDashboardVO.MessageItem> buildRecentMessages(Long userId) {
+        LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Message::getUserId, userId).orderByDesc(Message::getCreateTime).last("LIMIT 5");
+
+        List<Message> messages = messageMapper.selectList(wrapper);
+        List<MiniProgramDashboardVO.MessageItem> messageItems = new ArrayList<>();
+
+        for (Message msg : messages) {
+            MiniProgramDashboardVO.MessageItem item = new MiniProgramDashboardVO.MessageItem();
+            item.setId(msg.getId());
+            item.setTitle(msg.getTitle());
+            item.setContent(msg.getContent());
+            item.setTime(msg.getCreateTime().format(DateTimeFormatter.ofPattern("MM-dd HH:mm")));
+            item.setRelatedType(msg.getRelatedType());
+            item.setRelatedId(msg.getRelatedId());
+            messageItems.add(item);
+        }
+
+        return messageItems;
+    }
+
+    private MiniProgramDashboardVO.TodayStats buildTodayStats() {
+        MiniProgramDashboardVO.TodayStats stats = new MiniProgramDashboardVO.TodayStats();
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime todayEnd = LocalDate.now().atTime(23, 59, 59);
+
+        // 今日入库
+        LambdaQueryWrapper<Inbound> inboundWrapper = new LambdaQueryWrapper<>();
+        inboundWrapper.between(Inbound::getInboundTime, todayStart, todayEnd);
+        stats.setInboundCount(inboundMapper.selectCount(inboundWrapper).intValue());
+
+        // 今日出库
+        LambdaQueryWrapper<Outbound> outboundWrapper = new LambdaQueryWrapper<>();
+        outboundWrapper.between(Outbound::getOutboundTime, todayStart, todayEnd);
+        stats.setOutboundCount(outboundMapper.selectCount(outboundWrapper).intValue());
+
+        // 待审批申请
+        LambdaQueryWrapper<Apply> applyWrapper = new LambdaQueryWrapper<>();
+        applyWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
+        stats.setPendingApprovalCount(applyMapper.selectCount(applyWrapper).intValue());
+
+        // 库存物资种类数
+        stats.setMaterialCount(inventoryMapper.selectCount(null).intValue());
+
+        return stats;
+    }
+
+    private MiniProgramDashboardVO.PendingTasks buildPendingTasks() {
+        MiniProgramDashboardVO.PendingTasks tasks = new MiniProgramDashboardVO.PendingTasks();
+
+        // 待审批
+        LambdaQueryWrapper<Apply> applyWrapper = new LambdaQueryWrapper<>();
+        applyWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
+        tasks.setPendingApproval(applyMapper.selectCount(applyWrapper).intValue());
+
+        // 待领取（这里简化处理，实际可能需要根据出库状态判断）
+        tasks.setPendingPickup(0);
+
+        // 低库存预警
+        List<Inventory> lowStockAlerts = inventoryService.listLowStockAlerts(null);
+        tasks.setLowStockAlert(lowStockAlerts.size());
+
+        return tasks;
     }
 }

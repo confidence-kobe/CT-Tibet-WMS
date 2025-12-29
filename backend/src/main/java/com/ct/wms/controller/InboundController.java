@@ -32,7 +32,7 @@ public class InboundController {
 
     @GetMapping
     @Operation(summary = "分页查询入库单列表", description = "支持多条件筛选")
-    public Result<PageResult<Inbound>> listInbounds(
+    public PageResult<Inbound> listInbounds(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
@@ -48,7 +48,7 @@ public class InboundController {
         Page<Inbound> page = inboundService.listInbounds(pageNum, pageSize, warehouseId,
                 inboundType, startDate, endDate, operatorId, keyword);
 
-        return Result.success(PageResult.of(page));
+        return PageResult.of(page);
     }
 
     @GetMapping("/{id}")

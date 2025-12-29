@@ -35,10 +35,10 @@ public class MaterialController {
 
     @GetMapping
     @Operation(summary = "分页查询物资列表", description = "支持按类别、状态、关键词筛选")
-    public Result<PageResult<Material>> listMaterials(MaterialQueryDTO queryDTO) {
+    public PageResult<Material> listMaterials(MaterialQueryDTO queryDTO) {
         log.info("查询物资列表: queryDTO={}", queryDTO);
         Page<Material> page = materialService.listMaterials(queryDTO);
-        return Result.success(PageResult.of(page));
+        return PageResult.of(page);
     }
 
     @GetMapping("/{id}")
@@ -97,5 +97,15 @@ public class MaterialController {
         log.info("查询物资类别列表");
         List<String> categories = materialService.getCategories();
         return Result.success(categories);
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "搜索物资", description = "根据关键词搜索启用状态的物资（用于选择器）")
+    public Result<List<Material>> searchMaterials(
+            @Parameter(description = "关键词") @RequestParam(required = false) String keyword,
+            @Parameter(description = "状态") @RequestParam(required = false, defaultValue = "0") Integer status) {
+        log.info("搜索物资: keyword={}, status={}", keyword, status);
+        List<Material> materials = materialService.searchMaterials(keyword, status);
+        return Result.success(materials);
     }
 }

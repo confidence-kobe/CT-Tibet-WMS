@@ -318,4 +318,9 @@ public class InventoryServiceImpl implements InventoryService {
 
         inventoryLogMapper.insert(log);
     }
+
+    @Override
+    public Inventory getById(Long id) {
+        return inventoryMapper.selectById(id);
+    }
 }

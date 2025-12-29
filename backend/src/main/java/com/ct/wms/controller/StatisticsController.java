@@ -6,6 +6,7 @@ import com.ct.wms.dto.InventoryStatisticsDTO;
 import com.ct.wms.dto.OutboundStatisticsDTO;
 import com.ct.wms.service.StatisticsService;
 import com.ct.wms.vo.DashboardStatsVO;
+import com.ct.wms.vo.MiniProgramDashboardVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -102,5 +103,13 @@ public class StatisticsController {
         log.info("获取库存统计数据: warehouseId={}", warehouseId);
         InventoryStatisticsDTO statistics = statisticsService.getInventoryStatistics(warehouseId);
         return Result.success(statistics);
+    }
+
+    @GetMapping("/miniprogram")
+    @Operation(summary = "获取小程序首页统计数据", description = "根据用户角色返回员工视图或仓管视图的首页数据")
+    public Result<MiniProgramDashboardVO> getMiniProgramDashboard() {
+        log.info("获取小程序首页统计数据");
+        MiniProgramDashboardVO dashboard = statisticsService.getMiniProgramDashboard();
+        return Result.success(dashboard);
     }
 }

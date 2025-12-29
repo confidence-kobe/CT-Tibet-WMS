@@ -4,6 +4,7 @@ import com.ct.wms.dto.InboundStatisticsDTO;
 import com.ct.wms.dto.InventoryStatisticsDTO;
 import com.ct.wms.dto.OutboundStatisticsDTO;
 import com.ct.wms.vo.DashboardStatsVO;
+import com.ct.wms.vo.MiniProgramDashboardVO;
 
 import java.time.LocalDate;
 
@@ -50,4 +51,11 @@ public interface StatisticsService {
      * @return 库存统计数据
      */
     InventoryStatisticsDTO getInventoryStatistics(Long warehouseId);
+
+    /**
+     * 获取小程序首页统计数据
+     *
+     * @return 小程序首页统计VO
+     */
+    MiniProgramDashboardVO getMiniProgramDashboard();
 }

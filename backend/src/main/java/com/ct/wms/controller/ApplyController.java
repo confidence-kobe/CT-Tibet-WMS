@@ -34,7 +34,7 @@ public class ApplyController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "分页查询申请单列表", description = "支持多条件筛选（管理员/仓管员）")
-    public Result<PageResult<Apply>> listApplies(
+    public PageResult<Apply> listApplies(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
@@ -51,12 +51,12 @@ public class ApplyController {
         Page<Apply> page = applyService.listApplies(pageNum, pageSize, warehouseId,
                 status, startDate, endDate, applicantId, approverId, keyword);
 
-        return Result.success(PageResult.of(page));
+        return PageResult.of(page);
     }
 
     @GetMapping("/my")
     @Operation(summary = "查询我的申请单列表", description = "普通员工查看自己的申请")
-    public Result<PageResult<Apply>> listMyApplies(
+    public PageResult<Apply> listMyApplies(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "状态") @RequestParam(required = false) Integer status) {
@@ -65,13 +65,13 @@ public class ApplyController {
 
         Page<Apply> page = applyService.listMyApplies(pageNum, pageSize, status);
 
-        return Result.success(PageResult.of(page));
+        return PageResult.of(page);
     }
 
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "查询待审批列表", description = "仓管员查看待审批的申请")
-    public Result<PageResult<Apply>> listPendingApplies(
+    public PageResult<Apply> listPendingApplies(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize) {
 
@@ -79,7 +79,7 @@ public class ApplyController {
 
         Page<Apply> page = applyService.listPendingApplies(pageNum, pageSize);
 
-        return Result.success(PageResult.of(page));
+        return PageResult.of(page);
     }
 
     @GetMapping("/{id}")

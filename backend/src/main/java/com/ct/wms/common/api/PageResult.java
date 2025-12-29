@@ -3,15 +3,15 @@ package com.ct.wms.common.api;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
  * Paginated response wrapper
- * Extends Result to provide pagination information along with data
+ * Standalone pagination response with unified API format
  *
  * @param <T> the type of data in the page
  * @author CT-Tibet-WMS
@@ -20,10 +20,29 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-public class PageResult<T> extends Result<List<T>> {
+public class PageResult<T> implements Serializable {
 
     private static final long serialVersionUID = 1L;
+
+    /**
+     * Response code
+     */
+    private Integer code;
+
+    /**
+     * Response message
+     */
+    private String message;
+
+    /**
+     * Response data (list of records for current page)
+     */
+    private List<T> data;
+
+    /**
+     * Response timestamp
+     */
+    private LocalDateTime timestamp;
 
     /**
      * Total number of records
@@ -60,11 +79,11 @@ public class PageResult<T> extends Result<List<T>> {
         result.setCode(ResultCode.SUCCESS.getCode());
         result.setMessage(ResultCode.SUCCESS.getMessage());
         result.setData(data);
+        result.setTimestamp(LocalDateTime.now());
         result.setTotal(total);
         result.setPageNum(pageNum);
         result.setPageSize(pageSize);
         result.setPages(calculatePages(total, pageSize));
-        result.setTimestamp(LocalDateTime.now());
         return result;
     }
 
@@ -84,11 +103,11 @@ public class PageResult<T> extends Result<List<T>> {
         result.setCode(ResultCode.SUCCESS.getCode());
         result.setMessage(message);
         result.setData(data);
+        result.setTimestamp(LocalDateTime.now());
         result.setTotal(total);
         result.setPageNum(pageNum);
         result.setPageSize(pageSize);
         result.setPages(calculatePages(total, pageSize));
-        result.setTimestamp(LocalDateTime.now());
         return result;
     }
 

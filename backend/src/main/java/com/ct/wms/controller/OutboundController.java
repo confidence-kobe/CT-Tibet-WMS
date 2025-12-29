@@ -32,7 +32,7 @@ public class OutboundController {
 
     @GetMapping
     @Operation(summary = "分页查询出库单列表", description = "支持多条件筛选")
-    public Result<PageResult<Outbound>> listOutbounds(
+    public PageResult<Outbound> listOutbounds(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
@@ -50,7 +50,7 @@ public class OutboundController {
         Page<Outbound> page = outboundService.listOutbounds(pageNum, pageSize, warehouseId,
                 outboundType, status, startDate, endDate, operatorId, receiverId, keyword);
 
-        return Result.success(PageResult.of(page));
+        return PageResult.of(page);
     }
 
     @GetMapping("/{id}")
@@ -60,6 +60,24 @@ public class OutboundController {
         log.info("查询出库单详情: id={}", id);
         Outbound outbound = outboundService.getOutboundById(id);
         return Result.success(outbound);
+    }
+
+    @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
+    @Operation(summary = "查询待领取出库单列表", description = "查询状态为待领取的出库单")
+    public PageResult<Outbound> listPendingOutbounds(
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
+            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
+            @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
+
+        log.info("查询待领取出库单: pageNum={}, pageSize={}, warehouseId={}", pageNum, pageSize, warehouseId);
+
+        // status=0 表示待领取
+        Page<Outbound> page = outboundService.listOutbounds(pageNum, pageSize, warehouseId,
+                null, 0, null, null, null, null, keyword);
+
+        return PageResult.of(page);
     }
 
     @PostMapping("/direct")
@@ -86,7 +104,8 @@ public class OutboundController {
     @Operation(summary = "取消出库单", description = "取消待取货的出库单")
     public Result<Void> cancelOutbound(
             @Parameter(description = "出库单ID") @PathVariable Long id,
-            @Parameter(description = "取消原因") @RequestParam String reason) {
+            @RequestBody(required = false) java.util.Map<String, String> body) {
+        String reason = body != null ? body.get("reason") : "";
         log.info("取消出库单: id={}, reason={}", id, reason);
         outboundService.cancelOutbound(id, reason);
         return Result.success(null, "取消成功");
