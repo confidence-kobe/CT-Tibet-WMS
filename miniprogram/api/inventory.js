@@ -16,7 +16,7 @@ import { $uRequest } from '@/utils/request.js'
  */
 export function getInventoryList(params) {
   return $uRequest({
-    url: '/api/inventory',
+    url: '/api/inventories',
     method: 'GET',
     data: params
   })
@@ -29,7 +29,7 @@ export function getInventoryList(params) {
  */
 export function getInventoryDetail(id) {
   return $uRequest({
-    url: `/api/inventory/${id}`,
+    url: `/api/inventories/${id}`,
     method: 'GET'
   })
 }
@@ -42,11 +42,12 @@ export function getInventoryDetail(id) {
  */
 export function searchInventory(keyword, warehouseId) {
   return $uRequest({
-    url: '/api/inventory/search',
+    url: '/api/inventories',
     method: 'GET',
     data: {
       keyword,
-      warehouseId
+      warehouseId,
+      pageSize: 50
     }
   })
 }
@@ -61,7 +62,7 @@ export function searchInventory(keyword, warehouseId) {
  */
 export function getWarningList(params) {
   return $uRequest({
-    url: '/api/inventory/warning',
+    url: '/api/inventories/low-stock-alerts',
     method: 'GET',
     data: params
   })
@@ -74,7 +75,7 @@ export function getWarningList(params) {
  */
 export function getInventoryStats(warehouseId) {
   return $uRequest({
-    url: '/api/inventory/stats',
+    url: '/api/statistics/inventory',
     method: 'GET',
     data: {
       warehouseId
@@ -92,7 +93,7 @@ export function getInventoryStats(warehouseId) {
  */
 export function getInventoryHistory(params) {
   return $uRequest({
-    url: '/api/inventory/history',
+    url: '/api/inventories/logs',
     method: 'GET',
     data: params
   })

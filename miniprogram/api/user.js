@@ -41,8 +41,8 @@ export function updateProfile(data) {
  */
 export function changePassword(data) {
   return $uRequest({
-    url: '/api/users/change-password',
-    method: 'POST',
+    url: '/api/users/password',
+    method: 'PUT',
     data
   })
 }

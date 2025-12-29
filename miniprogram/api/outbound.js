@@ -122,11 +122,20 @@ export function getOutboundStats(params) {
 }
 
 export default {
+  // 原始方法名
   createOutbound,
   getPendingOutbound,
   confirmOutbound,
   getOutboundList,
   getOutboundDetail,
   cancelOutbound,
-  getOutboundStats
+  getOutboundStats,
+  // 别名（匹配页面调用）
+  create: createOutbound,
+  getList: getOutboundList,
+  getDetail: getOutboundDetail,
+  getPendingList: getPendingOutbound,
+  confirmPickup: confirmOutbound,
+  cancel: cancelOutbound,
+  getStats: getOutboundStats
 }

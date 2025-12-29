@@ -35,10 +35,15 @@ export function getPendingApproval(params) {
  * @returns {Promise} 返回已审批申请列表
  */
 export function getApprovedList(params) {
+  // 使用申请列表接口，通过status筛选已审批的（1=已通过, 2=已拒绝）
   return $uRequest({
-    url: '/api/applies/approved',
+    url: '/api/applies',
     method: 'GET',
-    data: params
+    data: {
+      ...params,
+      // 如果指定了approvalStatus，转换为status
+      status: params.approvalStatus || undefined
+    }
   })
 }
 
@@ -52,11 +57,12 @@ export function getApprovedList(params) {
  */
 export function approveApply(id, data) {
   return $uRequest({
-    url: `/api/applies/${id}/approve`,
+    url: '/api/applies/approve',
     method: 'POST',
     data: {
-      approvalStatus: data.approvalStatus,
-      rejectReason: data.rejectReason
+      applyId: id,
+      approvalResult: data.approvalStatus,  // 1=通过, 2=拒绝
+      approvalRemark: data.rejectReason || data.approvalOpinion || ''
     }
   })
 }
@@ -66,8 +72,9 @@ export function approveApply(id, data) {
  * @returns {Promise} 返回待审批数量统计
  */
 export function getPendingStats() {
+  // 从首页统计接口获取待审批统计
   return $uRequest({
-    url: '/api/applies/pending-stats',
+    url: '/api/statistics/miniprogram',
     method: 'GET'
   })
 }
@@ -80,12 +87,26 @@ export function getPendingStats() {
  * @param {string} data.rejectReason - 拒绝理由（拒绝时必填）
  * @returns {Promise} 返回批量审批结果
  */
-export function batchApprove(data) {
-  return $uRequest({
-    url: '/api/applies/batch-approve',
-    method: 'POST',
-    data
-  })
+export async function batchApprove(data) {
+  // 批量审批暂不支持，逐个调用单个审批接口
+  const results = []
+  for (const id of data.ids) {
+    try {
+      const res = await $uRequest({
+        url: '/api/applies/approve',
+        method: 'POST',
+        data: {
+          applyId: id,
+          approvalResult: data.approvalStatus,
+          approvalRemark: data.rejectReason || ''
+        }
+      })
+      results.push({ id, success: true, data: res })
+    } catch (err) {
+      results.push({ id, success: false, error: err })
+    }
+  }
+  return { code: 200, data: results }
 }
 
 export default {

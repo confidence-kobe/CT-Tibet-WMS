@@ -39,7 +39,7 @@ export function getUnreadCount() {
 export function markRead(id) {
   return $uRequest({
     url: `/api/messages/${id}/read`,
-    method: 'POST'
+    method: 'PUT'
   })
 }
 
@@ -50,7 +50,7 @@ export function markRead(id) {
 export function markAllRead() {
   return $uRequest({
     url: '/api/messages/read-all',
-    method: 'POST'
+    method: 'PUT'
   })
 }
 
@@ -94,11 +94,16 @@ export function getMessageDetail(id) {
 }
 
 export default {
+  // 原始方法名
   getMessages,
   getUnreadCount,
   markRead,
   markAllRead,
   deleteMessage,
   batchDeleteMessages,
-  getMessageDetail
+  getMessageDetail,
+  // 别名（匹配页面调用）
+  getList: getMessages,
+  getDetail: getMessageDetail,
+  delete: deleteMessage
 }

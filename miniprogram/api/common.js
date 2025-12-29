@@ -164,7 +164,7 @@ export function getDictData(dictType) {
  */
 export function getStatistics() {
   return $uRequest({
-    url: '/api/statistics/overview',
+    url: '/api/statistics/miniprogram',
     method: 'GET'
   })
 }

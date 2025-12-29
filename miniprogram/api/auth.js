@@ -66,7 +66,7 @@ export function logout() {
  */
 export function getCurrentUser() {
   return $uRequest({
-    url: '/api/auth/current-user',
+    url: '/api/auth/user-info',
     method: 'GET'
   })
 }

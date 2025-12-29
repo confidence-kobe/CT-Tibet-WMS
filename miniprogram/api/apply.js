@@ -70,8 +70,9 @@ export function cancelApply(id) {
  * @returns {Promise} 返回各状态数量统计
  */
 export function getApplyStats() {
+  // 从首页统计接口获取申请统计
   return $uRequest({
-    url: '/api/applies/stats',
+    url: '/api/statistics/miniprogram',
     method: 'GET'
   })
 }

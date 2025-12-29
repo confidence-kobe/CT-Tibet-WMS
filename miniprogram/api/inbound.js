@@ -85,9 +85,16 @@ export function deleteInbound(id) {
 }
 
 export default {
+  // 原始方法名
   createInbound,
   getInboundList,
   getInboundDetail,
   getInboundStats,
-  deleteInbound
+  deleteInbound,
+  // 别名（匹配页面调用）
+  create: createInbound,
+  getList: getInboundList,
+  getDetail: getInboundDetail,
+  getStats: getInboundStats,
+  delete: deleteInbound
 }

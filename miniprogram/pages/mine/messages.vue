@@ -123,7 +123,7 @@ export default {
       try {
         const currentTab = this.tabs[this.activeTab]
         const res = await api.message.getList({
-          page: this.page,
+          pageNum: this.page,
           pageSize: this.pageSize,
           isRead: currentTab.isRead
         })
