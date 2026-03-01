@@ -60,4 +60,10 @@ public class AuthController {
         Object userInfo = authService.getCurrentUserInfo();
         return Result.success(userInfo);
     }
+
+    @GetMapping("/health")
+    @Operation(summary = "健康检查", description = "检查服务是否正常运行")
+    public Result<String> health() {
+        return Result.success("OK", "服务正常运行");
+    }
 }
