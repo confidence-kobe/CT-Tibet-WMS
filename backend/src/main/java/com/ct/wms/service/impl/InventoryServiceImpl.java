@@ -69,8 +69,13 @@ public class InventoryServiceImpl implements InventoryService {
             inventory.setQuantity(afterQuantity);
             inventory.setAvailableQuantity(afterQuantity.subtract(inventory.getLockedQuantity()));
             inventory.setLastInboundTime(LocalDateTime.now());
+            inventory.setVersion(inventory.getVersion() + 1);
 
-            int updated = inventoryMapper.updateById(inventory);
+            // 使用乐观锁更新
+            LambdaQueryWrapper<Inventory> updateWrapper = new LambdaQueryWrapper<>();
+            updateWrapper.eq(Inventory::getId, inventory.getId())
+                    .eq(Inventory::getVersion, inventory.getVersion() - 1);
+            int updated = inventoryMapper.update(inventory, updateWrapper);
             if (updated == 0) {
                 throw new BusinessException(500, "库存更新失败，请重试");
             }
@@ -100,6 +105,11 @@ public class InventoryServiceImpl implements InventoryService {
             throw new BusinessException(1001, "库存不足，当前库存：" + inventory.getQuantity());
         }
 
+        // 检查数量是否为正数
+        if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(400, "数量必须大于0");
+        }
+
         BigDecimal beforeQuantity = inventory.getQuantity();
         BigDecimal afterQuantity = beforeQuantity.subtract(quantity);
 
@@ -107,8 +117,13 @@ public class InventoryServiceImpl implements InventoryService {
         inventory.setQuantity(afterQuantity);
         inventory.setAvailableQuantity(afterQuantity.subtract(inventory.getLockedQuantity()));
         inventory.setLastOutboundTime(LocalDateTime.now());
+        inventory.setVersion(inventory.getVersion() + 1);
 
-        int updated = inventoryMapper.updateById(inventory);
+        // 使用乐观锁更新
+        LambdaQueryWrapper<Inventory> updateWrapper = new LambdaQueryWrapper<>();
+        updateWrapper.eq(Inventory::getId, inventory.getId())
+                .eq(Inventory::getVersion, inventory.getVersion() - 1);
+        int updated = inventoryMapper.update(inventory, updateWrapper);
         if (updated == 0) {
             throw new BusinessException(500, "库存更新失败，请重试");
         }
