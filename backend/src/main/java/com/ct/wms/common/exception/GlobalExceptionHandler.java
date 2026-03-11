@@ -4,6 +4,7 @@ import com.ct.wms.common.api.Result;
 import com.ct.wms.common.api.ResultCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -39,6 +40,19 @@ public class GlobalExceptionHandler {
     public Result<?> handleBusinessException(BusinessException e) {
         log.error("Business exception occurred: code={}, message={}", e.getErrorCode(), e.getMessage(), e);
         return Result.error(e.getErrorCode(), e.getMessage());
+    }
+
+    /**
+     * Handle BadCredentialsException (Spring Security authentication failure)
+     *
+     * @param e the bad credentials exception
+     * @return Result with error information
+     */
+    @ExceptionHandler(BadCredentialsException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Result<?> handleBadCredentialsException(BadCredentialsException e) {
+        log.error("Authentication failed: {}", e.getMessage());
+        return Result.error(401, "用户名或密码错误");
     }
 
     /**

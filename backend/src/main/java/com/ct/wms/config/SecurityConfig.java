@@ -4,6 +4,7 @@ import com.ct.wms.security.JwtAccessDeniedHandler;
 import com.ct.wms.security.JwtAuthenticationEntryPoint;
 import com.ct.wms.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -39,6 +40,9 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
+    @Value("${cors.allowed-origins:}")
+    private String allowedOrigins;
+
     /**
      * 密码编码器
      *
@@ -69,7 +73,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Collections.singletonList("*"));
+        // 生产环境必须配置具体域名，不允许使用 *
+        if (allowedOrigins == null || allowedOrigins.trim().isEmpty()) {
+            throw new IllegalStateException("生产环境必须配置 cors.allowed-origins，不允许为空或 *");
+        }
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Collections.singletonList("*"));
         configuration.setAllowCredentials(true);
@@ -113,6 +121,7 @@ public class SecurityConfig {
                 // 允许匿名访问的路径
                 .antMatchers(
                         "/api/auth/login",
+                        "/api/auth/health",
                         "/api/auth/wechat-login",
                         "/api/auth/refresh-token",
                         "/doc.html",

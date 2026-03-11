@@ -1,7 +1,7 @@
 spring:
   datasource:
     driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
     password:
 
@@ -9,11 +9,22 @@ spring:
     console:
       enabled: true
 
+  # 禁用Redis和RabbitMQ自动配置（测试环境不需要）
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+
   # MyBatis-Plus配置
   sql:
     init:
-      mode: always
-      data-locations: classpath:schema.sql
+      mode: embedded
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+
+  # 禁用缓存
+  cache:
+    type: none
 
 mybatis-plus:
   configuration:
@@ -34,9 +45,3 @@ logging:
 jwt:
   secret: test-secret-key-for-unit-tests-only-min-256-bits-required
   expiration: 86400000
-
-# Redis配置（测试环境使用嵌入式）
-spring.redis:
-  host: localhost
-  port: 6379
-  database: 0

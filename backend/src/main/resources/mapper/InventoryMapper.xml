@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ct.wms.mapper.InventoryMapper">
+
+    <!-- 锁定/解锁库存（使用乐观锁） -->
+    <update id="lockOrUnlockInventory">
+        UPDATE tb_inventory
+        SET locked_quantity = #{lockedQuantity},
+            available_quantity = #{availableQuantity},
+            version = version + 1,
+            update_time = NOW()
+        WHERE id = #{id}
+          AND version = #{version}
+    </update>
+
+    <!-- 提交库存（将锁定库存转为实际扣减） -->
+    <update id="commitInventory">
+        UPDATE tb_inventory
+        SET quantity = #{quantity},
+            locked_quantity = #{lockedQuantity},
+            available_quantity = #{availableQuantity},
+            last_outbound_time = NOW(),
+            version = version + 1,
+            update_time = NOW()
+        WHERE id = #{id}
+          AND version = #{version}
+    </update>
+
+</mapper>

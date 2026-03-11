@@ -10,7 +10,9 @@ import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.ApplyService;
+import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
+import com.ct.wms.utils.IdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -23,6 +25,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 申请Service实现类
@@ -42,6 +47,8 @@ public class ApplyServiceImpl implements ApplyService {
     private final DeptMapper deptMapper;
     private final UserMapper userMapper;
     private final OutboundService outboundService;
+    private final InventoryService inventoryService;
+    private final IdGenerator idGenerator;
 
     @Override
     public Page<Apply> listApplies(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -83,8 +90,8 @@ public class ApplyServiceImpl implements ApplyService {
 
         Page<Apply> result = applyMapper.selectPage(page, wrapper);
 
-        // 填充关联数据
-        result.getRecords().forEach(this::fillApplyInfo);
+        // 批量填充关联数据
+        fillApplyInfoBatch(result.getRecords());
 
         return result;
     }
@@ -106,8 +113,8 @@ public class ApplyServiceImpl implements ApplyService {
 
         Page<Apply> result = applyMapper.selectPage(page, wrapper);
 
-        // 填充关联数据
-        result.getRecords().forEach(this::fillApplyInfo);
+        // 批量填充关联数据
+        fillApplyInfoBatch(result.getRecords());
 
         return result;
     }
@@ -136,16 +143,20 @@ public class ApplyServiceImpl implements ApplyService {
         Page<Apply> page = new Page<>(pageNum, pageSize);
 
         LambdaQueryWrapper<Apply> wrapper = new LambdaQueryWrapper<>();
-        wrapper.in(Apply::getWarehouseId, warehouses.stream()
+        // 收集仓库ID列表，避免空列表导致的SQL语法错误
+        List<Long> warehouseIds = warehouses.stream()
                 .map(Warehouse::getId)
-                .toArray());
+                .collect(Collectors.toList());
+        if (!warehouseIds.isEmpty()) {
+            wrapper.in(Apply::getWarehouseId, warehouseIds);
+        }
         wrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
         wrapper.orderByAsc(Apply::getApplyTime);
 
         Page<Apply> result = applyMapper.selectPage(page, wrapper);
 
-        // 填充关联数据
-        result.getRecords().forEach(this::fillApplyInfo);
+        // 批量填充关联数据
+        fillApplyInfoBatch(result.getRecords());
 
         return result;
     }
@@ -212,10 +223,14 @@ public class ApplyServiceImpl implements ApplyService {
         apply.setApplyNo(applyNo);
         apply.setWarehouseId(dto.getWarehouseId());
         apply.setApplicantId(applicantId);
+        apply.setApplicantName(applicant.getRealName());
+        apply.setApplicantPhone(applicant.getPhone());
         apply.setDeptId(applicant.getDeptId());
+        apply.setDeptName(dept.getDeptName());
         apply.setApplyTime(dto.getApplyTime());
         apply.setStatus(ApplyStatus.PENDING);
         apply.setApplyReason(dto.getApplyReason());
+        apply.setPurpose(dto.getApplyReason());
 
         applyMapper.insert(apply);
         log.info("创建申请单: id={}, applyNo={}", apply.getId(), applyNo);
@@ -231,6 +246,10 @@ public class ApplyServiceImpl implements ApplyService {
             ApplyDetail detail = new ApplyDetail();
             detail.setApplyId(apply.getId());
             detail.setMaterialId(detailDTO.getMaterialId());
+            detail.setMaterialName(material.getMaterialName());
+            detail.setMaterialCode(material.getMaterialCode());
+            detail.setSpec(material.getSpec());
+            detail.setUnit(material.getUnit());
             detail.setQuantity(detailDTO.getQuantity());
             detail.setRemark(detailDTO.getRemark());
 
@@ -266,13 +285,29 @@ public class ApplyServiceImpl implements ApplyService {
             throw new BusinessException(400, "申请单状态不正确，当前状态: " + apply.getStatus());
         }
 
-        // 检查权限：仓管员只能审批自己管理的仓库的申请
+        // 检查权限：仓管员或部门管理员可以审批
         Warehouse warehouse = warehouseMapper.selectById(apply.getWarehouseId());
         if (warehouse == null) {
             throw new BusinessException(404, "仓库不存在");
         }
 
-        if (!warehouse.getManagerId().equals(approverId)) {
+        // 检查是否是仓库管理员（增加null检查）
+        boolean isWarehouseManager = warehouse.getManagerId() != null
+                && warehouse.getManagerId().equals(approverId);
+
+        // 检查是否是部门管理员（同一部门）
+        boolean isDeptAdmin = false;
+        if (!isWarehouseManager) {
+            // approver已经在方法开始时获取
+            if (approver != null && "DEPT_ADMIN".equals(approver.getRoleCode())) {
+                // 部门管理员只能审批本部门的申请
+                if (approver.getDeptId() != null && approver.getDeptId().equals(apply.getDeptId())) {
+                    isDeptAdmin = true;
+                }
+            }
+        }
+
+        if (!isWarehouseManager && !isDeptAdmin) {
             throw new BusinessException(403, "无权审批此申请单");
         }
 
@@ -282,13 +317,43 @@ public class ApplyServiceImpl implements ApplyService {
         apply.setApprovalRemark(dto.getApprovalRemark());
 
         if (dto.getApprovalResult() == 1) {
-            // 审批通过
+            // 审批通过 - 先锁定库存再创建出库单
+            // 查询申请明细
+            LambdaQueryWrapper<ApplyDetail> detailWrapper = new LambdaQueryWrapper<>();
+            detailWrapper.eq(ApplyDetail::getApplyId, apply.getId());
+            List<ApplyDetail> applyDetails = applyDetailMapper.selectList(detailWrapper);
+
+            // 锁定库存（使用乐观锁重试机制）
+            for (ApplyDetail detail : applyDetails) {
+                boolean locked = inventoryService.lockInventory(
+                        apply.getWarehouseId(),
+                        detail.getMaterialId(),
+                        detail.getQuantity()
+                );
+                if (!locked) {
+                    // 库存不足，释放已锁定的库存并抛出异常
+                    for (ApplyDetail lockedDetail : applyDetails) {
+                        if (lockedDetail.equals(detail)) {
+                            break; // 到达当前失败的项，停止解锁
+                        }
+                        inventoryService.unlockInventory(
+                                apply.getWarehouseId(),
+                                lockedDetail.getMaterialId(),
+                                lockedDetail.getQuantity()
+                        );
+                    }
+                    Material material = materialMapper.selectById(detail.getMaterialId());
+                    throw new BusinessException(1001, "库存不足: " + (material != null ? material.getMaterialName() : "物资ID:" + detail.getMaterialId()));
+                }
+            }
+
+            // 库存锁定成功，更新申请状态
             apply.setStatus(ApplyStatus.APPROVED);
             applyMapper.updateById(apply);
 
             log.info("审批通过: applyNo={}, approverId={}", apply.getApplyNo(), approverId);
 
-            // 自动创建出库单（状态为待取货，不扣减库存）
+            // 自动创建出库单（状态为待取货，库存已预扣）
             Long outboundId = outboundService.createOutboundFromApply(
                     apply.getId(),
                     apply.getWarehouseId(),
@@ -328,9 +393,27 @@ public class ApplyServiceImpl implements ApplyService {
             throw new BusinessException(403, "无权取消此申请单");
         }
 
-        // 检查状态：只能取消待审批的申请
-        if (!ApplyStatus.PENDING.equals(apply.getStatus())) {
-            throw new BusinessException(400, "只能取消待审批的申请单");
+        // 检查状态：只能取消待审批或已审批（待取货）的申请
+        if (!ApplyStatus.PENDING.equals(apply.getStatus()) && !ApplyStatus.APPROVED.equals(apply.getStatus())) {
+            throw new BusinessException(400, "当前状态不允许取消");
+        }
+
+        // 如果是已审批状态，需要释放锁定的库存
+        if (ApplyStatus.APPROVED.equals(apply.getStatus())) {
+            // 查询申请明细并释放锁定库存
+            LambdaQueryWrapper<ApplyDetail> detailWrapper = new LambdaQueryWrapper<>();
+            detailWrapper.eq(ApplyDetail::getApplyId, apply.getId());
+            List<ApplyDetail> details = applyDetailMapper.selectList(detailWrapper);
+
+            for (ApplyDetail detail : details) {
+                inventoryService.unlockInventory(
+                        apply.getWarehouseId(),
+                        detail.getMaterialId(),
+                        detail.getQuantity()
+                );
+                log.info("释放锁定库存: warehouseId={}, materialId={}, quantity={}",
+                        apply.getWarehouseId(), detail.getMaterialId(), detail.getQuantity());
+            }
         }
 
         // 更新状态
@@ -338,6 +421,78 @@ public class ApplyServiceImpl implements ApplyService {
         applyMapper.updateById(apply);
 
         log.info("取消申请单: applyNo={}, applicantId={}", apply.getApplyNo(), userId);
+    }
+
+    /**
+     * 批量填充申请单关联信息（解决N+1查询问题）
+     */
+    private void fillApplyInfoBatch(List<Apply> applies) {
+        if (applies == null || applies.isEmpty()) {
+            return;
+        }
+
+        // 收集所有需要的ID
+        Set<Long> warehouseIds = applies.stream()
+                .map(Apply::getWarehouseId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        Set<Long> userIds = applies.stream()
+                .map(Apply::getApplicantId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        applies.stream()
+                .map(Apply::getApproverId)
+                .filter(id -> id != null)
+                .forEach(userIds::add);
+
+        // 批量查询仓库（避免空集合导致SQL错误）
+        Map<Long, Warehouse> warehouseMap;
+        if (!warehouseIds.isEmpty()) {
+            List<Warehouse> warehouses = warehouseMapper.selectBatchIds(warehouseIds);
+            warehouseMap = warehouses != null ?
+                    warehouses.stream().collect(Collectors.toMap(Warehouse::getId, w -> w)) :
+                    Map.of();
+        } else {
+            warehouseMap = Map.of();
+        }
+
+        // 批量查询用户（避免空集合导致SQL错误）
+        Map<Long, User> userMap;
+        if (!userIds.isEmpty()) {
+            List<User> users = userMapper.selectBatchIds(userIds);
+            userMap = users != null ?
+                    users.stream().collect(Collectors.toMap(User::getId, u -> u)) :
+                    Map.of();
+        } else {
+            userMap = Map.of();
+        }
+
+        // 填充数据
+        for (Apply apply : applies) {
+            // 填充仓库名称
+            if (apply.getWarehouseId() != null) {
+                Warehouse warehouse = warehouseMap.get(apply.getWarehouseId());
+                if (warehouse != null) {
+                    apply.setWarehouseName(warehouse.getWarehouseName());
+                }
+            }
+
+            // 填充申请人姓名
+            if (apply.getApplicantId() != null) {
+                User applicant = userMap.get(apply.getApplicantId());
+                if (applicant != null) {
+                    apply.setApplicantName(applicant.getRealName());
+                }
+            }
+
+            // 填充审批人姓名
+            if (apply.getApproverId() != null) {
+                User approver = userMap.get(apply.getApproverId());
+                if (approver != null) {
+                    apply.setApproverName(approver.getRealName());
+                }
+            }
+        }
     }
 
     /**
@@ -366,28 +521,14 @@ public class ApplyServiceImpl implements ApplyService {
     }
 
     /**
-     * 生成申请单号
+     * 生成申请单号（使用分布式ID生成器，高性能高并发）
      */
     private String generateApplyNo(String deptCode) {
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String prefix = "SQ_" + deptCode + "_" + today + "_";
-
-        // 查询今天最大的流水号
-        LambdaQueryWrapper<Apply> wrapper = new LambdaQueryWrapper<>();
-        wrapper.likeRight(Apply::getApplyNo, prefix);
-        wrapper.orderByDesc(Apply::getApplyNo);
-        wrapper.last("LIMIT 1");
-
-        Apply lastApply = applyMapper.selectOne(wrapper);
-
-        int sequence = 1;
-        if (lastApply != null) {
-            String lastNo = lastApply.getApplyNo();
-            String lastSeq = lastNo.substring(lastNo.lastIndexOf("_") + 1);
-            sequence = Integer.parseInt(lastSeq) + 1;
-        }
-
-        return prefix + String.format("%04d", sequence);
+        // 使用雪花算法生成的ID作为流水号，确保唯一性
+        long sequence = idGenerator.nextId() % 100000;
+        return prefix + String.format("%05d", sequence);
     }
 
     /**

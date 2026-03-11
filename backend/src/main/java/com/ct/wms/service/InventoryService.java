@@ -103,4 +103,40 @@ public interface InventoryService {
      * @return 库存对象
      */
     Inventory getById(Long id);
+
+    /**
+     * 锁定库存（预扣库存，用于申请审批时占用库存）
+     * 使用乐观锁确保并发安全
+     *
+     * @param warehouseId 仓库ID
+     * @param materialId 物资ID
+     * @param quantity   锁定数量
+     * @return true-锁定成功 false-库存不足
+     */
+    boolean lockInventory(Long warehouseId, Long materialId, BigDecimal quantity);
+
+    /**
+     * 解锁库存（取消预扣，用于取消申请或审批拒绝时释放库存）
+     * 使用乐观锁确保并发安全
+     *
+     * @param warehouseId 仓库ID
+     * @param materialId 物资ID
+     * @param quantity   解锁数量
+     * @return true-解锁成功 false-操作失败
+     */
+    boolean unlockInventory(Long warehouseId, Long materialId, BigDecimal quantity);
+
+    /**
+     * 提交库存（将锁定库存转为实际扣减，用于确认出库时）
+     * 使用乐观锁确保并发安全
+     *
+     * @param warehouseId 仓库ID
+     * @param materialId 物资ID
+     * @param quantity   扣减数量
+     * @param relatedNo   关联单号
+     * @param relatedId   关联单据ID
+     * @param operatorId  操作人ID
+     */
+    void commitInventory(Long warehouseId, Long materialId, BigDecimal quantity,
+                         String relatedNo, Long relatedId, Long operatorId);
 }

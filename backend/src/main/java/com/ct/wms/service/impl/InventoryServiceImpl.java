@@ -193,8 +193,10 @@ public class InventoryServiceImpl implements InventoryService {
 
         Page<Inventory> result = inventoryMapper.selectPage(page, wrapper);
 
-        // 填充关联数据
-        result.getRecords().forEach(this::fillInventoryInfo);
+        // 填充关联数据（防御性检查，避免空指针）
+        if (result != null && result.getRecords() != null && !result.getRecords().isEmpty()) {
+            result.getRecords().forEach(this::fillInventoryInfo);
+        }
 
         return result;
     }
@@ -230,8 +232,10 @@ public class InventoryServiceImpl implements InventoryService {
 
         Page<InventoryLog> result = inventoryLogMapper.selectPage(page, wrapper);
 
-        // 填充关联数据
-        result.getRecords().forEach(this::fillInventoryLogInfo);
+        // 填充关联数据（防御性检查，避免空指针）
+        if (result != null && result.getRecords() != null && !result.getRecords().isEmpty()) {
+            result.getRecords().forEach(this::fillInventoryLogInfo);
+        }
 
         return result;
     }
@@ -337,5 +341,154 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     public Inventory getById(Long id) {
         return inventoryMapper.selectById(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean lockInventory(Long warehouseId, Long materialId, BigDecimal quantity) {
+        // 使用乐观锁原子性地锁定库存
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            // 查询当前库存（使用FOR UPDATE加行锁）
+            Inventory inventory = getInventoryWithLock(warehouseId, materialId);
+            if (inventory == null) {
+                throw new BusinessException(1001, "库存不存在");
+            }
+
+            // 检查可用库存是否充足
+            if (inventory.getAvailableQuantity().compareTo(quantity) < 0) {
+                return false; // 库存不足
+            }
+
+            // 计算锁定后的数量
+            BigDecimal newLockedQuantity = inventory.getLockedQuantity().add(quantity);
+            BigDecimal newAvailableQuantity = inventory.getQuantity().subtract(newLockedQuantity);
+
+            // 使用乐观锁更新
+            int updated = inventoryMapper.lockOrUnlockInventory(
+                    inventory.getId(),
+                    inventory.getVersion(),
+                    newLockedQuantity,
+                    newAvailableQuantity
+            );
+
+            if (updated > 0) {
+                // 记录库存流水
+                BigDecimal beforeQuantity = inventory.getQuantity();
+                saveInventoryLog(warehouseId, materialId, 3, BigDecimal.ZERO, beforeQuantity, beforeQuantity,
+                        null, 3, null, null, "锁定库存");
+                log.info("锁定库存成功: warehouseId={}, materialId={}, quantity={}, available={}",
+                        warehouseId, materialId, quantity, newAvailableQuantity);
+                return true;
+            }
+
+            // 乐观锁冲突，重试
+            log.warn("锁定库存冲突，重试第{}次", i + 1);
+        }
+
+        throw new BusinessException(500, "锁定库存失败，请重试");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean unlockInventory(Long warehouseId, Long materialId, BigDecimal quantity) {
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            Inventory inventory = getInventoryWithLock(warehouseId, materialId);
+            if (inventory == null) {
+                throw new BusinessException(1001, "库存不存在");
+            }
+
+            // 检查锁定数量是否足够解锁
+            if (inventory.getLockedQuantity().compareTo(quantity) < 0) {
+                throw new BusinessException(400, "锁定数量不足，无法解锁");
+            }
+
+            // 计算解锁后的数量
+            BigDecimal newLockedQuantity = inventory.getLockedQuantity().subtract(quantity);
+            BigDecimal newAvailableQuantity = inventory.getQuantity().subtract(newLockedQuantity);
+
+            // 使用乐观锁更新
+            int updated = inventoryMapper.lockOrUnlockInventory(
+                    inventory.getId(),
+                    inventory.getVersion(),
+                    newLockedQuantity,
+                    newAvailableQuantity
+            );
+
+            if (updated > 0) {
+                // 记录库存流水
+                BigDecimal beforeQuantity = inventory.getQuantity();
+                saveInventoryLog(warehouseId, materialId, 4, BigDecimal.ZERO, beforeQuantity, beforeQuantity,
+                        null, 4, null, null, "解锁库存");
+                log.info("解锁库存成功: warehouseId={}, materialId={}, quantity={}, available={}",
+                        warehouseId, materialId, quantity, newAvailableQuantity);
+                return true;
+            }
+
+            // 乐观锁冲突，重试
+            log.warn("解锁库存冲突，重试第{}次", i + 1);
+        }
+
+        throw new BusinessException(500, "解锁库存失败，请重试");
+    }
+
+    /**
+     * 使用悲观锁查询库存（FOR UPDATE）
+     */
+    private Inventory getInventoryWithLock(Long warehouseId, Long materialId) {
+        LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Inventory::getWarehouseId, warehouseId);
+        wrapper.eq(Inventory::getMaterialId, materialId);
+        wrapper.last("FOR UPDATE");
+        return inventoryMapper.selectOne(wrapper);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void commitInventory(Long warehouseId, Long materialId, BigDecimal quantity,
+                                String relatedNo, Long relatedId, Long operatorId) {
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            Inventory inventory = getInventoryWithLock(warehouseId, materialId);
+            if (inventory == null) {
+                throw new BusinessException(1001, "库存不存在");
+            }
+
+            // 检查锁定数量是否足够
+            if (inventory.getLockedQuantity().compareTo(quantity) < 0) {
+                throw new BusinessException(1001, "锁定库存不足");
+            }
+
+            BigDecimal beforeQuantity = inventory.getQuantity();
+
+            // 扣减总库存和锁定数量
+            BigDecimal newQuantity = inventory.getQuantity().subtract(quantity);
+            BigDecimal newLockedQuantity = inventory.getLockedQuantity().subtract(quantity);
+            BigDecimal newAvailableQuantity = newQuantity.subtract(newLockedQuantity);
+
+            // 使用乐观锁更新
+            int updated = inventoryMapper.commitInventory(
+                    inventory.getId(),
+                    inventory.getVersion(),
+                    newQuantity,
+                    newLockedQuantity,
+                    newAvailableQuantity
+            );
+
+            if (updated > 0) {
+                // 记录库存流水
+                saveInventoryLog(warehouseId, materialId, 2, quantity.negate(), beforeQuantity, newQuantity,
+                        relatedNo, 2, relatedId, operatorId, "出库(锁定转扣减)");
+                log.info("提交库存（锁定转扣减）: warehouseId={}, materialId={}, quantity={}, before={}, after={}",
+                        warehouseId, materialId, quantity, beforeQuantity, newQuantity);
+                return;
+            }
+
+            // 乐观锁冲突，重试
+            log.warn("提交库存冲突，重试第{}次", i + 1);
+        }
+
+        throw new BusinessException(500, "提交库存失败，请重试");
     }
 }

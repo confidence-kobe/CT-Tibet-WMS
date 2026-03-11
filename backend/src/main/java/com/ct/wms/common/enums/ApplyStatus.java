@@ -15,8 +15,7 @@ public enum ApplyStatus {
     APPROVED(1, "已通过"),
     REJECTED(2, "已拒绝"),
     COMPLETED(3, "已完成"),
-    CANCELED(4, "已取消"),
-    CANCELLED(4, "已取消");  // 别名，保持兼容性
+    CANCELED(4, "已取消");
 
     @EnumValue
     @JsonValue

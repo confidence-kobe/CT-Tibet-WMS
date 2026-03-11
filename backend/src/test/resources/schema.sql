@@ -4,6 +4,22 @@
 
 SET MODE MySQL;
 
+-- Drop all tables if exist (ensure clean state)
+DROP TABLE IF EXISTS tb_inventory_log;
+DROP TABLE IF EXISTS tb_message;
+DROP TABLE IF EXISTS tb_outbound_detail;
+DROP TABLE IF EXISTS tb_outbound;
+DROP TABLE IF EXISTS tb_apply_detail;
+DROP TABLE IF EXISTS tb_apply;
+DROP TABLE IF EXISTS tb_inbound_detail;
+DROP TABLE IF EXISTS tb_inbound;
+DROP TABLE IF EXISTS tb_inventory;
+DROP TABLE IF EXISTS tb_warehouse;
+DROP TABLE IF EXISTS tb_material;
+DROP TABLE IF EXISTS tb_user;
+DROP TABLE IF EXISTS tb_dept;
+DROP TABLE IF EXISTS tb_role;
+
 -- ============================
 -- 1. tb_role - 角色表
 -- ============================

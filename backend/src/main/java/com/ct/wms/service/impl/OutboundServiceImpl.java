@@ -2,6 +2,7 @@ package com.ct.wms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ct.wms.common.enums.ApplyStatus;
 import com.ct.wms.common.enums.OutboundSource;
 import com.ct.wms.common.enums.OutboundStatus;
 import com.ct.wms.common.enums.OutboundType;
@@ -12,6 +13,7 @@ import com.ct.wms.mapper.*;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
+import com.ct.wms.utils.IdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -45,6 +47,7 @@ public class OutboundServiceImpl implements OutboundService {
     private final ApplyMapper applyMapper;
     private final ApplyDetailMapper applyDetailMapper;
     private final InventoryService inventoryService;
+    private final IdGenerator idGenerator;
 
     @Override
     public Page<Outbound> listOutbounds(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -90,8 +93,10 @@ public class OutboundServiceImpl implements OutboundService {
 
         Page<Outbound> result = outboundMapper.selectPage(page, wrapper);
 
-        // 填充关联数据
-        result.getRecords().forEach(this::fillOutboundInfo);
+        // 填充关联数据（防御性检查，避免空指针）
+        if (result != null && result.getRecords() != null && !result.getRecords().isEmpty()) {
+            result.getRecords().forEach(this::fillOutboundInfo);
+        }
 
         return result;
     }
@@ -132,6 +137,7 @@ public class OutboundServiceImpl implements OutboundService {
     public Long createOutboundDirect(OutboundDTO dto) {
         // 获取当前用户
         Long operatorId = getCurrentUserId();
+        User operator = userMapper.selectById(operatorId);
 
         // 检查仓库是否存在
         Warehouse warehouse = warehouseMapper.selectById(dto.getWarehouseId());
@@ -185,7 +191,15 @@ public class OutboundServiceImpl implements OutboundService {
         outbound.setSource(OutboundSource.DIRECT);
         outbound.setStatus(OutboundStatus.COMPLETED);
         outbound.setOperatorId(operatorId);
-        outbound.setReceiverId(dto.getReceiverId());
+        outbound.setOperatorName(operator != null ? operator.getRealName() : null);
+
+        // 获取领用人信息
+        if (dto.getReceiverId() != null) {
+            User receiver = userMapper.selectById(dto.getReceiverId());
+            outbound.setReceiverId(dto.getReceiverId());
+            outbound.setReceiverName(receiver != null ? receiver.getRealName() : null);
+        }
+
         outbound.setOutboundTime(dto.getOutboundTime());
         outbound.setTotalAmount(totalAmount);
         outbound.setRemark(dto.getRemark());
@@ -195,10 +209,17 @@ public class OutboundServiceImpl implements OutboundService {
 
         // 创建出库明细并扣减库存
         for (OutboundDTO.OutboundDetailDTO detailDTO : dto.getDetails()) {
+            // 查询物资信息
+            Material material = materialMapper.selectById(detailDTO.getMaterialId());
+
             // 创建明细
             OutboundDetail detail = new OutboundDetail();
             detail.setOutboundId(outbound.getId());
             detail.setMaterialId(detailDTO.getMaterialId());
+            detail.setMaterialName(material != null ? material.getMaterialName() : null);
+            detail.setMaterialCode(material != null ? material.getMaterialCode() : null);
+            detail.setSpec(material != null ? material.getSpec() : null);
+            detail.setUnit(material != null ? material.getUnit() : null);
             detail.setQuantity(detailDTO.getQuantity());
             detail.setUnitPrice(detailDTO.getUnitPrice());
 
@@ -245,6 +266,9 @@ public class OutboundServiceImpl implements OutboundService {
             throw new BusinessException(400, "申请单明细为空");
         }
 
+        // 查询操作员信息
+        User operator = userMapper.selectById(operatorId);
+
         // 检查仓库是否存在
         Warehouse warehouse = warehouseMapper.selectById(warehouseId);
         if (warehouse == null) {
@@ -290,7 +314,15 @@ public class OutboundServiceImpl implements OutboundService {
         outbound.setSource(OutboundSource.FROM_APPLY);
         outbound.setStatus(OutboundStatus.PENDING_PICKUP);
         outbound.setOperatorId(operatorId);
-        outbound.setReceiverId(receiverId);
+        outbound.setOperatorName(operator != null ? operator.getRealName() : null);
+
+        // 获取领用人信息
+        if (receiverId != null) {
+            User receiver = userMapper.selectById(receiverId);
+            outbound.setReceiverId(receiverId);
+            outbound.setReceiverName(receiver != null ? receiver.getRealName() : null);
+        }
+
         outbound.setApplyId(applyId);
         outbound.setOutboundTime(apply.getApplyTime());
         outbound.setTotalAmount(totalAmount);
@@ -308,6 +340,10 @@ public class OutboundServiceImpl implements OutboundService {
             OutboundDetail detail = new OutboundDetail();
             detail.setOutboundId(outbound.getId());
             detail.setMaterialId(applyDetail.getMaterialId());
+            detail.setMaterialName(applyDetail.getMaterialName());
+            detail.setMaterialCode(applyDetail.getMaterialCode());
+            detail.setSpec(applyDetail.getSpec());
+            detail.setUnit(applyDetail.getUnit());
             detail.setQuantity(applyDetail.getQuantity());
             detail.setUnitPrice(unitPrice);
             detail.setAmount(unitPrice.multiply(applyDetail.getQuantity()));
@@ -342,10 +378,10 @@ public class OutboundServiceImpl implements OutboundService {
         wrapper.eq(OutboundDetail::getOutboundId, id);
         List<OutboundDetail> details = outboundDetailMapper.selectList(wrapper);
 
-        // 扣减库存
+        // 将锁定库存转为实际扣减
         Long operatorId = getCurrentUserId();
         for (OutboundDetail detail : details) {
-            inventoryService.decreaseInventory(
+            inventoryService.commitInventory(
                     outbound.getWarehouseId(),
                     detail.getMaterialId(),
                     detail.getQuantity(),
@@ -354,12 +390,21 @@ public class OutboundServiceImpl implements OutboundService {
                     operatorId
             );
 
-            log.info("确认出库，扣减库存: materialId={}, quantity={}", detail.getMaterialId(), detail.getQuantity());
+            log.info("确认出库，锁定转扣减: materialId={}, quantity={}", detail.getMaterialId(), detail.getQuantity());
         }
 
         // 更新出库单状态
         outbound.setStatus(OutboundStatus.COMPLETED);
         outboundMapper.updateById(outbound);
+
+        // 更新申请单状态为已完成
+        if (outbound.getApplyId() != null) {
+            Apply apply = applyMapper.selectById(outbound.getApplyId());
+            if (apply != null) {
+                apply.setStatus(ApplyStatus.COMPLETED);
+                applyMapper.updateById(apply);
+            }
+        }
 
         log.info("确认出库完成: outboundNo={}", outbound.getOutboundNo());
     }
@@ -378,10 +423,33 @@ public class OutboundServiceImpl implements OutboundService {
             throw new BusinessException(400, "出库单状态不正确，只有待取货状态才能取消");
         }
 
+        // 查询出库明细并释放锁定库存
+        LambdaQueryWrapper<OutboundDetail> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(OutboundDetail::getOutboundId, id);
+        List<OutboundDetail> details = outboundDetailMapper.selectList(wrapper);
+
+        for (OutboundDetail detail : details) {
+            inventoryService.unlockInventory(
+                    outbound.getWarehouseId(),
+                    detail.getMaterialId(),
+                    detail.getQuantity()
+            );
+            log.info("取消出库单，释放锁定库存: materialId={}, quantity={}", detail.getMaterialId(), detail.getQuantity());
+        }
+
         // 更新出库单状态
         outbound.setStatus(OutboundStatus.CANCELED);
         outbound.setRemark(outbound.getRemark() + " [取消原因: " + reason + "]");
         outboundMapper.updateById(outbound);
+
+        // 更新申请单状态为已取消
+        if (outbound.getApplyId() != null) {
+            Apply apply = applyMapper.selectById(outbound.getApplyId());
+            if (apply != null) {
+                apply.setStatus(ApplyStatus.CANCELED);
+                applyMapper.updateById(apply);
+            }
+        }
 
         log.info("取消出库单: outboundNo={}, reason={}", outbound.getOutboundNo(), reason);
     }
@@ -412,28 +480,15 @@ public class OutboundServiceImpl implements OutboundService {
     }
 
     /**
-     * 生成出库单号
+     * 生成出库单号（线程安全）
+     * 注意：实际生产环境建议使用分布式ID生成器或数据库序列
      */
     private String generateOutboundNo(String deptCode) {
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String prefix = "CK_" + deptCode + "_" + today + "_";
-
-        // 查询今天最大的流水号
-        LambdaQueryWrapper<Outbound> wrapper = new LambdaQueryWrapper<>();
-        wrapper.likeRight(Outbound::getOutboundNo, prefix);
-        wrapper.orderByDesc(Outbound::getOutboundNo);
-        wrapper.last("LIMIT 1");
-
-        Outbound lastOutbound = outboundMapper.selectOne(wrapper);
-
-        int sequence = 1;
-        if (lastOutbound != null) {
-            String lastNo = lastOutbound.getOutboundNo();
-            String lastSeq = lastNo.substring(lastNo.lastIndexOf("_") + 1);
-            sequence = Integer.parseInt(lastSeq) + 1;
-        }
-
-        return prefix + String.format("%04d", sequence);
+        // 使用雪花算法生成的ID作为流水号
+        long sequence = idGenerator.nextId() % 100000;
+        return prefix + String.format("%05d", sequence);
     }
 
     /**

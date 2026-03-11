@@ -9,6 +9,7 @@ import com.ct.wms.mapper.*;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.InboundService;
 import com.ct.wms.service.InventoryService;
+import com.ct.wms.utils.IdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -41,6 +42,7 @@ public class InboundServiceImpl implements InboundService {
     private final DeptMapper deptMapper;
     private final UserMapper userMapper;
     private final InventoryService inventoryService;
+    private final IdGenerator idGenerator;
 
     @Override
     public Page<Inbound> listInbounds(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -78,8 +80,10 @@ public class InboundServiceImpl implements InboundService {
 
         Page<Inbound> result = inboundMapper.selectPage(page, wrapper);
 
-        // 填充关联数据
-        result.getRecords().forEach(this::fillInboundInfo);
+        // 填充关联数据（防御性检查，避免空指针）
+        if (result != null && result.getRecords() != null && !result.getRecords().isEmpty()) {
+            result.getRecords().forEach(this::fillInboundInfo);
+        }
 
         return result;
     }
@@ -120,6 +124,7 @@ public class InboundServiceImpl implements InboundService {
     public Long createInbound(InboundDTO dto) {
         // 获取当前用户
         Long operatorId = getCurrentUserId();
+        User operator = userMapper.selectById(operatorId);
 
         // 检查仓库是否存在
         Warehouse warehouse = warehouseMapper.selectById(dto.getWarehouseId());
@@ -151,6 +156,7 @@ public class InboundServiceImpl implements InboundService {
         inbound.setWarehouseId(dto.getWarehouseId());
         inbound.setInboundType(dto.getInboundType());
         inbound.setOperatorId(operatorId);
+        inbound.setOperatorName(operator != null ? operator.getRealName() : null);
         inbound.setInboundTime(dto.getInboundTime());
         inbound.setTotalAmount(totalAmount);
         inbound.setRemark(dto.getRemark());
@@ -170,6 +176,10 @@ public class InboundServiceImpl implements InboundService {
             InboundDetail detail = new InboundDetail();
             detail.setInboundId(inbound.getId());
             detail.setMaterialId(detailDTO.getMaterialId());
+            detail.setMaterialName(material.getMaterialName());
+            detail.setMaterialCode(material.getMaterialCode());
+            detail.setSpec(material.getSpec());
+            detail.setUnit(material.getUnit());
             detail.setQuantity(detailDTO.getQuantity());
             detail.setUnitPrice(detailDTO.getUnitPrice());
 
@@ -216,28 +226,15 @@ public class InboundServiceImpl implements InboundService {
     }
 
     /**
-     * 生成入库单号
+     * 生成入库单号（线程安全）
+     * 注意：实际生产环境建议使用分布式ID生成器或数据库序列
      */
     private String generateInboundNo(String deptCode) {
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String prefix = "RK_" + deptCode + "_" + today + "_";
-
-        // 查询今天最大的流水号
-        LambdaQueryWrapper<Inbound> wrapper = new LambdaQueryWrapper<>();
-        wrapper.likeRight(Inbound::getInboundNo, prefix);
-        wrapper.orderByDesc(Inbound::getInboundNo);
-        wrapper.last("LIMIT 1");
-
-        Inbound lastInbound = inboundMapper.selectOne(wrapper);
-
-        int sequence = 1;
-        if (lastInbound != null) {
-            String lastNo = lastInbound.getInboundNo();
-            String lastSeq = lastNo.substring(lastNo.lastIndexOf("_") + 1);
-            sequence = Integer.parseInt(lastSeq) + 1;
-        }
-
-        return prefix + String.format("%04d", sequence);
+        // 使用雪花算法生成的ID作为流水号
+        long sequence = idGenerator.nextId() % 100000;
+        return prefix + String.format("%05d", sequence);
     }
 
     /**
