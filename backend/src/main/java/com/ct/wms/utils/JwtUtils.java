@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -35,6 +36,21 @@ public class JwtUtils {
 
     @Value("${jwt.issuer}")
     private String issuer;
+
+    /**
+     * 验证JWT密钥长度（HS256需要至少256位）
+     */
+    @PostConstruct
+    public void validateSecret() {
+        if (secret == null || secret.trim().isEmpty()) {
+            throw new IllegalStateException("JWT密钥不能为空，请通过环境变量JWT_SECRET设置");
+        }
+        int keyLength = secret.getBytes(StandardCharsets.UTF_8).length * 8;
+        if (keyLength < 256) {
+            throw new IllegalStateException("JWT密钥长度不足，当前" + keyLength + "位，需要至少256位");
+        }
+        log.info("JWT密钥验证通过，密钥长度: {} 位", keyLength);
+    }
 
     /**
      * 获取密钥
@@ -171,6 +187,26 @@ public class JwtUtils {
     public Boolean validateToken(String token, String username) {
         String tokenUsername = getUsernameFromToken(token);
         return (username.equals(tokenUsername) && !isTokenExpired(token));
+    }
+
+    /**
+     * 获取token剩余有效期（秒）
+     *
+     * @param token token字符串
+     * @return 剩余秒数，0表示已过期
+     */
+    public long getExpirationInSeconds(String token) {
+        try {
+            Claims claims = getClaimsFromToken(token);
+            if (claims == null) {
+                return 0;
+            }
+            long expMillis = claims.getExpiration().getTime();
+            long remaining = (expMillis - System.currentTimeMillis()) / 1000;
+            return Math.max(0, remaining);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     /**

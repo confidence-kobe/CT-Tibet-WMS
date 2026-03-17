@@ -52,7 +52,9 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Result<?> handleBadCredentialsException(BadCredentialsException e) {
         log.error("Authentication failed: {}", e.getMessage());
-        return Result.error(401, "用户名或密码错误");
+        // 使用异常消息（支持自定义消息，如账号锁定提示）
+        String message = e.getMessage() != null ? e.getMessage() : "用户名或密码错误";
+        return Result.error(401, message);
     }
 
     /**

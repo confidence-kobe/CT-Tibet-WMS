@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.WarehouseDTO;
 import com.ct.wms.entity.Dept;
+import com.ct.wms.entity.Inventory;
 import com.ct.wms.entity.User;
 import com.ct.wms.entity.Warehouse;
 import com.ct.wms.mapper.DeptMapper;
+import com.ct.wms.mapper.InventoryMapper;
 import com.ct.wms.mapper.UserMapper;
 import com.ct.wms.mapper.WarehouseMapper;
 import com.ct.wms.service.WarehouseService;
@@ -33,6 +35,7 @@ public class WarehouseServiceImpl implements WarehouseService {
     private final WarehouseMapper warehouseMapper;
     private final DeptMapper deptMapper;
     private final UserMapper userMapper;
+    private final InventoryMapper inventoryMapper;
 
     @Override
     public List<Warehouse> listWarehouses(Long deptId, Integer status) {
@@ -143,7 +146,15 @@ public class WarehouseServiceImpl implements WarehouseService {
     public void deleteWarehouse(Long id) {
         Warehouse warehouse = getWarehouseById(id);
 
-        // TODO: 检查仓库是否有库存
+        // 检查仓库是否有库存，有库存时禁止删除
+        Long inventoryCount = inventoryMapper.selectCount(
+                new LambdaQueryWrapper<Inventory>()
+                        .eq(Inventory::getWarehouseId, id)
+                        .gt(Inventory::getQuantity, java.math.BigDecimal.ZERO)
+        );
+        if (inventoryCount > 0) {
+            throw new BusinessException(400, "仓库中存在库存物资，无法删除，请先清空库存");
+        }
 
         warehouseMapper.deleteById(id);
         log.info("删除仓库成功: id={}, warehouseCode={}", id, warehouse.getWarehouseCode());

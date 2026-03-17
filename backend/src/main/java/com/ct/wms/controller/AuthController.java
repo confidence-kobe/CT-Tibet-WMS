@@ -39,9 +39,13 @@ public class AuthController {
 
     @PostMapping("/logout")
     @Operation(summary = "退出登录", description = "清除用户登录状态")
-    public Result<Void> logout() {
+    public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
         log.info("用户退出登录");
-        authService.logout();
+        String token = null;
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            token = authorization.substring(7);
+        }
+        authService.logout(token);
         return Result.success("退出成功");
     }
 

@@ -1,8 +1,10 @@
 package com.ct.wms.security;
 
 import com.ct.wms.utils.JwtUtils;
+import com.ct.wms.utils.RedisUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -29,27 +31,35 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final String TOKEN_BLACKLIST_PREFIX = "token:blacklist:";
+
     private final JwtUtils jwtUtils;
     private final UserDetailsService userDetailsService;
+
+    // 可选注入：测试环境或Redis不可用时为null
+    @Autowired(required = false)
+    private RedisUtils redisUtils;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
-            // 从请求头获取JWT token
             String jwt = parseJwt(request);
 
             if (jwt != null && !jwtUtils.isTokenExpired(jwt)) {
-                // 从token中获取用户名
+                // 检查token是否已被加入黑名单（已退出登录）
+                if (isTokenBlacklisted(jwt)) {
+                    log.debug("Token已在黑名单中，拒绝访问");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 String username = jwtUtils.getUsernameFromToken(jwt);
 
-                // 加载用户详情
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-                // 验证token
                 if (jwtUtils.validateToken(jwt, username)) {
-                    // 创建认证对象
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
@@ -59,7 +69,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                    // 设置到Security上下文
                     SecurityContextHolder.getContext().setAuthentication(authentication);
 
                     log.debug("Set authentication for user: {}", username);
@@ -72,12 +81,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    /**
-     * 从请求头中解析JWT token
-     *
-     * @param request HTTP请求
-     * @return JWT token字符串
-     */
     private String parseJwt(HttpServletRequest request) {
         String headerAuth = request.getHeader("Authorization");
 
@@ -86,5 +89,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         return null;
+    }
+
+    private boolean isTokenBlacklisted(String token) {
+        if (redisUtils == null) {
+            return false;
+        }
+        try {
+            return Boolean.TRUE.equals(redisUtils.hasKey(TOKEN_BLACKLIST_PREFIX + token));
+        } catch (Exception e) {
+            log.warn("检查Token黑名单失败，放行请求: {}", e.getMessage());
+            return false;
+        }
     }
 }

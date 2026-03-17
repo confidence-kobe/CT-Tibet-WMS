@@ -1,8 +1,11 @@
 package com.ct.wms.config;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
+import com.ct.wms.security.UserDetailsImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.reflection.MetaObject;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -17,40 +20,42 @@ import java.time.LocalDateTime;
 @Component
 public class MyMetaObjectHandler implements MetaObjectHandler {
 
-    /**
-     * 插入时自动填充
-     *
-     * @param metaObject 元对象
-     */
     @Override
     public void insertFill(MetaObject metaObject) {
         log.debug("开始插入填充...");
 
-        // 自动填充创建时间
-        this.strictInsertFill(metaObject, "createTime", LocalDateTime.class, LocalDateTime.now());
-        // 自动填充更新时间
-        this.strictInsertFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        this.strictInsertFill(metaObject, "createTime", LocalDateTime.class, now);
+        this.strictInsertFill(metaObject, "updateTime", LocalDateTime.class, now);
 
-        // TODO: 从SecurityContext获取当前登录用户ID
-        // Long userId = SecurityUtils.getCurrentUserId();
-        // this.strictInsertFill(metaObject, "createBy", Long.class, userId);
-        // this.strictInsertFill(metaObject, "updateBy", Long.class, userId);
+        Long userId = getCurrentUserId();
+        if (userId != null) {
+            this.strictInsertFill(metaObject, "createBy", Long.class, userId);
+            this.strictInsertFill(metaObject, "updateBy", Long.class, userId);
+        }
     }
 
-    /**
-     * 更新时自动填充
-     *
-     * @param metaObject 元对象
-     */
     @Override
     public void updateFill(MetaObject metaObject) {
         log.debug("开始更新填充...");
 
-        // 自动填充更新时间
         this.strictUpdateFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
 
-        // TODO: 从SecurityContext获取当前登录用户ID
-        // Long userId = SecurityUtils.getCurrentUserId();
-        // this.strictUpdateFill(metaObject, "updateBy", Long.class, userId);
+        Long userId = getCurrentUserId();
+        if (userId != null) {
+            this.strictUpdateFill(metaObject, "updateBy", Long.class, userId);
+        }
+    }
+
+    private Long getCurrentUserId() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+                return ((UserDetailsImpl) authentication.getPrincipal()).getId();
+            }
+        } catch (Exception e) {
+            log.debug("获取当前用户ID失败（可能是系统任务）: {}", e.getMessage());
+        }
+        return null;
     }
 }

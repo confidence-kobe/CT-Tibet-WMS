@@ -3,7 +3,7 @@
  */
 
 // 开发环境
-const DEV_BASE_URL = 'http://localhost:8080'
+const DEV_BASE_URL = 'http://localhost:48888'
 // 生产环境
 const PROD_BASE_URL = 'https://wms.chinatelecom.cn'
 

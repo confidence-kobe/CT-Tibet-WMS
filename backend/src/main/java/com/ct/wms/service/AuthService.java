@@ -20,9 +20,11 @@ public interface AuthService {
     LoginVO login(LoginRequest request);
 
     /**
-     * 退出登录
+     * 退出登录（将token加入黑名单）
+     *
+     * @param token 当前token
      */
-    void logout();
+    void logout(String token);
 
     /**
      * 刷新Token
