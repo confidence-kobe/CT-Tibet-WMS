@@ -227,7 +227,7 @@ public class ApplyServiceImpl implements ApplyService {
         apply.setApplicantPhone(applicant.getPhone());
         apply.setDeptId(applicant.getDeptId());
         apply.setDeptName(dept.getDeptName());
-        apply.setApplyTime(dto.getApplyTime());
+        apply.setApplyTime(LocalDateTime.now());
         apply.setStatus(ApplyStatus.PENDING);
         apply.setApplyReason(dto.getApplyReason());
         apply.setPurpose(dto.getApplyReason());
@@ -324,7 +324,8 @@ public class ApplyServiceImpl implements ApplyService {
             List<ApplyDetail> applyDetails = applyDetailMapper.selectList(detailWrapper);
 
             // 锁定库存（使用乐观锁重试机制）
-            for (ApplyDetail detail : applyDetails) {
+            for (int i = 0; i < applyDetails.size(); i++) {
+                ApplyDetail detail = applyDetails.get(i);
                 boolean locked = inventoryService.lockInventory(
                         apply.getWarehouseId(),
                         detail.getMaterialId(),
@@ -332,14 +333,11 @@ public class ApplyServiceImpl implements ApplyService {
                 );
                 if (!locked) {
                     // 库存不足，释放已锁定的库存并抛出异常
-                    for (ApplyDetail lockedDetail : applyDetails) {
-                        if (lockedDetail.equals(detail)) {
-                            break; // 到达当前失败的项，停止解锁
-                        }
+                    for (int j = 0; j < i; j++) {
                         inventoryService.unlockInventory(
                                 apply.getWarehouseId(),
-                                lockedDetail.getMaterialId(),
-                                lockedDetail.getQuantity()
+                                applyDetails.get(j).getMaterialId(),
+                                applyDetails.get(j).getQuantity()
                         );
                     }
                     Material material = materialMapper.selectById(detail.getMaterialId());
@@ -398,7 +396,7 @@ public class ApplyServiceImpl implements ApplyService {
             throw new BusinessException(400, "当前状态不允许取消");
         }
 
-        // 如果是已审批状态，需要释放锁定的库存
+        // 如果是已审批状态，需要释放锁定的库存，并取消关联的出库单
         if (ApplyStatus.APPROVED.equals(apply.getStatus())) {
             // 查询申请明细并释放锁定库存
             LambdaQueryWrapper<ApplyDetail> detailWrapper = new LambdaQueryWrapper<>();
@@ -414,6 +412,9 @@ public class ApplyServiceImpl implements ApplyService {
                 log.info("释放锁定库存: warehouseId={}, materialId={}, quantity={}",
                         apply.getWarehouseId(), detail.getMaterialId(), detail.getQuantity());
             }
+
+            // 同步取消关联的出库单
+            outboundService.cancelOutboundByApplyId(apply.getId(), "申请人取消申请，自动取消出库单");
         }
 
         // 更新状态

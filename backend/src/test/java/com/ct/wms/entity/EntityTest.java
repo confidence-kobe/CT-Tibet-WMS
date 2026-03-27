@@ -48,7 +48,7 @@ public class EntityTest {
         material.setSpec("10*10");
         material.setUnit("个");
         material.setPrice(new java.math.BigDecimal("100.00"));
-        material.setMinStock(10);
+        material.setMinStock(new java.math.BigDecimal("10"));
         
         assertEquals("测试物资", material.getMaterialName());
         assertEquals("M001", material.getMaterialCode());

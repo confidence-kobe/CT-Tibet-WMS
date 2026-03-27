@@ -1,19 +1,24 @@
 package com.ct.wms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ct.wms.common.enums.InboundType;
 import com.ct.wms.dto.InboundDTO;
 import com.ct.wms.entity.Inbound;
 import com.ct.wms.entity.Material;
+import com.ct.wms.entity.User;
 import com.ct.wms.entity.Warehouse;
 import com.ct.wms.mapper.InboundMapper;
 import com.ct.wms.mapper.MaterialMapper;
+import com.ct.wms.mapper.UserMapper;
 import com.ct.wms.mapper.WarehouseMapper;
 import com.ct.wms.service.InboundService;
 import com.ct.wms.service.InventoryService;
+import com.ct.wms.util.TestDataBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -30,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * @since 2025-11-11
  */
 @SpringBootTest
+@ActiveProfiles("test")
 @Transactional
 public class InboundServiceImplTest {
 
@@ -48,11 +54,23 @@ public class InboundServiceImplTest {
     @Autowired
     private InventoryService inventoryService;
 
+    @Autowired
+    private UserMapper userMapper;
+
     private Long testWarehouseId;
     private Long testMaterialId;
 
     @BeforeEach
     public void setUp() {
+        // 获取测试用户并设置SecurityContext
+        LambdaQueryWrapper<User> userWrapper = new LambdaQueryWrapper<>();
+        userWrapper.last("LIMIT 1");
+        User user = userMapper.selectOne(userWrapper);
+        if (user != null) {
+            String role = user.getRoleId() != null ? user.getRoleId().toString() : "USER";
+            TestDataBuilder.mockSecurityContext(user.getId(), user.getUsername(), role);
+        }
+
         // 查找测试数据
         LambdaQueryWrapper<Warehouse> warehouseWrapper = new LambdaQueryWrapper<>();
         warehouseWrapper.last("LIMIT 1");
@@ -80,7 +98,7 @@ public class InboundServiceImplTest {
 
         InboundDTO dto = new InboundDTO();
         dto.setWarehouseId(testWarehouseId);
-        dto.setInboundType(1); // 采购入库
+        dto.setInboundType(InboundType.PURCHASE); // 采购入库
         dto.setInboundTime(LocalDateTime.now());
         dto.setRemark("测试入库单");
 
@@ -124,7 +142,7 @@ public class InboundServiceImplTest {
         if (testWarehouseId != null && testMaterialId != null) {
             InboundDTO dto = new InboundDTO();
             dto.setWarehouseId(testWarehouseId);
-            dto.setInboundType(1);
+            dto.setInboundType(InboundType.PURCHASE);
             dto.setInboundTime(LocalDateTime.now());
             dto.setRemark("测试详情");
 
@@ -162,7 +180,7 @@ public class InboundServiceImplTest {
         // 创建入库单
         InboundDTO dto = new InboundDTO();
         dto.setWarehouseId(testWarehouseId);
-        dto.setInboundType(1);
+        dto.setInboundType(InboundType.PURCHASE);
         dto.setInboundTime(LocalDateTime.now());
 
         List<InboundDTO.InboundDetailDTO> details = new ArrayList<>();

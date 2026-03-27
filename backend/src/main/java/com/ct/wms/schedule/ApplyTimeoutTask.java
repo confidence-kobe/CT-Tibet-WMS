@@ -8,6 +8,7 @@ import com.ct.wms.dto.NotificationMessageDTO;
 import com.ct.wms.entity.Apply;
 import com.ct.wms.mapper.ApplyMapper;
 import com.ct.wms.mq.NotificationProducer;
+import com.ct.wms.utils.RedisLockUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,9 +33,16 @@ public class ApplyTimeoutTask {
 
     private final ApplyMapper applyMapper;
 
+    // 可选依赖：如果 Redis 未启用（测试环境），此字段为 null
+    @Autowired(required = false)
+    private RedisLockUtils redisLockUtils;
+
     // 可选依赖：如果 RabbitMQ 未启用，此字段为 null
     @Autowired(required = false)
     private NotificationProducer notificationProducer;
+
+    // 分布式锁KEY前缀
+    private static final String LOCK_PREFIX = "wms:lock:apply_timeout_task:";
 
     /**
      * 定时检查并提醒超时未审批的申请
@@ -44,17 +52,40 @@ public class ApplyTimeoutTask {
      */
     @Scheduled(cron = "0 0 * * * ?")
     public void remindTimeoutApply() {
-        log.info("==================== 开始执行申请超时提醒任务 ====================");
+        // 测试环境下跳过分布式锁
+        if (redisLockUtils == null) {
+            executeRemindTimeoutApply();
+            return;
+        }
+
+        String lockKey = LOCK_PREFIX + "remind";
+        String lockValue = redisLockUtils.tryLock(lockKey, 60);
+        if (lockValue == null) {
+            log.info("申请超时提醒任务正在执行中，跳过本次调度");
+            return;
+        }
 
         try {
+            executeRemindTimeoutApply();
+        } finally {
+            redisLockUtils.unlock(lockKey, lockValue);
+        }
+    }
+
+    /**
+     * 执行申请超时提醒任务
+     */
+    private void executeRemindTimeoutApply() {
+        try {
+            log.info("==================== 开始执行申请超时提醒任务 ====================");
+
             // 计算24小时前的时间
             LocalDateTime timeoutTime = LocalDateTime.now().minusHours(24);
 
             // 查询所有待审批且超过24小时的申请
             LambdaQueryWrapper<Apply> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue())
-                    .le(Apply::getApplyTime, timeoutTime)
-                    .isNotNull(Apply::getApproverId);
+                    .le(Apply::getApplyTime, timeoutTime);
 
             List<Apply> timeoutApplies = applyMapper.selectList(queryWrapper);
 
@@ -78,7 +109,7 @@ public class ApplyTimeoutTask {
                     // 发送提醒消息给审批人
                     NotificationMessageDTO notification = NotificationMessageDTO.builder()
                             .receiverId(apply.getApproverId())
-                            .messageType(MessageType.APPLY_SUBMIT.getValue())
+                            .messageType(MessageType.APPLY_REMINDER.getValue())
                             .title("申请审批超时提醒")
                             .content(String.format("申请单 %s 已提交超过24小时，请及时审批。申请人: %s",
                                     apply.getApplyNo(), apply.getApplicantName()))
@@ -116,9 +147,33 @@ public class ApplyTimeoutTask {
      */
     @Scheduled(cron = "0 0 3 * * ?")
     public void cancelLongTimeoutApply() {
-        log.info("==================== 开始执行申请长期超时取消任务 ====================");
+        // 测试环境下跳过分布式锁
+        if (redisLockUtils == null) {
+            executeCancelLongTimeoutApply();
+            return;
+        }
+
+        String lockKey = LOCK_PREFIX + "cancel";
+        String lockValue = redisLockUtils.tryLock(lockKey, 300);
+        if (lockValue == null) {
+            log.info("申请长期超时取消任务正在执行中，跳过本次调度");
+            return;
+        }
 
         try {
+            executeCancelLongTimeoutApply();
+        } finally {
+            redisLockUtils.unlock(lockKey, lockValue);
+        }
+    }
+
+    /**
+     * 执行申请长期超时取消任务
+     */
+    private void executeCancelLongTimeoutApply() {
+        try {
+            log.info("==================== 开始执行申请长期超时取消任务 ====================");
+
             // 计算7天前的时间
             LocalDateTime timeoutTime = LocalDateTime.now().minusDays(7);
 

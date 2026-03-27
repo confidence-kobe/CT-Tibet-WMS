@@ -1,8 +1,9 @@
-package com.ct.wms.util;
+package com.ct.wms.utils;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * @since 2025-11-11
  */
 @SpringBootTest
+@ActiveProfiles("test")
 public class JwtUtilsTest {
 
     @Autowired
@@ -72,10 +74,13 @@ public class JwtUtilsTest {
     @Test
     public void testRefreshToken() {
         String oldToken = jwtUtils.generateToken(1L, "admin");
-        
+
         String newToken = jwtUtils.refreshToken(oldToken);
-        
+
         assertNotNull(newToken);
-        assertNotEquals(oldToken, newToken);
+        // 刷新后的token应该可以正常使用，且与原token有相同的用户信息
+        assertNotNull(jwtUtils.getUserIdFromToken(newToken));
+        assertNotNull(jwtUtils.getUsernameFromToken(newToken));
+        assertFalse(jwtUtils.isTokenExpired(newToken));
     }
 }

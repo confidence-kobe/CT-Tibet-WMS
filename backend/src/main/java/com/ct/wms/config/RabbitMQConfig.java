@@ -1,5 +1,6 @@
 package com.ct.wms.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -10,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 /**
  * RabbitMQ配置类
@@ -23,7 +25,9 @@ import org.springframework.context.annotation.Configuration;
  * @author CT Development Team
  * @since 2025-11-11
  */
+@Slf4j
 @Configuration
+@Profile("!test")
 @ConditionalOnClass(RabbitTemplate.class)
 @ConditionalOnProperty(
     prefix = "spring.rabbitmq",
@@ -103,13 +107,14 @@ public class RabbitMQConfig {
         // 开启消息确认回调
         rabbitTemplate.setConfirmCallback((correlationData, ack, cause) -> {
             if (!ack) {
-                System.err.println("消息发送失败: " + cause);
+                log.error("消息发送失败: {}", cause);
             }
         });
 
         // 开启消息返回回调（消息无法路由时触发）
         rabbitTemplate.setReturnsCallback(returned -> {
-            System.err.println("消息被退回: " + returned.getMessage());
+            log.error("消息被退回: exchange={}, routingKey={}, message={}",
+                    returned.getExchange(), returned.getRoutingKey(), returned.getMessage());
         });
 
         return rabbitTemplate;

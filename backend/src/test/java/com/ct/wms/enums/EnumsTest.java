@@ -16,36 +16,32 @@ public class EnumsTest {
         assertEquals(0, com.ct.wms.common.enums.ApplyStatus.PENDING.getValue());
         assertEquals(1, com.ct.wms.common.enums.ApplyStatus.APPROVED.getValue());
         assertEquals(2, com.ct.wms.common.enums.ApplyStatus.REJECTED.getValue());
-        assertEquals(3, com.ct.wms.common.enums.ApplyStatus.CANCELED.getValue());
-        
+        assertEquals(3, com.ct.wms.common.enums.ApplyStatus.COMPLETED.getValue());
+        assertEquals(4, com.ct.wms.common.enums.ApplyStatus.CANCELED.getValue());
+
         assertEquals("待审批", com.ct.wms.common.enums.ApplyStatus.PENDING.getDesc());
         assertEquals("已通过", com.ct.wms.common.enums.ApplyStatus.APPROVED.getDesc());
     }
 
     @Test
     public void testOutboundStatus() {
-        assertEquals(0, com.ct.wms.common.enums.OutboundStatus.PENDING.getValue());
+        assertEquals(0, com.ct.wms.common.enums.OutboundStatus.PENDING_PICKUP.getValue());
         assertEquals(1, com.ct.wms.common.enums.OutboundStatus.COMPLETED.getValue());
         assertEquals(2, com.ct.wms.common.enums.OutboundStatus.CANCELED.getValue());
-        
-        assertEquals("待取货", com.ct.wms.common.enums.OutboundStatus.PENDING.getDesc());
+
+        assertEquals("待取货", com.ct.wms.common.enums.OutboundStatus.PENDING_PICKUP.getDesc());
         assertEquals("已完成", com.ct.wms.common.enums.OutboundStatus.COMPLETED.getDesc());
     }
 
     @Test
-    public void testInboundStatus() {
-        assertEquals(0, com.ct.wms.common.enums.InboundStatus.PENDING.getValue());
-        assertEquals(1, com.ct.wms.common.enums.InboundStatus.COMPLETED.getValue());
-        assertEquals(2, com.ct.wms.common.enums.InboundStatus.CANCELED.getValue());
-    }
-
-    @Test
     public void testOutboundType() {
-        assertEquals(1, com.ct.wms.common.enums.OutboundType.DIRECT.getCode());
-        assertEquals(2, com.ct.wms.common.enums.OutboundType.RECEIVE.getCode());
-        
-        assertEquals("直接出库", com.ct.wms.common.enums.OutboundType.DIRECT.getDesc());
+        assertEquals(1, com.ct.wms.common.enums.OutboundType.RECEIVE.getCode());
+        assertEquals(2, com.ct.wms.common.enums.OutboundType.SCRAP.getCode());
+        assertEquals(3, com.ct.wms.common.enums.OutboundType.TRANSFER.getCode());
+        assertEquals(4, com.ct.wms.common.enums.OutboundType.OTHER.getCode());
+
         assertEquals("领用出库", com.ct.wms.common.enums.OutboundType.RECEIVE.getDesc());
+        assertEquals("报废出库", com.ct.wms.common.enums.OutboundType.SCRAP.getDesc());
     }
 
     @Test
@@ -53,6 +49,15 @@ public class EnumsTest {
         assertEquals(1, com.ct.wms.common.enums.InboundType.PURCHASE.getCode());
         assertEquals(2, com.ct.wms.common.enums.InboundType.RETURN.getCode());
         assertEquals(3, com.ct.wms.common.enums.InboundType.TRANSFER.getCode());
+    }
+
+    @Test
+    public void testOutboundSource() {
+        assertEquals(1, com.ct.wms.common.enums.OutboundSource.DIRECT.getCode());
+        assertEquals(2, com.ct.wms.common.enums.OutboundSource.FROM_APPLY.getCode());
+
+        assertEquals("直接出库", com.ct.wms.common.enums.OutboundSource.DIRECT.getDesc());
+        assertEquals("申请出库", com.ct.wms.common.enums.OutboundSource.FROM_APPLY.getDesc());
     }
 
     @Test

@@ -258,6 +258,9 @@ services:
       JWT_EXPIRATION: 7200
       JWT_REFRESH_EXPIRATION: 604800
 
+      # CORS Configuration (必须设置具体域名)
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+
       # File Upload Configuration
       FILE_UPLOAD_PATH: /data/wms/uploads
       FILE_MAX_SIZE: 10485760

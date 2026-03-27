@@ -4,16 +4,20 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ct.wms.entity.Inventory;
 import com.ct.wms.entity.InventoryLog;
 import com.ct.wms.entity.Material;
+import com.ct.wms.entity.User;
 import com.ct.wms.entity.Warehouse;
 import com.ct.wms.mapper.InventoryLogMapper;
 import com.ct.wms.mapper.InventoryMapper;
 import com.ct.wms.mapper.MaterialMapper;
+import com.ct.wms.mapper.UserMapper;
 import com.ct.wms.mapper.WarehouseMapper;
 import com.ct.wms.service.InventoryService;
+import com.ct.wms.util.TestDataBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -28,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * @since 2025-11-11
  */
 @SpringBootTest
+@ActiveProfiles("test")
 @Transactional
 public class InventoryServiceImplTest {
 
@@ -46,11 +51,23 @@ public class InventoryServiceImplTest {
     @Autowired
     private WarehouseMapper warehouseMapper;
 
+    @Autowired
+    private UserMapper userMapper;
+
     private Long testWarehouseId;
     private Long testMaterialId;
 
     @BeforeEach
     public void setUp() {
+        // 获取测试用户并设置SecurityContext
+        LambdaQueryWrapper<User> userWrapper = new LambdaQueryWrapper<>();
+        userWrapper.last("LIMIT 1");
+        User user = userMapper.selectOne(userWrapper);
+        if (user != null) {
+            String role = user.getRoleId() != null ? user.getRoleId().toString() : "USER";
+            TestDataBuilder.mockSecurityContext(user.getId(), user.getUsername(), role);
+        }
+
         // 查找测试数据和仓库
         LambdaQueryWrapper<Warehouse> warehouseWrapper = new LambdaQueryWrapper<>();
         warehouseWrapper.last("LIMIT 1");

@@ -81,13 +81,23 @@ class ApplyOutboundFlowTest {
 
     @BeforeEach
     void setUp() {
-        // 创建测试部门
-        testDept = TestDataBuilder.createDept(1L, "测试部门");
+        // 先清理可能存在的测试数据（避免与data.sql中的数据冲突）
+        deptMapper.deleteById(100L);
+        roleMapper.deleteById(100L);
+        roleMapper.deleteById(200L);
+        userMapper.deleteById(100L);
+        userMapper.deleteById(200L);
+        warehouseMapper.deleteById(100L);
+        materialMapper.deleteById(100L);
+        inventoryMapper.deleteById(100L);
+
+        // 创建测试部门（使用不同的ID避免冲突）
+        testDept = TestDataBuilder.createDept(100L, "测试部门");
         deptMapper.insert(testDept);
 
-        // 创建测试角色
-        employeeRole = TestDataBuilder.createRole(1L, "普通员工", "USER");
-        managerRole = TestDataBuilder.createRole(2L, "仓库管理员", "WAREHOUSE");
+        // 创建测试角色（使用不同的role_code避免与data.sql冲突）
+        employeeRole = TestDataBuilder.createRole(100L, "测试员工", "TEST_USER");
+        managerRole = TestDataBuilder.createRole(200L, "测试仓库管理员", "TEST_WAREHOUSE");
         roleMapper.insert(employeeRole);
         roleMapper.insert(managerRole);
 
@@ -98,16 +108,16 @@ class ApplyOutboundFlowTest {
         userMapper.insert(managerUser);
 
         // 创建测试仓库
-        testWarehouse = TestDataBuilder.createWarehouse(1L, "测试仓库", testDept.getId());
+        testWarehouse = TestDataBuilder.createWarehouse(100L, "测试仓库", testDept.getId());
         testWarehouse.setManagerId(managerUser.getId());  // 设置仓管员为管理者
         warehouseMapper.insert(testWarehouse);
 
         // 创建测试物资
-        testMaterial = TestDataBuilder.createMaterial(1L, "测试物资", "办公用品", BigDecimal.valueOf(100));
+        testMaterial = TestDataBuilder.createMaterial(100L, "测试物资", "办公用品", BigDecimal.valueOf(100));
         materialMapper.insert(testMaterial);
 
         // 创建初始库存
-        testInventory = TestDataBuilder.createInventory(1L, testWarehouse.getId(),
+        testInventory = TestDataBuilder.createInventory(100L, testWarehouse.getId(),
             testMaterial.getId(), BigDecimal.valueOf(1000));
         inventoryMapper.insert(testInventory);
     }

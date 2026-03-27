@@ -11,11 +11,9 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum OutboundStatus {
-    PENDING(0, "待取货"),
-    PENDING_PICKUP(0, "待取货"),  // 别名，保持兼容性
+    PENDING_PICKUP(0, "待取货"),
     COMPLETED(1, "已完成"),
-    CANCELED(2, "已取消"),
-    CANCELLED(2, "已取消");  // 别名，保持兼容性
+    CANCELED(2, "已取消");
 
     @EnumValue
     @JsonValue

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>侧边栏测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            background: red; /* 用于调试 */
+        }
+
+        .sidebar {
+            width: 240px;
+            min-width: 240px;
+            background: #001529;
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            height: 64px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background: #002140;
+        }
+
+        .sidebar-logo {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .sidebar-menu {
+            flex: 1;
+            padding: 16px 0;
+        }
+
+        .menu-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            color: rgba(255,255,255,0.65);
+            display: flex;
+            align-items: center;
+        }
+
+        .menu-item.active {
+            background: #1890ff;
+            color: white;
+        }
+
+        .menu-item-icon {
+            font-size: 18px;
+            margin-right: 12px;
+        }
+
+        .main-content {
+            flex: 1;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">📦</div>
+                <div class="sidebar-title">仓库管理系统</div>
+            </div>
+            <nav class="sidebar-menu">
+                <div class="menu-item active">
+                    <span class="menu-item-icon">🏠</span>
+                    <span>工作台</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-item-icon">📥</span>
+                    <span>入库管理</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-item-icon">📤</span>
+                    <span>出库管理</span>
+                </div>
+                <div class="menu-item">
+                    <span class="menu-item-icon">✓</span>
+                    <span>审批管理</span>
+                </div>
+            </nav>
+        </aside>
+        <main class="main-content">
+            <h1>主内容区</h1>
+            <p>如果你能看到完整的侧边栏文字(工作台、入库管理等),说明样式是正确的。</p>
+        </main>
+    </div>
+</body>
+</html>

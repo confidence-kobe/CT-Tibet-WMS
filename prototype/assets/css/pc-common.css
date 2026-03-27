@@ -19,11 +19,15 @@ body {
 }
 
 .sidebar {
-    width: 240px;
+    width: 240px !important;
+    min-width: 240px !important;
+    max-width: 240px !important;
     background: #001529;
     color: white;
     display: flex;
     flex-direction: column;
+    flex-shrink: 0 !important;
+    overflow: visible;
 }
 
 .sidebar-header {
@@ -33,6 +37,8 @@ body {
     padding: 0 20px;
     background: #002140;
     border-bottom: 1px solid rgba(255,255,255,0.1);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .sidebar-logo {
@@ -43,12 +49,16 @@ body {
 .sidebar-title {
     font-size: 16px;
     font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .sidebar-menu {
     flex: 1;
     padding: 16px 0;
     overflow-y: auto;
+    overflow-x: visible;
+    width: 100%;
 }
 
 .menu-item {
@@ -56,8 +66,11 @@ body {
     cursor: pointer;
     transition: all 0.3s;
     color: rgba(255,255,255,0.65);
-    display: flex;
+    display: flex !important;
     align-items: center;
+    white-space: nowrap;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .menu-item:hover {
@@ -73,6 +86,14 @@ body {
 .menu-item-icon {
     font-size: 18px;
     margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.menu-item span:not(.menu-item-icon) {
+    flex: 1;
+    overflow: visible;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 .main-content {

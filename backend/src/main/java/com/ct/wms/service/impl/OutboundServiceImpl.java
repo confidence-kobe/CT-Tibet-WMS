@@ -281,18 +281,6 @@ public class OutboundServiceImpl implements OutboundService {
             throw new BusinessException(404, "部门不存在");
         }
 
-        // 检查库存是否充足
-        for (ApplyDetail applyDetail : applyDetails) {
-            Material material = materialMapper.selectById(applyDetail.getMaterialId());
-            if (material == null) {
-                throw new BusinessException(404, "物资不存在: " + applyDetail.getMaterialId());
-            }
-
-            if (!inventoryService.checkInventory(warehouseId, applyDetail.getMaterialId(), applyDetail.getQuantity())) {
-                throw new BusinessException(1001, "库存不足: " + material.getMaterialName());
-            }
-        }
-
         // 生成出库单号
         String outboundNo = generateOutboundNo(dept.getDeptCode());
 
@@ -369,7 +357,7 @@ public class OutboundServiceImpl implements OutboundService {
         }
 
         // 检查状态
-        if (!OutboundStatus.PENDING_PICKUP.getValue().equals(outbound.getStatus())) {
+        if (!OutboundStatus.PENDING_PICKUP.equals(outbound.getStatus())) {
             throw new BusinessException(400, "出库单状态不正确，当前状态: " + outbound.getStatus());
         }
 
@@ -419,7 +407,7 @@ public class OutboundServiceImpl implements OutboundService {
         }
 
         // 检查状态（只有待取货状态才能取消）
-        if (!OutboundStatus.PENDING_PICKUP.getValue().equals(outbound.getStatus())) {
+        if (!OutboundStatus.PENDING_PICKUP.equals(outbound.getStatus())) {
             throw new BusinessException(400, "出库单状态不正确，只有待取货状态才能取消");
         }
 
@@ -439,7 +427,7 @@ public class OutboundServiceImpl implements OutboundService {
 
         // 更新出库单状态
         outbound.setStatus(OutboundStatus.CANCELED);
-        outbound.setRemark(outbound.getRemark() + " [取消原因: " + reason + "]");
+        outbound.setRemark((outbound.getRemark() != null ? outbound.getRemark() : "") + " [取消原因: " + reason + "]");
         outboundMapper.updateById(outbound);
 
         // 更新申请单状态为已取消
@@ -501,5 +489,41 @@ public class OutboundServiceImpl implements OutboundService {
             return userDetails.getId();
         }
         throw new BusinessException(401, "未登录");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelOutboundByApplyId(Long applyId, String reason) {
+        // 根据申请单ID查询关联的出库单
+        LambdaQueryWrapper<Outbound> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Outbound::getApplyId, applyId)
+                .eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP);
+
+        Outbound outbound = outboundMapper.selectOne(wrapper);
+        if (outbound == null) {
+            log.info("没有找到待取货状态的关联出库单，applyId={}", applyId);
+            return;
+        }
+
+        // 查询出库明细并释放锁定库存
+        LambdaQueryWrapper<OutboundDetail> detailWrapper = new LambdaQueryWrapper<>();
+        detailWrapper.eq(OutboundDetail::getOutboundId, outbound.getId());
+        List<OutboundDetail> details = outboundDetailMapper.selectList(detailWrapper);
+
+        for (OutboundDetail detail : details) {
+            inventoryService.unlockInventory(
+                    outbound.getWarehouseId(),
+                    detail.getMaterialId(),
+                    detail.getQuantity()
+            );
+            log.info("取消关联出库单，释放锁定库存: materialId={}, quantity={}", detail.getMaterialId(), detail.getQuantity());
+        }
+
+        // 更新出库单状态
+        outbound.setStatus(OutboundStatus.CANCELED);
+        outbound.setRemark((outbound.getRemark() != null ? outbound.getRemark() : "") + " [取消原因: " + reason + "]");
+        outboundMapper.updateById(outbound);
+
+        log.info("取消关联出库单成功: outboundId={}, applyId={}", outbound.getId(), applyId);
     }
 }

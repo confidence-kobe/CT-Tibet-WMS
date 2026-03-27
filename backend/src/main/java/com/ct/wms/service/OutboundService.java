@@ -75,4 +75,13 @@ public interface OutboundService {
      * @param reason 取消原因
      */
     void cancelOutbound(Long id, String reason);
+
+    /**
+     * 根据申请单ID取消关联的出库单
+     * 仅取消状态为待取货的出库单
+     *
+     * @param applyId 申请单ID
+     * @param reason  取消原因
+     */
+    void cancelOutboundByApplyId(Long applyId, String reason);
 }
