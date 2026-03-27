@@ -25,6 +25,8 @@ package-lock.json
 # Environment
 .env.local
 .env.*.local
+.env.production
+frontend-pc/.env.production
 
 # OS
 .DS_Store

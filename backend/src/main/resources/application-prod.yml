@@ -53,7 +53,7 @@ spring:
         max-active: ${SPRING_REDIS_LETTUCE_POOL_MAX_ACTIVE:8}
         max-idle: ${SPRING_REDIS_LETTUCE_POOL_MAX_IDLE:8}
         min-idle: ${SPRING_REDIS_LETTUCE_POOL_MIN_IDLE:0}
-        max-wait: ${SPRING_REDIS_LETTUCE_POOL_MAX_WAIT:-1ms}
+        max-wait: ${SPRING_REDIS_LETTUCE_POOL_MAX_WAIT:3000ms}
       shutdown-timeout: 2000ms
 
   # RabbitMQ Message Queue Configuration (Production)
