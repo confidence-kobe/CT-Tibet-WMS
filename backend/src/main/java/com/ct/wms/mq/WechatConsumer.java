@@ -2,6 +2,7 @@ package com.ct.wms.mq;
 
 import com.ct.wms.config.RabbitMQConfig;
 import com.ct.wms.dto.WechatMessageDTO;
+import com.ct.wms.service.WechatApiService;
 import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,8 +17,16 @@ import java.io.IOException;
 /**
  * 微信消息消费者
  *
- * 说明：此组件仅在 RabbitTemplate bean 存在时才会加载
- * 如果禁用了 RabbitMQ，此消费者不会被注册，避免启动失败
+ * <p>说明：此组件仅在 RabbitTemplate bean 存在时才会加载。
+ * 如果禁用了 RabbitMQ，此消费者不会被注册，避免启动失败。
+ *
+ * <p>消费策略：
+ * <ul>
+ *   <li>发送成功 → {@code basicAck}</li>
+ *   <li>发送失败(业务返回错误) → {@code basicNack(requeue=false)} 进入死信队列</li>
+ *   <li>监听器层异常 → {@code basicNack(requeue=false)} 进入死信队列</li>
+ * </ul>
+ * 进入 DLQ 的消息由后台任务或人工介入处理，避免无效重试风暴。
  *
  * @author CT Development Team
  * @since 2025-11-11
@@ -28,11 +37,10 @@ import java.io.IOException;
 @ConditionalOnBean(RabbitTemplate.class)
 public class WechatConsumer {
 
+    private final WechatApiService wechatApiService;
+
     /**
      * 消费微信模板消息
-     * <p>
-     * 注意: 需要配置微信小程序的AppID、AppSecret等信息
-     * 这里提供基础框架，实际发送需要对接微信API
      *
      * @param wechatMessage 微信消息
      * @param message       MQ消息
@@ -48,24 +56,19 @@ public class WechatConsumer {
             log.info("收到微信模板消息: openId={}, templateId={}",
                     wechatMessage.getOpenId(), wechatMessage.getTemplateId());
 
-            // TODO: 调用微信API发送模板消息
-            // 1. 获取access_token
-            // 2. 调用微信模板消息接口
-            // String url = "https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=" + accessToken;
-            // RestTemplate restTemplate = new RestTemplate();
-            // String result = restTemplate.postForObject(url, wechatMessage, String.class);
+            boolean success = wechatApiService.sendSubscribeMessage(wechatMessage);
 
-            log.warn("微信模板消息功能暂未实现，需要配置微信小程序信息");
-
-            // 手动确认消息
-            channel.basicAck(deliveryTag, false);
-            log.info("微信模板消息处理完成");
-
+            if (success) {
+                channel.basicAck(deliveryTag, false);
+                log.info("微信模板消息处理完成: openId={}", wechatMessage.getOpenId());
+            } else {
+                // 业务失败(参数缺失 / 微信返回错误 / 未启用) 进入 DLQ，不无限重试
+                channel.basicNack(deliveryTag, false, false);
+                log.warn("微信模板消息发送失败，已丢入死信队列: openId={}", wechatMessage.getOpenId());
+            }
         } catch (Exception e) {
-            log.error("处理微信模板消息失败", e);
-
+            log.error("处理微信模板消息异常", e);
             try {
-                // 拒绝消息，不重新入队（进入死信队列）
                 channel.basicNack(deliveryTag, false, false);
             } catch (IOException ioException) {
                 log.error("拒绝消息失败", ioException);

@@ -248,6 +248,18 @@ management:
       export:
         enabled: true
 
+# 微信小程序配置（生产环境）
+wechat:
+  mini-program:
+    enabled: ${WECHAT_ENABLED:false}
+    app-id: ${WECHAT_APPID:}
+    app-secret: ${WECHAT_APPSECRET:}
+    miniprogram-state: ${WECHAT_MINIPROGRAM_STATE:formal}
+    lang: zh_CN
+    connect-timeout: ${WECHAT_CONNECT_TIMEOUT:5000}
+    read-timeout: ${WECHAT_READ_TIMEOUT:10000}
+    access-token-cache-seconds: ${WECHAT_ACCESS_TOKEN_CACHE_SECONDS:7000}
+
 # Security Configuration (Production)
 # 生产环境必须通过环境变量设置CORS域名，不允许使用*
 security:
