@@ -45,7 +45,7 @@ const appStore = useAppStore()
 const userStore = useUserStore()
 
 // 是否折叠
-const isCollapse = computed(() => appStore.sidebar.opened)
+const isCollapse = computed(() => !appStore.sidebar.opened)
 
 // 当前激活的菜单
 const activeMenu = computed(() => {

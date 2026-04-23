@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { login, logout, getUserInfo } from '@/api/auth'
+import { login, logout, getUserInfo, changePassword } from '@/api/auth'
 import { getToken, setToken, removeToken, setRefreshToken, clearAuth } from '@/utils/auth'
 import { asyncRoutes, constantRoutes } from '@/router'
 
@@ -195,6 +195,22 @@ export const useUserStore = defineStore('user', {
     updateToken(token) {
       this.token = token
       setToken(token)
+    },
+
+    /**
+     * 修改密码
+     * @param {Object} data - 密码数据
+     * @param {string} data.oldPassword - 旧密码
+     * @param {string} data.newPassword - 新密码
+     */
+    async updatePassword(data) {
+      try {
+        const { oldPassword, newPassword } = data
+        await changePassword(oldPassword, newPassword)
+      } catch (error) {
+        console.error('修改密码失败:', error)
+        throw error
+      }
     },
 
     /**

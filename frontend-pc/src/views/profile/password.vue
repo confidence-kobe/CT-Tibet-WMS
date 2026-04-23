@@ -120,11 +120,11 @@ const handleSubmit = async () => {
     await passwordFormRef.value.validate()
     loading.value = true
 
-    // TODO: 调用API修改密码
-    // await userStore.updatePassword({
-    //   oldPassword: passwordForm.oldPassword,
-    //   newPassword: passwordForm.newPassword
-    // })
+    // 调用API修改密码
+    await userStore.updatePassword({
+      oldPassword: passwordForm.oldPassword,
+      newPassword: passwordForm.newPassword
+    })
 
     ElMessage.success('密码修改成功，请重新登录')
 

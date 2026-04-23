@@ -127,7 +127,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store'
 import dayjs from 'dayjs'
@@ -191,6 +191,8 @@ const handleQuickAction = (path) => {
 const updateTime = () => {
   currentTime.value = dayjs().format('YYYY年MM月DD日 HH:mm:ss')
 }
+
+let timer = null
 
 // 出入库趋势图表配置
 const trendChartOption = computed(() => ({
@@ -349,9 +351,15 @@ const loadStats = async () => {
 
 onMounted(() => {
   // 每秒更新时间
-  setInterval(updateTime, 1000)
+  timer = setInterval(updateTime, 1000)
   // 加载统计数据
   loadStats()
+})
+
+onUnmounted(() => {
+  if (timer) {
+    clearInterval(timer)
+  }
 })
 </script>
 

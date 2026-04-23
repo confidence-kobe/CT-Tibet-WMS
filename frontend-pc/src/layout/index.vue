@@ -33,7 +33,7 @@ import AppMain from './components/AppMain/index.vue'
 const appStore = useAppStore()
 
 // 计算侧边栏是否折叠
-const isCollapse = computed(() => appStore.sidebar.opened)
+const isCollapse = computed(() => !appStore.sidebar.opened)
 </script>
 
 <style lang="scss" scoped>

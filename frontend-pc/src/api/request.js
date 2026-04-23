@@ -34,6 +34,8 @@ service.interceptors.request.use(
   }
 )
 
+let isReloginShow = false
+
 // 响应拦截器
 service.interceptors.response.use(
   response => {
@@ -41,29 +43,35 @@ service.interceptors.response.use(
 
     // 如果返回的状态码不是200，则判定为错误
     if (res.code !== 200) {
+      // 401: 未授权，token过期或无效
+      if (res.code === 401) {
+        if (!isReloginShow) {
+          isReloginShow = true
+          ElMessageBox.confirm(
+            '您的登录状态已过期，请重新登录',
+            '登录过期',
+            {
+              confirmButtonText: '重新登录',
+              cancelButtonText: '取消',
+              type: 'warning'
+            }
+          ).then(() => {
+            isReloginShow = false
+            removeToken()
+            router.push('/login')
+            // location.reload() // 某些情况下需要，但通常 push 足够了
+          }).catch(() => {
+            isReloginShow = false
+          })
+        }
+        return Promise.reject(new Error(res.message || '登录已过期'))
+      }
+
       ElMessage({
         message: res.message || '请求失败',
         type: 'error',
         duration: 3000
       })
-
-      // 401: 未授权，token过期或无效
-      if (res.code === 401) {
-        ElMessageBox.confirm(
-          '您的登录状态已过期，请重新登录',
-          '登录过期',
-          {
-            confirmButtonText: '重新登录',
-            cancelButtonText: '取消',
-            type: 'warning'
-          }
-        ).then(() => {
-          // 清除token并跳转到登录页
-          removeToken()
-          router.push('/login')
-          location.reload()
-        })
-      }
 
       // 403: 无权限访问
       if (res.code === 403) {

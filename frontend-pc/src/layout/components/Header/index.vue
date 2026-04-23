@@ -7,7 +7,7 @@
         :size="20"
         @click="toggleSidebar"
       >
-        <Fold v-if="!appStore.sidebar.opened" />
+        <Fold v-if="appStore.sidebar.opened" />
         <Expand v-else />
       </el-icon>
 
