@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="mine-container">
     <!-- 用户信息 -->
     <view class="user-header">
@@ -19,6 +19,16 @@
         <view class="menu-right">
           <text v-if="unreadCount > 0" class="menu-badge">{{ unreadCount }}</text>
           <text class="menu-arrow">›</text>
+        </view>
+      </view>
+
+      <view class="menu-item" @click="goToPassword">
+        <view class="menu-left">
+          <text class="menu-icon">棣冩惖</text>
+          <text class="menu-text">修改密码</text>
+        </view>
+        <view class="menu-right">
+          <text class="menu-arrow">閳?/text>
         </view>
       </view>
 
@@ -65,6 +75,12 @@ export default {
   },
 
   methods: {
+    goToPassword() {
+      uni.navigateTo({
+        url: "/pages/mine/password"
+      })
+    },
+
     goToMessages() {
       uni.navigateTo({
         url: '/pages/mine/messages'
@@ -256,3 +272,4 @@ export default {
   color: #bfbfbf;
 }
 </style>
+
