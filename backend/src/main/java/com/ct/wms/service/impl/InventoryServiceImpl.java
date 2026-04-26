@@ -40,6 +40,10 @@ public class InventoryServiceImpl implements InventoryService {
         // 查询库存记录
         Inventory inventory = getInventory(warehouseId, materialId);
 
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(400, "数量必须大于0");
+        }
+
         BigDecimal beforeQuantity;
         BigDecimal afterQuantity;
 
@@ -69,13 +73,9 @@ public class InventoryServiceImpl implements InventoryService {
             inventory.setQuantity(afterQuantity);
             inventory.setAvailableQuantity(afterQuantity.subtract(inventory.getLockedQuantity()));
             inventory.setLastInboundTime(LocalDateTime.now());
-            inventory.setVersion(inventory.getVersion() + 1);
 
-            // 使用乐观锁更新
-            LambdaQueryWrapper<Inventory> updateWrapper = new LambdaQueryWrapper<>();
-            updateWrapper.eq(Inventory::getId, inventory.getId())
-                    .eq(Inventory::getVersion, inventory.getVersion() - 1);
-            int updated = inventoryMapper.update(inventory, updateWrapper);
+            // 交给 MyBatis-Plus 乐观锁插件处理 version 递增和条件校验
+            int updated = inventoryMapper.updateById(inventory);
             if (updated == 0) {
                 throw new BusinessException(500, "库存更新失败，请重试");
             }
@@ -117,13 +117,9 @@ public class InventoryServiceImpl implements InventoryService {
         inventory.setQuantity(afterQuantity);
         inventory.setAvailableQuantity(afterQuantity.subtract(inventory.getLockedQuantity()));
         inventory.setLastOutboundTime(LocalDateTime.now());
-        inventory.setVersion(inventory.getVersion() + 1);
 
-        // 使用乐观锁更新
-        LambdaQueryWrapper<Inventory> updateWrapper = new LambdaQueryWrapper<>();
-        updateWrapper.eq(Inventory::getId, inventory.getId())
-                .eq(Inventory::getVersion, inventory.getVersion() - 1);
-        int updated = inventoryMapper.update(inventory, updateWrapper);
+        // 交给 MyBatis-Plus 乐观锁插件处理 version 递增和条件校验
+        int updated = inventoryMapper.updateById(inventory);
         if (updated == 0) {
             throw new BusinessException(500, "库存更新失败，请重试");
         }
@@ -325,14 +321,24 @@ public class InventoryServiceImpl implements InventoryService {
         InventoryLog log = new InventoryLog();
         log.setWarehouseId(warehouseId);
         log.setMaterialId(materialId);
+        Material material = materialMapper.selectById(materialId);
+        if (material != null) {
+            log.setMaterialName(material.getMaterialName());
+        }
         log.setChangeType(changeType);
         log.setChangeQuantity(changeQuantity);
         log.setBeforeQuantity(beforeQuantity);
         log.setAfterQuantity(afterQuantity);
-        log.setRelatedNo(relatedNo);
+        log.setRelatedNo(StringUtils.hasText(relatedNo) ? relatedNo : "");
         log.setRelatedType(relatedType);
         log.setRelatedId(relatedId);
         log.setOperatorId(operatorId);
+        if (operatorId != null) {
+            User operator = userMapper.selectById(operatorId);
+            if (operator != null) {
+                log.setOperatorName(operator.getRealName());
+            }
+        }
         log.setRemark(remark);
 
         inventoryLogMapper.insert(log);

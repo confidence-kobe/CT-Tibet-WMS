@@ -180,6 +180,10 @@ public class TestDataBuilder {
         inventory.setWarehouseId(warehouseId);
         inventory.setMaterialId(materialId);
         inventory.setQuantity(quantity);
+        inventory.setLockedQuantity(BigDecimal.ZERO);
+        inventory.setAvailableQuantity(quantity);
+        inventory.setVersion(0);
+        inventory.setLastInboundTime(LocalDateTime.now());
         inventory.setCreateTime(LocalDateTime.now());
         inventory.setUpdateTime(LocalDateTime.now());
         return inventory;

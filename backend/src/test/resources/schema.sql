@@ -349,22 +349,24 @@ CREATE INDEX IF NOT EXISTS idx_message_is_read ON tb_message(is_read);
 -- ============================
 CREATE TABLE IF NOT EXISTS tb_inventory_log (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    warehouse_id BIGINT NOT NULL COMMENT '仓库ID',
-    material_id BIGINT NOT NULL COMMENT '物资ID',
-    before_quantity DECIMAL(10, 2) DEFAULT 0 COMMENT '变动前数量',
-    change_quantity DECIMAL(10, 2) DEFAULT 0 COMMENT '变动数量',
-    after_quantity DECIMAL(10, 2) DEFAULT 0 COMMENT '变动后数量',
-    operation_type VARCHAR(50) COMMENT '操作类型（INBOUND-入库 OUTBOUND-出库 ADJUST-调整）',
-    related_id BIGINT COMMENT '关联单据ID',
-    related_type VARCHAR(50) COMMENT '关联单据类型（INBOUND-入库单 OUTBOUND-出库单）',
-    reason VARCHAR(500) COMMENT '操作原因',
-    remark VARCHAR(500) COMMENT '备注',
-    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    create_by BIGINT COMMENT '创建人ID',
-    update_by BIGINT COMMENT '更新人ID',
-    deleted INT DEFAULT 0 COMMENT '逻辑删除标记（0-未删除 1-已删除）'
-) COMMENT '库存日志表';
+    warehouse_id BIGINT NOT NULL,
+    material_id BIGINT NOT NULL,
+    material_name VARCHAR(100) NOT NULL,
+    change_type TINYINT NOT NULL,
+    change_quantity DECIMAL(10, 2) NOT NULL,
+    before_quantity DECIMAL(10, 2) NOT NULL,
+    after_quantity DECIMAL(10, 2) NOT NULL,
+    related_no VARCHAR(50) NOT NULL,
+    related_type TINYINT NOT NULL,
+    operator_id BIGINT,
+    operator_name VARCHAR(50) DEFAULT NULL,
+    remark VARCHAR(500) DEFAULT NULL,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    create_by BIGINT,
+    update_by BIGINT,
+    deleted INT DEFAULT 0
+);
 
 CREATE INDEX IF NOT EXISTS idx_inventory_log_warehouse_material ON tb_inventory_log(warehouse_id, material_id);
-CREATE INDEX IF NOT EXISTS idx_inventory_log_related ON tb_inventory_log(related_id, related_type);
+CREATE INDEX IF NOT EXISTS idx_inventory_log_related ON tb_inventory_log(related_no, related_type);

@@ -93,8 +93,10 @@ public class InventoryServiceImplTest {
             return;
         }
 
-        BigDecimal initialQuantity = BigDecimal.valueOf(100);
         BigDecimal increaseQuantity = BigDecimal.valueOf(50);
+        Inventory before = inventoryService.getInventory(testWarehouseId, testMaterialId);
+        assertNotNull(before);
+        BigDecimal initialQuantity = before.getQuantity();
 
         // 增加库存
         inventoryService.increaseInventory(
@@ -215,7 +217,11 @@ public class InventoryServiceImplTest {
             return;
         }
 
-        // 先增加库存
+        Inventory before = inventoryService.getInventory(testWarehouseId, testMaterialId);
+        assertNotNull(before);
+        BigDecimal initialQuantity = before.getQuantity();
+
+        // 鍏堝鍔犲簱瀛?
         inventoryService.increaseInventory(
                 testWarehouseId,
                 testMaterialId,
@@ -225,10 +231,11 @@ public class InventoryServiceImplTest {
                 1L
         );
 
-        // 检查库存充足
+        BigDecimal afterIncrease = initialQuantity.add(BigDecimal.valueOf(100));
+        // 妫€鏌ュ簱瀛樺厖瓒?
         assertTrue(inventoryService.checkInventory(testWarehouseId, testMaterialId, BigDecimal.valueOf(50)));
-        assertTrue(inventoryService.checkInventory(testWarehouseId, testMaterialId, BigDecimal.valueOf(100)));
-        assertFalse(inventoryService.checkInventory(testWarehouseId, testMaterialId, BigDecimal.valueOf(150)));
+        assertTrue(inventoryService.checkInventory(testWarehouseId, testMaterialId, afterIncrease));
+        assertFalse(inventoryService.checkInventory(testWarehouseId, testMaterialId, afterIncrease.add(BigDecimal.ONE)));
     }
 
     /**
