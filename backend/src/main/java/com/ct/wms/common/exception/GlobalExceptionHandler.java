@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
@@ -48,6 +49,13 @@ public class GlobalExceptionHandler {
      * @param e the bad credentials exception
      * @return Result with error information
      */
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Result<?> handleSpringAccessDeniedException(org.springframework.security.access.AccessDeniedException e) {
+        log.warn("Access denied: {}", e.getMessage());
+        return Result.error(403, "无权限访问");
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Result<?> handleBadCredentialsException(BadCredentialsException e) {
@@ -63,6 +71,13 @@ public class GlobalExceptionHandler {
      * @param e the method argument not valid exception
      * @return Result with validation error information
      */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result<?> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        log.warn("Request body not readable: {}", e.getMessage());
+        return Result.error(ResultCode.BAD_REQUEST, "请求体格式错误或缺少必填字段");
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<?> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
