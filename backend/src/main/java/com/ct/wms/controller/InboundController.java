@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import javax.validation.constraints.Max;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
+@Validated
 @RequestMapping("/api/inbounds")
 @RequiredArgsConstructor
 @Tag(name = "入库管理", description = "入库单的创建、查询接口")
@@ -35,7 +37,7 @@ public class InboundController {
     @Operation(summary = "分页查询入库单列表", description = "支持多条件筛选")
     public PageResult<Inbound> listInbounds(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
             @Parameter(description = "入库类型") @RequestParam(required = false) Integer inboundType,
             @Parameter(description = "开始日期") @RequestParam(required = false) String startDate,

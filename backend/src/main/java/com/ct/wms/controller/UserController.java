@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import javax.validation.constraints.Max;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
+@Validated
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 @Tag(name = "用户管理", description = "用户的增删改查接口")
@@ -39,7 +41,7 @@ public class UserController {
     @Operation(summary = "分页查询用户列表", description = "支持多条件筛选")
     public PageResult<User> listUsers(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "部门ID") @RequestParam(required = false) Long deptId,
             @Parameter(description = "角色ID") @RequestParam(required = false) Long roleId,
             @Parameter(description = "状态") @RequestParam(required = false) Integer status,

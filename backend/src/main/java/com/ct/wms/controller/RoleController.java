@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import javax.validation.constraints.Max;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -25,6 +26,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
+@Validated
 @RequestMapping("/api/roles")
 @RequiredArgsConstructor
 @Tag(name = "角色管理", description = "角色的增删改查接口")
@@ -37,7 +39,7 @@ public class RoleController {
     @Operation(summary = "分页查询角色列表", description = "支持关键词搜索")
     public PageResult<Role> listRoles(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
 
         log.info("查询角色列表: pageNum={}, pageSize={}, keyword={}", pageNum, pageSize, keyword);

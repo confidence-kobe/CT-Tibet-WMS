@@ -10,6 +10,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import javax.validation.constraints.Max;
+import org.springframework.validation.annotation.Validated;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +25,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
+@Validated
 @RequestMapping("/api/inventories")
 @RequiredArgsConstructor
 @Tag(name = "库存管理", description = "库存查询、库存流水、库存预警接口")
@@ -34,7 +37,7 @@ public class InventoryController {
     @Operation(summary = "分页查询库存列表", description = "支持多条件筛选")
     public PageResult<Inventory> listInventories(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
             @Parameter(description = "物资ID") @RequestParam(required = false) Long materialId,
             @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
@@ -52,7 +55,7 @@ public class InventoryController {
     @Operation(summary = "分页查询库存流水", description = "支持多条件筛选")
     public PageResult<InventoryLog> listInventoryLogs(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
             @Parameter(description = "物资ID") @RequestParam(required = false) Long materialId,
             @Parameter(description = "变动类型") @RequestParam(required = false) Integer changeType,

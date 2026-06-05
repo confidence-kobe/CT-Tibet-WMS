@@ -10,6 +10,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import javax.validation.constraints.Max;
+import org.springframework.validation.annotation.Validated;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +25,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
+@Validated
 @RequestMapping("/api/messages")
 @RequiredArgsConstructor
 @Tag(name = "消息管理", description = "消息查询、标记已读接口")
@@ -34,7 +37,7 @@ public class MessageController {
     @Operation(summary = "查询我的消息列表", description = "分页查询当前用户的消息（带统计信息）")
     public Result<MessageVO> listMessages(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "消息类型") @RequestParam(required = false) Integer type,
             @Parameter(description = "是否已读: 0-未读 1-已读") @RequestParam(required = false) Integer isRead) {
 
@@ -49,7 +52,7 @@ public class MessageController {
     @Operation(summary = "查询我的消息列表（简单版）", description = "分页查询当前用户的消息（无统计信息）")
     public PageResult<Message> listMyMessages(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "是否已读: 0-未读 1-已读") @RequestParam(required = false) Integer isRead) {
 
         log.info("查询我的消息: pageNum={}, pageSize={}, isRead={}", pageNum, pageSize, isRead);

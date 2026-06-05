@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import javax.validation.constraints.Max;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
+@Validated
 @RequestMapping("/api/outbounds")
 @RequiredArgsConstructor
 @Tag(name = "出库管理", description = "出库单的创建、查询、确认接口")
@@ -35,7 +37,7 @@ public class OutboundController {
     @Operation(summary = "分页查询出库单列表", description = "支持多条件筛选")
     public PageResult<Outbound> listOutbounds(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
             @Parameter(description = "出库类型") @RequestParam(required = false) Integer outboundType,
             @Parameter(description = "状态") @RequestParam(required = false) Integer status,
@@ -69,7 +71,7 @@ public class OutboundController {
     @Operation(summary = "查询待领取出库单列表", description = "查询状态为待领取的出库单")
     public PageResult<Outbound> listPendingOutbounds(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
             @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
 

@@ -22,6 +22,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -53,11 +54,12 @@ public class AuthServiceImpl implements AuthService {
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
     private final JwtUtils jwtUtils;
+    private final Environment environment;
 
     @Value("${jwt.expiration}")
     private Long jwtExpiration;
 
-    // 可选注入：测试环境或Redis不可用时为null
+    // 测试环境通过 autoconfigure.exclude 禁用 Redis，生产环境 Redis 必须可用
     @Autowired(required = false)
     private RedisUtils redisUtils;
 
@@ -66,12 +68,15 @@ public class AuthServiceImpl implements AuthService {
         String username = request.getUsername();
 
         // 检查登录失败次数（防暴力破解）
+        // 生产环境 Redis 不可用时 fail-closed，防止防护静默失效；测试环境 redisUtils 为 null 时跳过
         if (redisUtils != null) {
             Object failCount = redisUtils.get(LOGIN_FAIL_PREFIX + username);
             if (failCount != null && ((Integer) failCount) >= MAX_LOGIN_FAIL) {
-                // 抛出 BadCredentialsException，由 GlobalExceptionHandler 处理返回 HTTP 401
                 throw new BadCredentialsException("登录失败次数过多，账号已被锁定15分钟，请稍后重试");
             }
+        } else if (isProductionProfile()) {
+            log.error("Redis 不可用，拒绝登录请求以保障安全");
+            throw new BadCredentialsException("服务暂时不可用，请联系管理员");
         }
 
         // 认证用户
@@ -203,6 +208,10 @@ public class AuthServiceImpl implements AuthService {
     }
 
     // ==================== 私有方法 ====================
+
+    private boolean isProductionProfile() {
+        return Arrays.asList(environment.getActiveProfiles()).contains("prod");
+    }
 
     private void recordLoginFail(String username) {
         if (redisUtils == null) {

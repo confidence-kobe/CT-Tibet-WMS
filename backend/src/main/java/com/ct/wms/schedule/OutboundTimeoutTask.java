@@ -14,9 +14,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -78,6 +82,11 @@ public class OutboundTimeoutTask {
      * 执行出库超时检查任务
      */
     private void executeCancelTimeoutOutbound() {
+        // 定时任务线程无 Security Context，注入系统账户避免下游方法调用 getCurrentUserId() 时报错
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("system", null,
+                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")))
+        );
         try {
             log.info("==================== 开始执行出库超时检查任务 ====================");
 
@@ -137,6 +146,8 @@ public class OutboundTimeoutTask {
 
         } catch (Exception e) {
             log.error("执行出库超时检查任务失败", e);
+        } finally {
+            SecurityContextHolder.clearContext();
         }
 
         log.info("==================== 出库超时检查任务结束 ====================");

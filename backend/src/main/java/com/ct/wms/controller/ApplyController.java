@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import javax.validation.constraints.Max;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
+@Validated
 @RequestMapping("/api/applies")
 @RequiredArgsConstructor
 @Tag(name = "申请审批管理", description = "物资申请、审批接口")
@@ -36,7 +38,7 @@ public class ApplyController {
     @Operation(summary = "分页查询申请单列表", description = "支持多条件筛选（管理员/仓管员）")
     public PageResult<Apply> listApplies(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
             @Parameter(description = "状态") @RequestParam(required = false) Integer status,
             @Parameter(description = "开始日期") @RequestParam(required = false) String startDate,
@@ -58,7 +60,7 @@ public class ApplyController {
     @Operation(summary = "查询我的申请单列表", description = "普通员工查看自己的申请")
     public PageResult<Apply> listMyApplies(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "状态") @RequestParam(required = false) Integer status) {
 
         log.info("查询我的申请单: pageNum={}, pageSize={}, status={}", pageNum, pageSize, status);
@@ -73,7 +75,7 @@ public class ApplyController {
     @Operation(summary = "查询待审批列表", description = "仓管员查看待审批的申请")
     public PageResult<Apply> listPendingApplies(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize) {
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize) {
 
         log.info("查询待审批列表: pageNum={}, pageSize={}", pageNum, pageSize);
 

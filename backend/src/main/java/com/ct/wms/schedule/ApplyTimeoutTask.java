@@ -13,9 +13,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -171,6 +175,10 @@ public class ApplyTimeoutTask {
      * 执行申请长期超时取消任务
      */
     private void executeCancelLongTimeoutApply() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("system", null,
+                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")))
+        );
         try {
             log.info("==================== 开始执行申请长期超时取消任务 ====================");
 
@@ -237,6 +245,8 @@ public class ApplyTimeoutTask {
 
         } catch (Exception e) {
             log.error("执行申请长期超时取消任务失败", e);
+        } finally {
+            SecurityContextHolder.clearContext();
         }
 
         log.info("==================== 申请长期超时取消任务结束 ====================");

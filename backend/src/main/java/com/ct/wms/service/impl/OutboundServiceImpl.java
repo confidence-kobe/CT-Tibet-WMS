@@ -25,6 +25,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -151,16 +152,30 @@ public class OutboundServiceImpl implements OutboundService {
             throw new BusinessException(404, "部门不存在");
         }
 
-        // 检查库存是否充足
-        for (OutboundDTO.OutboundDetailDTO detailDTO : dto.getDetails()) {
-            Material material = materialMapper.selectById(detailDTO.getMaterialId());
-            if (material == null) {
-                throw new BusinessException(404, "物资不存在: " + detailDTO.getMaterialId());
+        // 使用 lockInventory 原子性锁定库存（含行锁+乐观锁重试），消除 checkInventory 与 decreaseInventory 之间的竞态
+        List<OutboundDTO.OutboundDetailDTO> lockedDetails = new ArrayList<>();
+        try {
+            for (OutboundDTO.OutboundDetailDTO detailDTO : dto.getDetails()) {
+                Material material = materialMapper.selectById(detailDTO.getMaterialId());
+                if (material == null) {
+                    throw new BusinessException(404, "物资不存在: " + detailDTO.getMaterialId());
+                }
+                boolean locked = inventoryService.lockInventory(dto.getWarehouseId(),
+                        detailDTO.getMaterialId(), detailDTO.getQuantity());
+                if (!locked) {
+                    throw new BusinessException(1001, "库存不足: " + material.getMaterialName());
+                }
+                lockedDetails.add(detailDTO);
             }
-
-            if (!inventoryService.checkInventory(dto.getWarehouseId(), detailDTO.getMaterialId(), detailDTO.getQuantity())) {
-                throw new BusinessException(1001, "库存不足: " + material.getMaterialName());
+        } catch (BusinessException e) {
+            // 部分锁定成功的回滚
+            for (OutboundDTO.OutboundDetailDTO locked : lockedDetails) {
+                try {
+                    inventoryService.unlockInventory(dto.getWarehouseId(),
+                            locked.getMaterialId(), locked.getQuantity());
+                } catch (Exception ignored) {}
             }
+            throw e;
         }
 
         // 生成出库单号: CK_部门编码_YYYYMMDD_流水号
@@ -230,8 +245,8 @@ public class OutboundServiceImpl implements OutboundService {
 
             outboundDetailMapper.insert(detail);
 
-            // 扣减库存
-            inventoryService.decreaseInventory(
+            // 提交库存（将锁定量转为实际扣减，原子操作）
+            inventoryService.commitInventory(
                     dto.getWarehouseId(),
                     detailDTO.getMaterialId(),
                     detailDTO.getQuantity(),
