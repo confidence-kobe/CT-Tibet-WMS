@@ -31,6 +31,7 @@ public class OutboundController {
     private final OutboundService outboundService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "分页查询出库单列表", description = "支持多条件筛选")
     public PageResult<Outbound> listOutbounds(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
@@ -54,6 +55,7 @@ public class OutboundController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "查询出库单详情", description = "根据ID查询出库单详细信息（含明细）")
     public Result<Outbound> getOutboundById(
             @Parameter(description = "出库单ID") @PathVariable Long id) {

@@ -46,6 +46,7 @@ public class ApplyServiceImpl implements ApplyService {
     private final MaterialMapper materialMapper;
     private final DeptMapper deptMapper;
     private final UserMapper userMapper;
+    private final RoleMapper roleMapper;
     private final OutboundService outboundService;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
@@ -203,10 +204,13 @@ public class ApplyServiceImpl implements ApplyService {
             throw new BusinessException(404, "用户不存在");
         }
 
-        // 检查仓库是否存在
+        // 检查仓库是否存在且属于申请人所在部门
         Warehouse warehouse = warehouseMapper.selectById(dto.getWarehouseId());
         if (warehouse == null) {
             throw new BusinessException(404, "仓库不存在");
+        }
+        if (!warehouse.getDeptId().equals(applicant.getDeptId())) {
+            throw new BusinessException(403, "只能向本部门仓库提交申请");
         }
 
         // 查询部门信息
@@ -295,11 +299,11 @@ public class ApplyServiceImpl implements ApplyService {
         boolean isWarehouseManager = warehouse.getManagerId() != null
                 && warehouse.getManagerId().equals(approverId);
 
-        // 检查是否是部门管理员（同一部门）
+        // 检查是否是部门管理员（从Role表查询roleCode，避免非数据库字段为null）
         boolean isDeptAdmin = false;
-        if (!isWarehouseManager) {
-            // approver已经在方法开始时获取
-            if (approver != null && "DEPT_ADMIN".equals(approver.getRoleCode())) {
+        if (!isWarehouseManager && approver != null) {
+            Role approverRole = roleMapper.selectById(approver.getRoleId());
+            if (approverRole != null && "DEPT_ADMIN".equals(approverRole.getRoleCode())) {
                 // 部门管理员只能审批本部门的申请
                 if (approver.getDeptId() != null && approver.getDeptId().equals(apply.getDeptId())) {
                     isDeptAdmin = true;

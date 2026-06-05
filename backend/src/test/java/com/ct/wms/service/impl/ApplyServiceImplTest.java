@@ -58,14 +58,6 @@ public class ApplyServiceImplTest {
 
     @BeforeEach
     public void setUp() {
-        // 查找测试数据
-        LambdaQueryWrapper<Warehouse> warehouseWrapper = new LambdaQueryWrapper<>();
-        warehouseWrapper.last("LIMIT 1");
-        Warehouse warehouse = warehouseMapper.selectOne(warehouseWrapper);
-        if (warehouse != null) {
-            testWarehouseId = warehouse.getId();
-        }
-
         LambdaQueryWrapper<Material> materialWrapper = new LambdaQueryWrapper<>();
         materialWrapper.last("LIMIT 1");
         Material material = materialMapper.selectOne(materialWrapper);
@@ -73,15 +65,24 @@ public class ApplyServiceImplTest {
             testMaterialId = material.getId();
         }
 
-        // 获取测试用户并设置SecurityContext
+        // 先取用户，再找同部门的仓库，确保部门隔离校验通过
         LambdaQueryWrapper<User> userWrapper = new LambdaQueryWrapper<>();
         userWrapper.last("LIMIT 1");
         User user = userMapper.selectOne(userWrapper);
         if (user != null) {
             testUserId = user.getId();
-            // 从数据库获取角色编码
             var role = user.getRoleId() != null ? user.getRoleId().toString() : "USER";
             TestDataBuilder.mockSecurityContext(user.getId(), user.getUsername(), role);
+
+            // 找与该用户同部门的仓库
+            if (user.getDeptId() != null) {
+                LambdaQueryWrapper<Warehouse> warehouseWrapper = new LambdaQueryWrapper<>();
+                warehouseWrapper.eq(Warehouse::getDeptId, user.getDeptId()).last("LIMIT 1");
+                Warehouse warehouse = warehouseMapper.selectOne(warehouseWrapper);
+                if (warehouse != null) {
+                    testWarehouseId = warehouse.getId();
+                }
+            }
         }
     }
 
@@ -96,7 +97,7 @@ public class ApplyServiceImplTest {
 
         ApplyDTO dto = new ApplyDTO();
         dto.setWarehouseId(testWarehouseId);
-        dto.setApplyTime(LocalDateTime.now());
+
         dto.setApplyReason("测试申请");
 
         // 添加明细
@@ -137,7 +138,7 @@ public class ApplyServiceImplTest {
         if (testWarehouseId != null && testMaterialId != null) {
             ApplyDTO dto = new ApplyDTO();
             dto.setWarehouseId(testWarehouseId);
-            dto.setApplyTime(LocalDateTime.now());
+    
             dto.setApplyReason("测试详情");
 
             List<ApplyDTO.ApplyDetailDTO> details = new ArrayList<>();
@@ -186,7 +187,7 @@ public class ApplyServiceImplTest {
 
         ApplyDTO dto = new ApplyDTO();
         dto.setWarehouseId(testWarehouseId);
-        dto.setApplyTime(LocalDateTime.now());
+
         dto.setApplyReason("测试单号");
 
         List<ApplyDTO.ApplyDetailDTO> details = new ArrayList<>();

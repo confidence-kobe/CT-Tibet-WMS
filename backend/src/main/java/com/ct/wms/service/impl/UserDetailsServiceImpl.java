@@ -38,13 +38,13 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
         if (user == null) {
             log.error("User not found with username: {}", username);
-            throw new UsernameNotFoundException("用户不存在: " + username);
+            throw new UsernameNotFoundException("用户名或密码错误");
         }
 
         // 检查用户状态
         if (user.getStatus() == UserStatus.DISABLED) {
             log.error("User is disabled: {}", username);
-            throw new UsernameNotFoundException("用户已被禁用: " + username);
+            throw new UsernameNotFoundException("用户名或密码错误");
         }
 
         // 查询角色

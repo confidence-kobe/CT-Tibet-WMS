@@ -45,3 +45,7 @@ logging:
 jwt:
   secret: test-secret-key-for-unit-tests-only-min-256-bits-required
   expiration: 86400000
+
+# CORS 测试环境配置
+cors:
+  allowed-origins: http://localhost:5173

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.api.PageResult;
 import com.ct.wms.common.api.Result;
 import com.ct.wms.dto.ChangePasswordRequest;
+import com.ct.wms.dto.ResetPasswordRequest;
 import com.ct.wms.dto.UpdateProfileRequest;
 import com.ct.wms.dto.UserDTO;
 import com.ct.wms.entity.User;
@@ -108,9 +109,9 @@ public class UserController {
     @Operation(summary = "重置用户密码", description = "管理员重置用户密码")
     public Result<Void> resetPassword(
             @Parameter(description = "用户ID") @PathVariable Long id,
-            @Parameter(description = "新密码") @RequestParam String newPassword) {
+            @Validated @RequestBody ResetPasswordRequest request) {
         log.info("重置用户密码: id={}", id);
-        userService.resetPassword(id, newPassword);
+        userService.resetPassword(id, request.getNewPassword());
         return Result.success(null, "重置成功");
     }
 

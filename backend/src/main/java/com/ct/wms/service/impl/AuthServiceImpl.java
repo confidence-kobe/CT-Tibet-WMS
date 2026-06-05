@@ -152,6 +152,10 @@ public class AuthServiceImpl implements AuthService {
         if (jwtUtils.isTokenExpired(oldToken)) {
             throw new BusinessException(401, "Token已过期");
         }
+        if (redisUtils != null && Boolean.TRUE.equals(
+                redisUtils.hasKey(TOKEN_BLACKLIST_PREFIX + oldToken))) {
+            throw new BusinessException(401, "Token已失效，请重新登录");
+        }
         return jwtUtils.refreshToken(oldToken);
     }
 

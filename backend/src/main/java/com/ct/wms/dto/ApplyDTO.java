@@ -4,10 +4,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import javax.validation.Valid;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -23,10 +23,6 @@ public class ApplyDTO {
     @NotNull(message = "仓库ID不能为空")
     @Schema(description = "仓库ID")
     private Long warehouseId;
-
-    @NotNull(message = "申请时间不能为空")
-    @Schema(description = "申请时间")
-    private LocalDateTime applyTime;
 
     @Schema(description = "申请理由")
     private String applyReason;
@@ -48,6 +44,7 @@ public class ApplyDTO {
         private Long materialId;
 
         @NotNull(message = "数量不能为空")
+        @DecimalMin(value = "0.01", message = "数量必须大于0")
         @Schema(description = "数量")
         private BigDecimal quantity;
 

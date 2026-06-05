@@ -117,11 +117,6 @@
 
     <!-- Spring框架日志 -->
     <logger name="org.springframework" level="INFO"/>
-    <logger name="org.springframework.web" level="DEBUG"/>
-    <logger name="org.springframework.security" level="DEBUG"/>
-
-    <!-- MyBatis-Plus日志 -->
-    <logger name="com.baomidou.mybatisplus" level="DEBUG"/>
 
     <!-- Hibernate Validator -->
     <logger name="org.hibernate.validator" level="INFO"/>
@@ -129,8 +124,16 @@
     <!-- 数据库连接池 -->
     <logger name="com.zaxxer.hikari" level="INFO"/>
 
-    <!-- RabbitMQ -->
-    <logger name="org.springframework.amqp" level="DEBUG"/>
+    <!-- 以下 DEBUG 日志仅在 dev 环境开启 -->
+    <springProfile name="dev">
+        <logger name="org.springframework.web" level="DEBUG"/>
+        <logger name="org.springframework.security" level="DEBUG"/>
+        <logger name="com.baomidou.mybatisplus" level="DEBUG"/>
+        <logger name="org.springframework.amqp" level="DEBUG"/>
+    </springProfile>
+
+    <!-- RabbitMQ 生产级别 -->
+    <logger name="org.springframework.amqp" level="INFO"/>
 
     <!-- 根日志级别 -->
     <root level="INFO">

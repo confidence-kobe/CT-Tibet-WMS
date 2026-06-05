@@ -130,8 +130,9 @@ public class SecurityConfig {
                         "/swagger-resources/**",
                         "/favicon.ico",
                         "/error",
-                        "/actuator/**"
+                        "/actuator/health"
                 ).permitAll()
+                .antMatchers("/actuator/**").hasRole("ADMIN")
                 // 其他所有请求都需要认证
                 .anyRequest().authenticated();
 

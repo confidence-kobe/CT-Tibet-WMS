@@ -31,6 +31,7 @@ public class InboundController {
     private final InboundService inboundService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "分页查询入库单列表", description = "支持多条件筛选")
     public PageResult<Inbound> listInbounds(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
@@ -52,6 +53,7 @@ public class InboundController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "查询入库单详情", description = "根据ID查询入库单详细信息（含明细）")
     public Result<Inbound> getInboundById(
             @Parameter(description = "入库单ID") @PathVariable Long id) {

@@ -156,7 +156,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<?> handleIllegalStateException(IllegalStateException e) {
         log.error("Illegal state exception occurred: {}", e.getMessage(), e);
-        return Result.error(ResultCode.INTERNAL_ERROR, e.getMessage());
+        return Result.error(ResultCode.INTERNAL_ERROR, "服务器内部错误，请联系管理员");
     }
 
     /**
@@ -182,7 +182,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<?> handleRuntimeException(RuntimeException e) {
         log.error("Runtime exception occurred: {}", e.getMessage(), e);
-        return Result.error(ResultCode.INTERNAL_ERROR, "Internal server error: " + e.getMessage());
+        return Result.error(ResultCode.INTERNAL_ERROR, "服务器内部错误，请联系管理员");
     }
 
     /**

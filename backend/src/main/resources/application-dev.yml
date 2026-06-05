@@ -35,6 +35,10 @@ mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
+# CORS 开发环境允许本地前端访问
+cors:
+  allowed-origins: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
+
 # Knife4j
 knife4j:
   enable: true
