@@ -4,13 +4,13 @@
 
 ![Status](https://img.shields.io/badge/status-production--ready-brightgreen)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Backend](https://img.shields.io/badge/Spring%20Boot-2.7.18-green)
+![Frontend](https://img.shields.io/badge/Vue-3.x-brightgreen)
 ![License](https://img.shields.io/badge/license-Proprietary-red)
-![Tests](https://img.shields.io/badge/tests-50%2F50%20passing-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-check%20JaCoCo-yellow)
 
-**现代化的仓库管理系统，为西藏电信打造**
+**面向西藏电信各部门仓库的全流程物资管理系统**
 
-[功能特性](#-功能特性) • [快速开始](#-快速开始) • [技术架构](#-技术架构) • [文档](#-文档) • [部署](#-部署)
+[功能特性](#-功能特性) • [快速开始](#-快速开始) • [技术架构](#-技术架构) • [API 概览](#-api-接口概览) • [部署](#-部署指南)
 
 </div>
 
