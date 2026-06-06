@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.LoginRequest;
+import com.ct.wms.dto.WechatLoginRequest;
 import com.ct.wms.entity.Role;
 import com.ct.wms.entity.User;
 import com.ct.wms.mapper.RoleMapper;
@@ -16,7 +17,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -33,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 认证Service实现类
@@ -58,6 +62,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Value("${jwt.expiration}")
     private Long jwtExpiration;
+
+    @Value("${wechat.miniprogram.appid}")
+    private String wechatAppid;
+
+    @Value("${wechat.miniprogram.secret}")
+    private String wechatSecret;
+
+    @Value("${wechat.miniprogram.code2session-url}")
+    private String code2sessionUrl;
 
     // 测试环境通过 autoconfigure.exclude 禁用 Redis，生产环境 Redis 必须可用
     @Autowired(required = false)
@@ -205,6 +218,79 @@ public class AuthServiceImpl implements AuthService {
         result.put("permissions", Collections.emptyList());
 
         return result;
+    }
+
+    @Override
+    public LoginVO wechatLogin(WechatLoginRequest request) {
+        // 调用微信 code2Session 接口换取 openid
+        String url = String.format("%s?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
+                code2sessionUrl, wechatAppid, wechatSecret, request.getCode());
+
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<Map> response;
+        try {
+            response = restTemplate.getForEntity(url, Map.class);
+        } catch (Exception e) {
+            log.error("调用微信code2Session接口失败", e);
+            throw new BusinessException(500, "微信登录服务暂时不可用");
+        }
+
+        Map<?, ?> body = response.getBody();
+        if (body == null || body.containsKey("errcode")) {
+            Object errcode = body != null ? body.get("errcode") : "null";
+            Object errmsg = body != null ? body.get("errmsg") : "";
+            log.error("微信code2Session返回错误: errcode={}, errmsg={}", errcode, errmsg);
+            throw new BusinessException(400, "微信登录失败：" + errmsg);
+        }
+
+        String openid = (String) body.get("openid");
+        if (openid == null || openid.isEmpty()) {
+            throw new BusinessException(400, "微信登录失败：无法获取openid");
+        }
+
+        // 根据 openid 查找用户
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>().eq(User::getWechatOpenid, openid)
+        );
+
+        if (user == null) {
+            // openid 未绑定任何系统用户，返回特殊提示
+            throw new BusinessException(404, "该微信账号未绑定系统用户，请联系管理员");
+        }
+
+        if (user.getStatus() != null && user.getStatus().getCode() == 1) {
+            throw new BusinessException(403, "账号已被禁用，请联系管理员");
+        }
+
+        // 查询角色
+        Role role = roleMapper.selectById(user.getRoleId());
+        if (role == null) {
+            throw new BusinessException(401, "用户角色不存在");
+        }
+
+        // 生成 JWT
+        String token = jwtUtils.generateToken(user.getId(), user.getUsername());
+        updateLoginInfo(user.getId());
+
+        LoginVO.UserInfo userInfo = LoginVO.UserInfo.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .realName(user.getRealName())
+                .phone(user.getPhone())
+                .deptId(user.getDeptId())
+                .deptName(user.getDeptName())
+                .roleId(user.getRoleId())
+                .roleName(role.getRoleName())
+                .roleCode(role.getRoleCode())
+                .avatar(user.getAvatar())
+                .build();
+
+        return LoginVO.builder()
+                .token(token)
+                .tokenType("Bearer")
+                .expiresIn(jwtExpiration)
+                .user(userInfo)
+                .build();
     }
 
     // ==================== 私有方法 ====================
