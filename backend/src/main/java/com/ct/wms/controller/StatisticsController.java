@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,6 +37,7 @@ public class StatisticsController {
     private final StatisticsService statisticsService;
 
     @GetMapping("/dashboard")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "获取仪表盘统计数据", description = "返回首页仪表盘的各项统计数据")
     public Result<DashboardStatsVO> getDashboardStats() {
         log.info("获取仪表盘统计数据");
@@ -44,6 +46,7 @@ public class StatisticsController {
     }
 
     @GetMapping("/inbound")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "获取入库统计数据", description = "获取指定时间范围和仓库的入库统计数据，包含趋势图、分类占比等")
     public Result<InboundStatisticsDTO> getInboundStatistics(
             @Parameter(description = "开始日期（格式：yyyy-MM-dd，默认最近30天）")
@@ -66,6 +69,7 @@ public class StatisticsController {
     }
 
     @GetMapping("/outbound")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "获取出库统计数据", description = "获取指定时间范围和仓库的出库统计数据，包含趋势图、分类占比、类型占比等")
     public Result<OutboundStatisticsDTO> getOutboundStatistics(
             @Parameter(description = "开始日期（格式：yyyy-MM-dd，默认最近30天）")
@@ -94,6 +98,7 @@ public class StatisticsController {
     }
 
     @GetMapping("/inventory")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "获取库存统计数据", description = "获取库存统计数据，包含库存总值、预警数量、周转率、Top 10等")
     public Result<InventoryStatisticsDTO> getInventoryStatistics(
             @Parameter(description = "仓库ID（可选，不传则统计所有仓库）")

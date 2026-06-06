@@ -51,6 +51,14 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    // 生产构建移除 console/debugger
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    },
     // 消除打包大小超过500kb警告
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
