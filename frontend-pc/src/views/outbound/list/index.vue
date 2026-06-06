@@ -280,6 +280,7 @@ const loadWarehouses = async () => {
     warehouseList.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
+    ElMessage.error('加载仓库列表失败')
   }
 }
 
@@ -304,6 +305,7 @@ const handleQuery = async () => {
     pagination.total = res.total || 0
   } catch (error) {
     console.error('查询出库单列表失败:', error)
+    ElMessage.error('查询出库单列表失败')
   } finally {
     loading.value = false
   }

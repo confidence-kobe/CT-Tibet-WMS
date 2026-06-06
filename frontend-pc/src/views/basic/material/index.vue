@@ -393,6 +393,7 @@ const handleDelete = async (row) => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除失败:', error)
+      ElMessage.error('删除失败')
     }
   }
 }
@@ -428,6 +429,7 @@ const handleSave = async () => {
     handleQuery()
   } catch (error) {
     console.error('保存失败:', error)
+    ElMessage.error('保存失败')
   } finally {
     saveLoading.value = false
   }

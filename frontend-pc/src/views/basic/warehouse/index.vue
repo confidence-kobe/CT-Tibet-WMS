@@ -238,6 +238,7 @@ const handleQuery = async () => {
     pagination.total = res.total
   } catch (error) {
     console.error('查询失败:', error)
+    ElMessage.error('查询失败')
   } finally {
     loading.value = false
   }
@@ -324,6 +325,7 @@ const handleSave = async () => {
     await handleQuery()
   } catch (error) {
     console.error('保存失败:', error)
+    ElMessage.error('保存失败')
   } finally {
     saveLoading.value = false
   }

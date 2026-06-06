@@ -173,6 +173,7 @@ const loadData = async () => {
     tableData.value = res.data
   } catch (error) {
     console.error('查询失败:', error)
+    ElMessage.error('查询失败')
   } finally {
     loading.value = false
   }
@@ -184,6 +185,7 @@ const loadAllDepts = async () => {
     allDepts.value = res.data
   } catch (error) {
     console.error('获取部门列表失败:', error)
+    ElMessage.error('获取部门列表失败')
   }
 }
 
@@ -263,6 +265,7 @@ const handleSave = async () => {
     await loadData()
   } catch (error) {
     console.error('保存失败:', error)
+    ElMessage.error('保存失败')
   } finally {
     saveLoading.value = false
   }
