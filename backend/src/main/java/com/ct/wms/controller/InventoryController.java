@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import javax.validation.constraints.Max;
 import org.springframework.validation.annotation.Validated;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,6 +35,7 @@ public class InventoryController {
     private final InventoryService inventoryService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "分页查询库存列表", description = "支持多条件筛选")
     public PageResult<Inventory> listInventories(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
@@ -52,6 +54,7 @@ public class InventoryController {
     }
 
     @GetMapping("/logs")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "分页查询库存流水", description = "支持多条件筛选")
     public PageResult<InventoryLog> listInventoryLogs(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
@@ -72,6 +75,7 @@ public class InventoryController {
     }
 
     @GetMapping("/low-stock-alerts")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "查询低库存预警列表", description = "查询库存低于最低库存的物资")
     public Result<List<Inventory>> listLowStockAlerts(
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId) {
@@ -84,6 +88,7 @@ public class InventoryController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "查询库存详情", description = "根据ID查询库存详细信息")
     public Result<Inventory> getInventoryById(
             @Parameter(description = "库存ID") @PathVariable Long id) {

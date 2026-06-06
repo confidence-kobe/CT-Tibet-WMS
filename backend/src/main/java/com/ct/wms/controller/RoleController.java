@@ -50,6 +50,7 @@ public class RoleController {
     }
 
     @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "查询所有角色", description = "不分页，返回所有启用的角色")
     public Result<List<Role>> listAllRoles() {
         log.info("查询所有角色");
