@@ -180,6 +180,7 @@ export default {
         }
       } catch (err) {
         console.error('加载数据失败', err)
+        uni.showToast({ title: '加载失败，请下拉刷新', icon: 'none' })
       } finally {
         this.loading = false
         this.refreshing = false
@@ -226,6 +227,7 @@ export default {
       } catch (err) {
         uni.hideLoading()
         console.error('获取详情失败', err)
+        uni.showToast({ title: '获取申请详情失败', icon: 'none' })
       }
     },
 
@@ -280,6 +282,7 @@ export default {
       } catch (err) {
         uni.hideLoading()
         console.error('审批失败', err)
+        uni.showToast({ title: '审批操作失败，请重试', icon: 'none' })
       } finally {
         this.submitting = false
       }

@@ -186,6 +186,7 @@ export default {
         }
       } catch (err) {
         console.error('加载数据失败', err)
+        uni.showToast({ title: '加载失败，请下拉刷新', icon: 'none' })
       } finally {
         this.loading = false
         this.refreshing = false
