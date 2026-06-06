@@ -107,6 +107,6 @@ export function resetUserPassword(id, newPassword) {
   return request({
     url: `/users/${id}/reset-password`,
     method: 'put',
-    params: { newPassword }
+    data: { newPassword }
   })
 }
