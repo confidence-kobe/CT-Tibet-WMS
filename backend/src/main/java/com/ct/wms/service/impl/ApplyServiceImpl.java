@@ -59,6 +59,19 @@ public class ApplyServiceImpl implements ApplyService {
 
         LambdaQueryWrapper<Apply> wrapper = new LambdaQueryWrapper<>();
 
+        // 部门管理员只能查看本部门的申请（数据隔离）
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl) {
+            UserDetailsImpl currentUser = (UserDetailsImpl) auth.getPrincipal();
+            Role currentRole = roleMapper.selectById(currentUser.getRoleId());
+            if (currentRole != null && "DEPT_ADMIN".equals(currentRole.getRoleCode())) {
+                User currentUserEntity = userMapper.selectById(currentUser.getId());
+                if (currentUserEntity != null && currentUserEntity.getDeptId() != null) {
+                    wrapper.eq(Apply::getDeptId, currentUserEntity.getDeptId());
+                }
+            }
+        }
+
         if (warehouseId != null) {
             wrapper.eq(Apply::getWarehouseId, warehouseId);
         }

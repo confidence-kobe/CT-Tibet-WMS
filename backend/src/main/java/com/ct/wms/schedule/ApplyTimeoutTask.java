@@ -88,7 +88,7 @@ public class ApplyTimeoutTask {
 
             // 查询所有待审批且超过24小时的申请
             LambdaQueryWrapper<Apply> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue())
+            queryWrapper.eq(Apply::getStatus, ApplyStatus.PENDING)
                     .le(Apply::getApplyTime, timeoutTime);
 
             List<Apply> timeoutApplies = applyMapper.selectList(queryWrapper);
@@ -187,7 +187,7 @@ public class ApplyTimeoutTask {
 
             // 查询所有待审批且超过7天的申请
             LambdaQueryWrapper<Apply> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue())
+            queryWrapper.eq(Apply::getStatus, ApplyStatus.PENDING)
                     .le(Apply::getApplyTime, timeoutTime);
 
             List<Apply> longTimeoutApplies = applyMapper.selectList(queryWrapper);
@@ -207,8 +207,8 @@ public class ApplyTimeoutTask {
                     // 更新申请状态为已取消
                     LambdaUpdateWrapper<Apply> updateWrapper = new LambdaUpdateWrapper<>();
                     updateWrapper.eq(Apply::getId, apply.getId())
-                            .eq(Apply::getStatus, ApplyStatus.PENDING.getValue())
-                            .set(Apply::getStatus, ApplyStatus.CANCELED.getValue())
+                            .eq(Apply::getStatus, ApplyStatus.PENDING)
+                            .set(Apply::getStatus, ApplyStatus.CANCELED)
                             .set(Apply::getRemark, "系统自动取消：超过7天未审批");
 
                     int updated = applyMapper.update(null, updateWrapper);

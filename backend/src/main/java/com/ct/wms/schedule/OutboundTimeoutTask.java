@@ -96,7 +96,7 @@ public class OutboundTimeoutTask {
             // 查询所有待取货且超时的出库单
             LambdaQueryWrapper<Outbound> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP)
-                    .eq(Outbound::getSource, OutboundSource.FROM_APPLY.getValue())
+                    .eq(Outbound::getSource, OutboundSource.FROM_APPLY)
                     .le(Outbound::getOutboundTime, timeoutTime);
 
             List<Outbound> timeoutOutbounds = outboundMapper.selectList(queryWrapper);
@@ -195,7 +195,7 @@ public class OutboundTimeoutTask {
             // 查询待取货超过5天但未超过7天的出库单
             LambdaQueryWrapper<Outbound> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP)
-                    .eq(Outbound::getSource, OutboundSource.FROM_APPLY.getValue())
+                    .eq(Outbound::getSource, OutboundSource.FROM_APPLY)
                     .le(Outbound::getOutboundTime, reminderTime)
                     .gt(Outbound::getOutboundTime, timeoutTime);
 

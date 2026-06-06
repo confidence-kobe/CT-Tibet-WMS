@@ -325,9 +325,9 @@ ALTER TABLE tb_outbound ADD INDEX idx_pickup_deadline (pickup_deadline);
 
 -- Insert default system administrator role
 INSERT INTO tb_role (role_name, role_code, description) VALUES
-('系统管理员', 'SYSTEM_ADMIN', 'System administrator with full access'),
+('系统管理员', 'ADMIN', 'System administrator with full access'),
 ('部门管理员', 'DEPT_ADMIN', 'Department administrator'),
-('仓库管理员', 'WAREHOUSE_ADMIN', 'Warehouse manager'),
+('仓库管理员', 'WAREHOUSE', 'Warehouse manager'),
 ('普通员工', 'USER', 'Regular employee')
 ON DUPLICATE KEY UPDATE role_name = role_name;
 
