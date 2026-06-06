@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 
 /**
  * 审批DTO
@@ -23,6 +24,7 @@ public class ApprovalDTO {
     @Schema(description = "审批结果: 1-通过 2-拒绝")
     private Integer approvalResult;
 
+    @Size(max = 500, message = "审批意见不能超过500字")
     @Schema(description = "审批意见")
     private String approvalRemark;
 }

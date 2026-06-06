@@ -6,6 +6,7 @@ import lombok.Data;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,6 +36,7 @@ public class OutboundDTO {
     @Schema(description = "领用人ID（仅领用时需要）")
     private Long receiverId;
 
+    @Size(max = 500, message = "备注不能超过500字")
     @Schema(description = "备注")
     private String remark;
 
@@ -61,6 +63,7 @@ public class OutboundDTO {
         @Schema(description = "单价")
         private BigDecimal unitPrice;
 
+        @Size(max = 200, message = "备注不能超过200字")
         @Schema(description = "备注")
         private String remark;
     }

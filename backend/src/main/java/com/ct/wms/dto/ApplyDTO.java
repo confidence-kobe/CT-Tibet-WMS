@@ -7,6 +7,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -24,6 +25,7 @@ public class ApplyDTO {
     @Schema(description = "仓库ID")
     private Long warehouseId;
 
+    @Size(max = 500, message = "申请理由不能超过500字")
     @Schema(description = "申请理由")
     private String applyReason;
 
@@ -48,6 +50,7 @@ public class ApplyDTO {
         @Schema(description = "数量")
         private BigDecimal quantity;
 
+        @Size(max = 200, message = "用途说明不能超过200字")
         @Schema(description = "用途说明")
         private String remark;
     }
