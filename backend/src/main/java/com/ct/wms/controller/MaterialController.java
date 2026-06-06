@@ -16,6 +16,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
+
 import java.util.List;
 
 /**
@@ -26,6 +28,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
+@Validated
 @RequestMapping("/api/materials")
 @RequiredArgsConstructor
 @Tag(name = "物资管理", description = "物资的增删改查接口")
@@ -35,7 +38,7 @@ public class MaterialController {
 
     @GetMapping
     @Operation(summary = "分页查询物资列表", description = "支持按类别、状态、关键词筛选")
-    public PageResult<Material> listMaterials(MaterialQueryDTO queryDTO) {
+    public PageResult<Material> listMaterials(@Valid MaterialQueryDTO queryDTO) {
         log.info("查询物资列表: queryDTO={}", queryDTO);
         Page<Material> page = materialService.listMaterials(queryDTO);
         return PageResult.of(page);
