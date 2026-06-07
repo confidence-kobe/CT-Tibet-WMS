@@ -194,6 +194,7 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh, Download, Box, Money, TrendCharts, Warning } from '@element-plus/icons-vue'
 import EChart from '@/components/Chart/EChart.vue'
 import dayjs from 'dayjs'
+import { getMaterialStatistics } from '@/api/statistics'
 
 // 搜索表单
 const searchForm = ref({
@@ -533,9 +534,24 @@ const pagination = ref({
 })
 
 // 查询
-const handleSearch = () => {
-  ElMessage.success('查询成功')
-  // TODO: 调用API
+const handleSearch = async () => {
+  try {
+    const params = {}
+    if (searchForm.value.dateRange && searchForm.value.dateRange.length === 2) {
+      params.startDate = dayjs(searchForm.value.dateRange[0]).format('YYYY-MM-DD')
+      params.endDate = dayjs(searchForm.value.dateRange[1]).format('YYYY-MM-DD')
+    }
+    if (searchForm.value.categoryId) params.categoryId = searchForm.value.categoryId
+    const res = await getMaterialStatistics(params)
+    const data = res.data || {}
+    tableData.value = data.items || []
+    summary.value.totalCategories = data.totalMaterials || 0
+    summary.value.hotMaterials = data.activeMaterials || 0
+    summary.value.slowMoving = data.slowMaterials || 0
+  } catch (error) {
+    console.error('查询物资统计失败:', error)
+    ElMessage.error('查询失败')
+  }
 }
 
 // 重置
