@@ -872,7 +872,7 @@ const handleSearch = async () => {
     if (searchForm.value.materialId) params.materialId = searchForm.value.materialId
     const res = await listInventoryLogs(params)
     const changeTypeMap = { 1: '入库', 2: '出库', 3: '调拨', 4: '盘点', 5: '申请出库' }
-    tableData.value = (res.records || []).map(log => ({
+    tableData.value = (res.data || []).map(log => ({
       operationTime: log.createTime,
       operationType: changeTypeMap[log.changeType] || log.changeType,
       userName: log.operatorName,

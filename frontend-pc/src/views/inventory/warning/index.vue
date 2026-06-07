@@ -266,16 +266,15 @@ const handleQuery = async () => {
     }
 
     const res = await listLowStockAlerts(params)
-    tableData.value = res.data || []
-    pagination.total = res.total || 0
+    const allItems = res.data || []
+    tableData.value = allItems
+    pagination.total = allItems.length
 
-    // 更新统计数据
-    if (res.data.stats) {
-      statistics.total = res.data.stats.totalWarnings || 0
-      statistics.urgent = res.data.stats.urgentWarnings || 0
-      statistics.normal = res.data.stats.normalWarnings || 0
-      statistics.handled = res.data.stats.handledWarnings || 0
-    }
+    // 从返回数据计算统计卡片
+    statistics.total = allItems.length
+    statistics.urgent = allItems.filter(r => r.warningLevel === 2).length
+    statistics.normal = allItems.filter(r => r.warningLevel !== 2).length
+    statistics.handled = allItems.filter(r => r.handleStatus === 1).length
   } catch (error) {
     console.error('查询失败:', error)
     ElMessage.error('查询失败')

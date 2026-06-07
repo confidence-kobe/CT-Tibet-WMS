@@ -238,12 +238,11 @@ const handleQuery = async () => {
     tableData.value = res.data || []
     pagination.total = res.total || 0
 
-    // 更新统计数据
-    if (res.data.stats) {
-      statistics.totalItems = res.data.stats.totalItems || 0
-      statistics.totalValue = res.data.stats.totalValue || 0
-      statistics.warningCount = res.data.stats.warningCount || 0
-    }
+    // 从当前页数据计算统计（total反映全局总数）
+    statistics.totalItems = res.total || 0
+    const items = res.data || []
+    statistics.totalValue = items.reduce((sum, r) => sum + (r.totalValue || 0), 0)
+    statistics.warningCount = items.filter(r => r.stock != null && r.minStock != null && r.stock <= r.minStock).length
   } catch (error) {
     console.error('查询失败:', error)
     ElMessage.error('查询失败')
