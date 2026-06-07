@@ -27,9 +27,7 @@
             clearable
             @clear="handleQuery"
           >
-            <el-option label="网络运维部" :value="1" />
-            <el-option label="维护部" :value="2" />
-            <el-option label="运维中心" :value="3" />
+            <el-option v-for="d in deptList" :key="d.id" :label="d.deptName" :value="d.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
@@ -175,19 +173,12 @@
         </el-form-item>
         <el-form-item label="部门" prop="deptId">
           <el-select v-model="form.deptId" placeholder="请选择部门" style="width: 100%">
-            <el-option label="网络运维部" :value="1" />
-            <el-option label="维护部" :value="2" />
-            <el-option label="运维中心" :value="3" />
-            <el-option label="技术部" :value="4" />
-            <el-option label="客服部" :value="5" />
+            <el-option v-for="d in deptList" :key="d.id" :label="d.deptName" :value="d.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="角色" prop="roleIds">
           <el-select v-model="form.roleIds" placeholder="请选择角色" multiple style="width: 100%">
-            <el-option label="系统管理员" :value="1" />
-            <el-option label="部门管理员" :value="2" />
-            <el-option label="仓库管理员" :value="3" />
-            <el-option label="普通员工" :value="4" />
+            <el-option v-for="r in roleList" :key="r.id" :label="r.roleName" :value="r.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="手机号" prop="phone">
@@ -214,9 +205,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listUsers, createUser, updateUser, deleteUser, updateUserStatus, resetUserPassword, bindWechat, unbindWechat } from '@/api/user'
+import { listAllDepts } from '@/api/dept'
+import request from '@/api/request'
+
+const listAllRoles = () => request({ url: '/roles/all', method: 'get' })
 
 const queryForm = reactive({
   keyword: '',
@@ -277,6 +272,28 @@ const formRules = {
 }
 
 const dialogTitle = computed(() => isEdit.value ? '编辑用户' : '新建用户')
+
+// 部门和角色列表
+const deptList = ref([])
+const roleList = ref([])
+
+const loadDeptList = async () => {
+  try {
+    const res = await listAllDepts()
+    deptList.value = res.data || []
+  } catch (e) {
+    console.error('加载部门失败:', e)
+  }
+}
+
+const loadRoleList = async () => {
+  try {
+    const res = await listAllRoles()
+    roleList.value = res.data || []
+  } catch (e) {
+    console.error('加载角色失败:', e)
+  }
+}
 
 // 微信绑定
 const wechatDialogVisible = ref(false)
@@ -356,13 +373,12 @@ const handleAdd = () => {
 
 const handleEdit = (row) => {
   isEdit.value = true
-  const roleMap = { '系统管理员': 1, '部门管理员': 2, '仓库管理员': 3, '普通员工': 4 }
   Object.assign(form, {
     id: row.id,
     username: row.username,
     realName: row.realName,
-    deptId: row.deptId || 1,
-    roleIds: row.roles.map(r => roleMap[r]),
+    deptId: row.deptId,
+    roleIds: row.roleId ? [row.roleId] : [],
     phone: row.phone,
     email: row.email,
     status: row.status
@@ -475,7 +491,11 @@ const resetForm = () => {
   form.status = 0
 }
 
-handleQuery()
+onMounted(() => {
+  loadDeptList()
+  loadRoleList()
+  handleQuery()
+})
 </script>
 
 <style lang="scss" scoped>
