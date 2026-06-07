@@ -3,6 +3,7 @@ package com.ct.wms.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ct.wms.common.enums.ApplyStatus;
 import com.ct.wms.common.enums.OutboundSource;
+import com.ct.wms.common.enums.OutboundStatus;
 import com.ct.wms.dto.InboundStatisticsDTO;
 import com.ct.wms.dto.InventoryStatisticsDTO;
 import com.ct.wms.dto.OutboundStatisticsDTO;
@@ -981,8 +982,11 @@ public class StatisticsServiceImpl implements StatisticsService {
         applyWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
         tasks.setPendingApproval(applyMapper.selectCount(applyWrapper).intValue());
 
-        // 待领取（这里简化处理，实际可能需要根据出库状态判断）
-        tasks.setPendingPickup(0);
+        // 待领取（出库单状态=0 且来源=申领）
+        LambdaQueryWrapper<Outbound> outboundWrapper = new LambdaQueryWrapper<>();
+        outboundWrapper.eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP.getValue())
+                       .eq(Outbound::getSource, OutboundSource.FROM_APPLY.getValue());
+        tasks.setPendingPickup(outboundMapper.selectCount(outboundWrapper).intValue());
 
         // 低库存预警
         List<Inventory> lowStockAlerts = inventoryService.listLowStockAlerts(null);

@@ -272,7 +272,12 @@ export default {
     }
   },
 
-  onLoad() {
+  onLoad(options) {
+    if (options && options.status !== undefined) {
+      const statusVal = parseInt(options.status)
+      const tabIndex = this.tabs.findIndex(t => t.status === statusVal)
+      if (tabIndex >= 0) this.activeTab = tabIndex
+    }
     this.loadData()
     this.loadStats()
   },
