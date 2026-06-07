@@ -164,7 +164,8 @@ export default {
         })
 
         if (res.code === 200) {
-          const { list, total } = res.data
+          const list = res.data || []
+          const total = res.total || 0
 
           if (this.pageNum === 1) {
             this.list = list

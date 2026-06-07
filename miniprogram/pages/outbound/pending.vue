@@ -173,7 +173,8 @@ export default {
         })
 
         if (res.code === 200) {
-          const { list, total } = res.data
+          const list = res.data || []
+          const total = res.total || 0
 
           // 计算等待天数
           list.forEach(item => {

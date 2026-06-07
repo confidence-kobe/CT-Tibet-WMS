@@ -215,7 +215,7 @@ export default {
         })
 
         if (res.code === 200) {
-          const newInbounds = res.data.records || []
+          const newInbounds = res.data || []
 
           if (isRefresh) {
             this.inbounds = newInbounds
