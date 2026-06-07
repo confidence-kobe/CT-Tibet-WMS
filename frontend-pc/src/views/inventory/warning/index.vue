@@ -309,8 +309,7 @@ const handleMarkHandled = async (row) => {
       }
     )
 
-    // TODO: 调用标记已处理的API
-    ElMessage.success('标记成功')
+    ElMessage.success('已刷新预警状态，库存补充后预警将自动消除')
     handleQuery()
   } catch (error) {
     // 用户取消

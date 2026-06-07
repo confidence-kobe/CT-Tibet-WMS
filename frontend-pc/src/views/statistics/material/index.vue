@@ -552,7 +552,17 @@ const handleReset = () => {
 
 // 导出
 const handleExport = () => {
-  ElMessage.info('导出功能开发中...')
+  import('xlsx').then(XLSX => {
+    const headers = ['物资名称', '类别', '规格', '入库次数', '出库次数', '当前库存', '周转率', '库存价值(元)']
+    const rows = tableData.value.map(r => [
+      r.materialName, r.categoryName, r.specification,
+      r.inboundCount, r.outboundCount, r.currentStock, r.turnoverRate, r.totalValue
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), '物资统计')
+    XLSX.writeFile(wb, `物资统计_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 排行类型变化

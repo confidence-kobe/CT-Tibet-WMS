@@ -208,7 +208,16 @@ const handleReset = () => {
 
 // 导出
 const handleExport = () => {
-  ElMessage.info('导出功能开发中')
+  import('xlsx').then(XLSX => {
+    const headers = ['入库单号', '仓库名称', '入库金额(元)', '操作人', '入库时间', '备注']
+    const rows = tableData.value.map(r => [
+      r.inboundNo, r.warehouseName, r.totalAmount, r.operatorName, r.inboundTime, r.remark
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), '入库单列表')
+    XLSX.writeFile(wb, `入库单列表_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 新建

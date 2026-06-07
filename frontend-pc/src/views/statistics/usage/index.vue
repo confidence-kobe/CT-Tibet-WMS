@@ -879,7 +879,18 @@ const handleReset = () => {
 
 // 导出
 const handleExport = () => {
-  ElMessage.info('导出功能开发中...')
+  import('xlsx').then(XLSX => {
+    const typeMap = { 1: '入库', 2: '出库' }
+    const headers = ['操作时间', '操作类型', '操作人', '所属部门', '物资名称', '数量', '单位', '金额(元)', '单据号']
+    const rows = tableData.value.map(r => [
+      r.operationTime, typeMap[r.operationType] || r.operationType,
+      r.userName, r.deptName, r.materialName, r.quantity, r.unit, r.amount, r.orderNo
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), '使用明细')
+    XLSX.writeFile(wb, `使用统计_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 分页

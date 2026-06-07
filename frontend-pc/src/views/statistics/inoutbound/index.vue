@@ -187,11 +187,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Download, Upload, Money, CaretTop, CaretBottom } from '@element-plus/icons-vue'
 import EChart from '@/components/Chart/EChart.vue'
 import dayjs from 'dayjs'
+import { getInboundStatistics, getOutboundStatistics } from '@/api/statistics'
 
 // 搜索表单
 const searchForm = ref({
@@ -488,9 +489,34 @@ const pagination = ref({
 })
 
 // 查询
-const handleSearch = () => {
-  ElMessage.success('查询成功')
-  // TODO: 调用API
+const handleSearch = async () => {
+  try {
+    const params = {
+      startDate: searchForm.value.dateRange?.[0]
+        ? dayjs(searchForm.value.dateRange[0]).format('YYYY-MM-DD') : undefined,
+      endDate: searchForm.value.dateRange?.[1]
+        ? dayjs(searchForm.value.dateRange[1]).format('YYYY-MM-DD') : undefined,
+      warehouseId: searchForm.value.warehouseId || undefined
+    }
+
+    const [inRes, outRes] = await Promise.all([
+      getInboundStatistics(params),
+      getOutboundStatistics(params)
+    ])
+
+    const inData = inRes.data || {}
+    const outData = outRes.data || {}
+
+    summary.value.totalInbound = inData.totalCount || 0
+    summary.value.totalOutbound = outData.totalCount || 0
+    summary.value.inboundAmount = inData.totalAmount || 0
+    summary.value.outboundAmount = outData.totalAmount || 0
+    summary.value.inboundGrowth = inData.growthRate || 0
+    summary.value.outboundGrowth = outData.growthRate || 0
+  } catch (error) {
+    console.error('查询失败', error)
+    ElMessage.error('查询失败')
+  }
 }
 
 // 重置
@@ -507,8 +533,26 @@ const handleReset = () => {
 
 // 导出
 const handleExport = () => {
-  ElMessage.info('导出功能开发中...')
+  import('xlsx').then(XLSX => {
+    const summaryRows = [
+      ['综合出入库统计报表'],
+      [],
+      ['指标', '数值'],
+      ['入库总次数', summary.value.totalInbound],
+      ['出库总次数', summary.value.totalOutbound],
+      ['入库总金额(元)', summary.value.inboundAmount],
+      ['出库总金额(元)', summary.value.outboundAmount]
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), '汇总')
+    XLSX.writeFile(wb, `综合出入库统计_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    ElMessage.success('导出成功')
+  })
 }
+
+onMounted(() => {
+  handleSearch()
+})
 
 // 趋势类型变化
 const handleTrendTypeChange = () => {

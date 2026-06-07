@@ -351,7 +351,17 @@ const handleReset = () => {
 
 // 导出
 const handleExport = () => {
-  ElMessage.info('导出功能开发中')
+  import('xlsx').then(XLSX => {
+    const headers = ['物资编码', '物资名称', '类别', '规格型号', '单位', '单价(元)', '最低库存', '状态', '创建时间']
+    const rows = tableData.value.map(r => [
+      r.materialCode, r.materialName, r.category, r.spec, r.unit,
+      r.price, r.minStock, r.status === 0 ? '启用' : '禁用', r.createdAt
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), '物资列表')
+    XLSX.writeFile(wb, `物资列表_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 新增

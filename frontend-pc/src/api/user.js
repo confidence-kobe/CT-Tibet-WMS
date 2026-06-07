@@ -58,6 +58,19 @@ export function createUser(data) {
 }
 
 /**
+ * 更新当前用户个人资料
+ * @param {Object} data - {realName, phone, email}
+ * @returns {Promise}
+ */
+export function updateProfile(data) {
+  return request({
+    url: '/users/profile',
+    method: 'put',
+    data
+  })
+}
+
+/**
  * 更新用户
  * @param {number} id - 用户ID
  * @param {Object} data - 用户数据

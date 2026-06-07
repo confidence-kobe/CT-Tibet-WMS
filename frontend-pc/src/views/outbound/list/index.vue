@@ -326,7 +326,21 @@ const handleReset = () => {
 
 // 导出
 const handleExport = () => {
-  ElMessage.info('导出功能开发中')
+  import('xlsx').then(XLSX => {
+    const typeMap = { 1: '领用', 2: '报废', 3: '调拨', 4: '其他' }
+    const sourceMap = { 1: '直接出库', 2: '申请出库' }
+    const statusMap = { 0: '待领取', 1: '已完成', 2: '已取消' }
+    const headers = ['出库单号', '仓库名称', '出库类型', '来源', '出库金额(元)', '状态', '领取人', '操作人', '出库时间']
+    const rows = tableData.value.map(r => [
+      r.outboundNo, r.warehouseName, typeMap[r.outboundType] || r.outboundType,
+      sourceMap[r.source] || r.source, r.totalAmount, statusMap[r.status] || r.status,
+      r.receiverName, r.operatorName, r.outboundTime
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), '出库单列表')
+    XLSX.writeFile(wb, `出库单列表_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 新建直接出库
