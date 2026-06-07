@@ -163,13 +163,12 @@
               查看详情
             </el-button>
             <el-button
-              v-if="row.handleStatus === 0"
               link
               type="success"
               size="small"
-              @click="handleMarkHandled(row)"
+              @click="handleReplenish(row)"
             >
-              标记已处理
+              去入库
             </el-button>
           </template>
         </el-table-column>
@@ -293,26 +292,11 @@ const handleReset = () => {
 }
 
 const handleViewDetail = (row) => {
-  router.push({ path: `/inventory/detail/${row.id}` })
+  router.push({ path: '/inventory/log', query: { materialId: row.materialId, warehouseId: row.warehouseId } })
 }
 
-const handleMarkHandled = async (row) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要将物资"${row.materialName}"标记为已处理吗？`,
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'info'
-      }
-    )
-
-    ElMessage.success('已刷新预警状态，库存补充后预警将自动消除')
-    handleQuery()
-  } catch (error) {
-    // 用户取消
-  }
+const handleReplenish = (row) => {
+  router.push({ path: '/inbound/create', query: { materialId: row.materialId, warehouseId: row.warehouseId } })
 }
 
 // 初始化

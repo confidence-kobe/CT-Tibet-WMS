@@ -513,6 +513,25 @@ const handleSearch = async () => {
     summary.value.outboundAmount = outData.totalAmount || 0
     summary.value.inboundGrowth = inData.growthRate || 0
     summary.value.outboundGrowth = outData.growthRate || 0
+
+    // 合并入库/出库每日明细填充表格
+    const inDaily = inData.dailyData || []
+    const outMap = {}
+    ;(outData.dailyData || []).forEach(d => { outMap[d.date] = d })
+    tableData.value = inDaily.map(d => {
+      const out = outMap[d.date] || {}
+      return {
+        date: d.date,
+        warehouseName: '-',
+        inboundCount: d.count || 0,
+        inboundAmount: d.amount || 0,
+        outboundCount: out.count || 0,
+        outboundAmount: out.amount || 0,
+        netChange: (d.count || 0) - (out.count || 0),
+        remark: ''
+      }
+    })
+    pagination.value.total = tableData.value.length
   } catch (error) {
     console.error('查询失败', error)
     ElMessage.error('查询失败')
