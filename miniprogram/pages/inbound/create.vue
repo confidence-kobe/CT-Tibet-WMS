@@ -258,7 +258,7 @@ export default {
         })
 
         if (res.code === 200) {
-          this.materials = res.data.list || []
+          this.materials = res.data || []
           this.filteredMaterials = this.materials
 
           // 提取类别
