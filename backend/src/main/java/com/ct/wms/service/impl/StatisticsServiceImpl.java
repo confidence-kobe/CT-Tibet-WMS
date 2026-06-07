@@ -48,6 +48,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final OutboundMapper outboundMapper;
     private final OutboundDetailMapper outboundDetailMapper;
     private final InventoryMapper inventoryMapper;
+    private final InventoryLogMapper inventoryLogMapper;
     private final InventoryService inventoryService;
     private final MessageMapper messageMapper;
     private final UserMapper userMapper;
@@ -812,41 +813,20 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     /**
-     * 生成预警趋势数据（最近7天）
+     * 生成预警趋势数据（最近7天，基于库存流水真实数据）
      */
     private InventoryStatisticsDTO.WarningTrendData generateWarningTrendData(Long warehouseId) {
         InventoryStatisticsDTO.WarningTrendData trendData = new InventoryStatisticsDTO.WarningTrendData();
         List<String> dates = new ArrayList<>();
         List<Integer> counts = new ArrayList<>();
 
-        // 简化版：假设每天预警数量相同（实际应该从历史日志获取）
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(6);
 
-        // 查询当前预警数量
-        LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
-        wrapper.gt(Inventory::getQuantity, BigDecimal.ZERO);
-        if (warehouseId != null) {
-            wrapper.eq(Inventory::getWarehouseId, warehouseId);
-        }
-        List<Inventory> inventoryList = inventoryMapper.selectList(wrapper);
-
-        int currentWarningCount = 0;
-        for (Inventory inventory : inventoryList) {
-            Material material = materialMapper.selectById(inventory.getMaterialId());
-            if (material != null && material.getMinStock() != null &&
-                inventory.getQuantity().compareTo(material.getMinStock()) < 0) {
-                currentWarningCount++;
-            }
-        }
-
-        // 生成7天数据（简化版：模拟趋势）
         LocalDate current = startDate;
         while (!current.isAfter(endDate)) {
             dates.add(current.format(DATE_FORMATTER));
-            // 简化处理：最后一天为实际值，之前的天数模拟递减
-            long daysFromEnd = java.time.temporal.ChronoUnit.DAYS.between(current, endDate);
-            int dayCount = Math.max(0, currentWarningCount - (int)daysFromEnd);
+            int dayCount = inventoryLogMapper.countLowStockOnDate(current, warehouseId);
             counts.add(dayCount);
             current = current.plusDays(1);
         }

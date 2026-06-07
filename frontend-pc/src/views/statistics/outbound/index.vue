@@ -369,7 +369,36 @@ const handleReset = () => {
 
 // 导出报表
 const handleExport = () => {
-  ElMessage.info('导出功能开发中')
+  import('xlsx').then(XLSX => {
+    const dateRange = queryForm.dateRange?.length === 2
+      ? `${queryForm.dateRange[0]}至${queryForm.dateRange[1]}`
+      : '全部'
+
+    const summaryData = [
+      ['出库统计报表'],
+      ['查询时间范围', dateRange],
+      [],
+      ['指标', '数值'],
+      ['出库总次数', stats.totalCount],
+      ['出库总数量', stats.totalQuantity],
+      ['出库总金额(元)', stats.totalAmount],
+      ['日均出库', stats.avgDaily]
+    ]
+
+    const detailHeaders = ['日期', '出库次数', '出库数量', '出库金额(元)']
+    const detailRows = tableData.value.map(row => [
+      row.date, row.count, row.quantity, row.amount
+    ])
+    const detailData = [detailHeaders, ...detailRows]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), '汇总')
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailData), '每日明细')
+
+    const filename = `出库统计_${new Date().toISOString().slice(0, 10)}.xlsx`
+    XLSX.writeFile(wb, filename)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 初始化
