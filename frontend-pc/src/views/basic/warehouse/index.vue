@@ -130,11 +130,7 @@
         </el-form-item>
         <el-form-item label="所属部门" prop="deptId">
           <el-select v-model="form.deptId" placeholder="请选择部门" style="width: 100%">
-            <el-option label="网络运维部" :value="1" />
-            <el-option label="维护部" :value="2" />
-            <el-option label="运维中心" :value="3" />
-            <el-option label="技术部" :value="4" />
-            <el-option label="客服部" :value="5" />
+            <el-option v-for="d in deptList" :key="d.id" :label="d.deptName" :value="d.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="负责人" prop="manager">
@@ -169,9 +165,20 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listWarehouses, createWarehouse, updateWarehouse, deleteWarehouse, updateWarehouseStatus } from '@/api/warehouse'
+import { listAllDepts } from '@/api/dept'
+
+const deptList = ref([])
+const loadDeptList = async () => {
+  try {
+    const res = await listAllDepts()
+    deptList.value = res.data || []
+  } catch (e) {
+    console.error('加载部门失败:', e)
+  }
+}
 
 const queryForm = reactive({
   warehouseName: '',
@@ -350,7 +357,10 @@ const resetForm = () => {
   form.status = 0
 }
 
-handleQuery()
+onMounted(() => {
+  loadDeptList()
+  handleQuery()
+})
 </script>
 
 <style lang="scss" scoped>
