@@ -347,6 +347,39 @@ public class UserServiceImpl implements UserService {
         throw new BusinessException(401, "未登录");
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void bindWechat(Long userId, String wechatOpenid) {
+        User target = userMapper.selectById(userId);
+        if (target == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getWechatOpenid, wechatOpenid).ne(User::getId, userId);
+        if (userMapper.selectCount(wrapper) > 0) {
+            throw new BusinessException(400, "该微信账号已绑定其他用户");
+        }
+        User update = new User();
+        update.setId(userId);
+        update.setWechatOpenid(wechatOpenid);
+        userMapper.updateById(update);
+        log.info("绑定微信: userId={}, openid={}", userId, wechatOpenid);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void unbindWechat(Long userId) {
+        User target = userMapper.selectById(userId);
+        if (target == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+        User update = new User();
+        update.setId(userId);
+        update.setWechatOpenid(null);
+        userMapper.updateById(update);
+        log.info("解绑微信: userId={}", userId);
+    }
+
     /**
      * 填充用户关联信息
      */

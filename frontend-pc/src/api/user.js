@@ -123,3 +123,18 @@ export function resetUserPassword(id, newPassword) {
     data: { newPassword }
   })
 }
+
+export function bindWechat(id, wechatOpenid) {
+  return request({
+    url: `/users/${id}/bind-wechat`,
+    method: 'put',
+    data: { wechatOpenid }
+  })
+}
+
+export function unbindWechat(id) {
+  return request({
+    url: `/users/${id}/bind-wechat`,
+    method: 'delete'
+  })
+}
