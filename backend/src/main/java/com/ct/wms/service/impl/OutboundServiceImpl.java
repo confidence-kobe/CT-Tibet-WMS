@@ -1,21 +1,26 @@
 package com.ct.wms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.enums.ApplyStatus;
+import com.ct.wms.common.enums.MessageType;
 import com.ct.wms.common.enums.OutboundSource;
 import com.ct.wms.common.enums.OutboundStatus;
 import com.ct.wms.common.enums.OutboundType;
 import com.ct.wms.common.exception.BusinessException;
+import com.ct.wms.dto.NotificationMessageDTO;
 import com.ct.wms.dto.OutboundDTO;
 import com.ct.wms.entity.*;
+import com.ct.wms.event.NotificationEvent;
 import com.ct.wms.mapper.*;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
-import com.ct.wms.utils.IdGenerator;
+import com.ct.wms.utils.OrderNoGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -24,8 +29,8 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -48,7 +53,8 @@ public class OutboundServiceImpl implements OutboundService {
     private final ApplyMapper applyMapper;
     private final ApplyDetailMapper applyDetailMapper;
     private final InventoryService inventoryService;
-    private final IdGenerator idGenerator;
+    private final OrderNoGenerator orderNoGenerator;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public Page<Outbound> listOutbounds(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -153,29 +159,17 @@ public class OutboundServiceImpl implements OutboundService {
         }
 
         // 使用 lockInventory 原子性锁定库存（含行锁+乐观锁重试），消除 checkInventory 与 decreaseInventory 之间的竞态
-        List<OutboundDTO.OutboundDetailDTO> lockedDetails = new ArrayList<>();
-        try {
-            for (OutboundDTO.OutboundDetailDTO detailDTO : dto.getDetails()) {
-                Material material = materialMapper.selectById(detailDTO.getMaterialId());
-                if (material == null) {
-                    throw new BusinessException(404, "物资不存在: " + detailDTO.getMaterialId());
-                }
-                boolean locked = inventoryService.lockInventory(dto.getWarehouseId(),
-                        detailDTO.getMaterialId(), detailDTO.getQuantity());
-                if (!locked) {
-                    throw new BusinessException(1001, "库存不足: " + material.getMaterialName());
-                }
-                lockedDetails.add(detailDTO);
+        // 任一明细库存不足即抛异常，本方法整体在一个事务内，已锁定的部分随事务回滚自动释放
+        for (OutboundDTO.OutboundDetailDTO detailDTO : dto.getDetails()) {
+            Material material = materialMapper.selectById(detailDTO.getMaterialId());
+            if (material == null) {
+                throw new BusinessException(404, "物资不存在: " + detailDTO.getMaterialId());
             }
-        } catch (BusinessException e) {
-            // 部分锁定成功的回滚
-            for (OutboundDTO.OutboundDetailDTO locked : lockedDetails) {
-                try {
-                    inventoryService.unlockInventory(dto.getWarehouseId(),
-                            locked.getMaterialId(), locked.getQuantity());
-                } catch (Exception ignored) {}
+            boolean locked = inventoryService.lockInventory(dto.getWarehouseId(),
+                    detailDTO.getMaterialId(), detailDTO.getQuantity());
+            if (!locked) {
+                throw new BusinessException(1001, "库存不足: " + material.getMaterialName());
             }
-            throw e;
         }
 
         // 生成出库单号: CK_部门编码_YYYYMMDD_流水号
@@ -327,7 +321,8 @@ public class OutboundServiceImpl implements OutboundService {
         }
 
         outbound.setApplyId(applyId);
-        outbound.setOutboundTime(apply.getApplyTime());
+        // 取货超时(7天)从审批通过时刻起算，不能用申请时间，否则审批耗时会挤占取货窗口
+        outbound.setOutboundTime(LocalDateTime.now());
         outbound.setTotalAmount(totalAmount);
         outbound.setRemark("来自申请单: " + apply.getApplyNo());
 
@@ -376,6 +371,15 @@ public class OutboundServiceImpl implements OutboundService {
             throw new BusinessException(400, "出库单状态不正确，当前状态: " + outbound.getStatus());
         }
 
+        // 条件更新抢占状态，防止并发重复确认或与取消操作竞态
+        LambdaUpdateWrapper<Outbound> claimWrapper = new LambdaUpdateWrapper<>();
+        claimWrapper.eq(Outbound::getId, id)
+                .eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP)
+                .set(Outbound::getStatus, OutboundStatus.COMPLETED);
+        if (outboundMapper.update(null, claimWrapper) == 0) {
+            throw new BusinessException(400, "出库单已被处理，请刷新后重试");
+        }
+
         // 查询出库明细
         LambdaQueryWrapper<OutboundDetail> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(OutboundDetail::getOutboundId, id);
@@ -396,17 +400,29 @@ public class OutboundServiceImpl implements OutboundService {
             log.info("确认出库，锁定转扣减: materialId={}, quantity={}", detail.getMaterialId(), detail.getQuantity());
         }
 
-        // 更新出库单状态
-        outbound.setStatus(OutboundStatus.COMPLETED);
-        outboundMapper.updateById(outbound);
-
-        // 更新申请单状态为已完成
+        // 更新申请单状态为已完成（条件更新，仅从已审批状态迁移）
         if (outbound.getApplyId() != null) {
-            Apply apply = applyMapper.selectById(outbound.getApplyId());
-            if (apply != null) {
-                apply.setStatus(ApplyStatus.COMPLETED);
-                applyMapper.updateById(apply);
+            LambdaUpdateWrapper<Apply> applyWrapper = new LambdaUpdateWrapper<>();
+            applyWrapper.eq(Apply::getId, outbound.getApplyId())
+                    .eq(Apply::getStatus, ApplyStatus.APPROVED)
+                    .set(Apply::getStatus, ApplyStatus.COMPLETED);
+            int updated = applyMapper.update(null, applyWrapper);
+            if (updated == 0) {
+                log.warn("确认出库时申请单状态非已审批，未更新: applyId={}", outbound.getApplyId());
             }
+        }
+
+        // 通知领用人取货完成（事务提交后发送）
+        if (outbound.getReceiverId() != null) {
+            eventPublisher.publishEvent(new NotificationEvent(NotificationMessageDTO.builder()
+                    .receiverId(outbound.getReceiverId())
+                    .messageType(MessageType.SYSTEM.getValue())
+                    .title("出库单取货完成")
+                    .content(String.format("出库单 %s 已确认取货，物资出库完成。", outbound.getOutboundNo()))
+                    .relatedId(outbound.getId())
+                    .relatedType(2)
+                    .sendWechat(false)
+                    .build()));
         }
 
         log.info("确认出库完成: outboundNo={}", outbound.getOutboundNo());
@@ -426,6 +442,17 @@ public class OutboundServiceImpl implements OutboundService {
             throw new BusinessException(400, "出库单状态不正确，只有待取货状态才能取消");
         }
 
+        // 条件更新抢占状态，防止与确认取货操作竞态
+        String newRemark = (outbound.getRemark() != null ? outbound.getRemark() : "") + " [取消原因: " + reason + "]";
+        LambdaUpdateWrapper<Outbound> claimWrapper = new LambdaUpdateWrapper<>();
+        claimWrapper.eq(Outbound::getId, id)
+                .eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP)
+                .set(Outbound::getStatus, OutboundStatus.CANCELED)
+                .set(Outbound::getRemark, newRemark);
+        if (outboundMapper.update(null, claimWrapper) == 0) {
+            throw new BusinessException(400, "出库单已被处理，请刷新后重试");
+        }
+
         // 查询出库明细并释放锁定库存
         LambdaQueryWrapper<OutboundDetail> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(OutboundDetail::getOutboundId, id);
@@ -440,18 +467,13 @@ public class OutboundServiceImpl implements OutboundService {
             log.info("取消出库单，释放锁定库存: materialId={}, quantity={}", detail.getMaterialId(), detail.getQuantity());
         }
 
-        // 更新出库单状态
-        outbound.setStatus(OutboundStatus.CANCELED);
-        outbound.setRemark((outbound.getRemark() != null ? outbound.getRemark() : "") + " [取消原因: " + reason + "]");
-        outboundMapper.updateById(outbound);
-
-        // 更新申请单状态为已取消
+        // 更新申请单状态为已取消（条件更新，仅从已审批状态迁移）
         if (outbound.getApplyId() != null) {
-            Apply apply = applyMapper.selectById(outbound.getApplyId());
-            if (apply != null) {
-                apply.setStatus(ApplyStatus.CANCELED);
-                applyMapper.updateById(apply);
-            }
+            LambdaUpdateWrapper<Apply> applyWrapper = new LambdaUpdateWrapper<>();
+            applyWrapper.eq(Apply::getId, outbound.getApplyId())
+                    .eq(Apply::getStatus, ApplyStatus.APPROVED)
+                    .set(Apply::getStatus, ApplyStatus.CANCELED);
+            applyMapper.update(null, applyWrapper);
         }
 
         log.info("取消出库单: outboundNo={}, reason={}", outbound.getOutboundNo(), reason);
@@ -483,15 +505,10 @@ public class OutboundServiceImpl implements OutboundService {
     }
 
     /**
-     * 生成出库单号（线程安全）
-     * 注意：实际生产环境建议使用分布式ID生成器或数据库序列
+     * 生成出库单号（Redis INCR 流水号，无碰撞；Redis 不可用时降级雪花取模）
      */
     private String generateOutboundNo(String deptCode) {
-        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "CK_" + deptCode + "_" + today + "_";
-        // 使用雪花算法生成的ID作为流水号
-        long sequence = idGenerator.nextId() % 100000;
-        return prefix + String.format("%05d", sequence);
+        return orderNoGenerator.generate("CK", deptCode);
     }
 
     /**
@@ -508,7 +525,7 @@ public class OutboundServiceImpl implements OutboundService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void cancelOutboundByApplyId(Long applyId, String reason) {
+    public boolean cancelOutboundByApplyId(Long applyId, String reason) {
         // 根据申请单ID查询关联的出库单
         LambdaQueryWrapper<Outbound> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Outbound::getApplyId, applyId)
@@ -517,7 +534,18 @@ public class OutboundServiceImpl implements OutboundService {
         Outbound outbound = outboundMapper.selectOne(wrapper);
         if (outbound == null) {
             log.info("没有找到待取货状态的关联出库单，applyId={}", applyId);
-            return;
+            return false;
+        }
+
+        // 条件更新抢占状态，防止与确认取货操作竞态
+        String newRemark = (outbound.getRemark() != null ? outbound.getRemark() : "") + " [取消原因: " + reason + "]";
+        LambdaUpdateWrapper<Outbound> claimWrapper = new LambdaUpdateWrapper<>();
+        claimWrapper.eq(Outbound::getId, outbound.getId())
+                .eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP)
+                .set(Outbound::getStatus, OutboundStatus.CANCELED)
+                .set(Outbound::getRemark, newRemark);
+        if (outboundMapper.update(null, claimWrapper) == 0) {
+            throw new BusinessException(400, "关联出库单已被处理，无法取消");
         }
 
         // 查询出库明细并释放锁定库存
@@ -534,11 +562,7 @@ public class OutboundServiceImpl implements OutboundService {
             log.info("取消关联出库单，释放锁定库存: materialId={}, quantity={}", detail.getMaterialId(), detail.getQuantity());
         }
 
-        // 更新出库单状态
-        outbound.setStatus(OutboundStatus.CANCELED);
-        outbound.setRemark((outbound.getRemark() != null ? outbound.getRemark() : "") + " [取消原因: " + reason + "]");
-        outboundMapper.updateById(outbound);
-
         log.info("取消关联出库单成功: outboundId={}, applyId={}", outbound.getId(), applyId);
+        return true;
     }
 }

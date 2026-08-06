@@ -9,7 +9,7 @@ import com.ct.wms.mapper.*;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.InboundService;
 import com.ct.wms.service.InventoryService;
-import com.ct.wms.utils.IdGenerator;
+import com.ct.wms.utils.OrderNoGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -42,7 +42,7 @@ public class InboundServiceImpl implements InboundService {
     private final DeptMapper deptMapper;
     private final UserMapper userMapper;
     private final InventoryService inventoryService;
-    private final IdGenerator idGenerator;
+    private final OrderNoGenerator orderNoGenerator;
 
     @Override
     public Page<Inbound> listInbounds(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -226,15 +226,10 @@ public class InboundServiceImpl implements InboundService {
     }
 
     /**
-     * 生成入库单号（线程安全）
-     * 注意：实际生产环境建议使用分布式ID生成器或数据库序列
+     * 生成入库单号（Redis INCR 流水号，无碰撞；Redis 不可用时降级雪花取模）
      */
     private String generateInboundNo(String deptCode) {
-        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "RK_" + deptCode + "_" + today + "_";
-        // 使用雪花算法生成的ID作为流水号
-        long sequence = idGenerator.nextId() % 100000;
-        return prefix + String.format("%05d", sequence);
+        return orderNoGenerator.generate("RK", deptCode);
     }
 
     /**
