@@ -27,9 +27,7 @@
             clearable
             @clear="handleQuery"
           >
-            <el-option label="网络运维部" :value="1" />
-            <el-option label="维护部" :value="2" />
-            <el-option label="运维中心" :value="3" />
+            <el-option v-for="d in deptList" :key="d.id" :label="d.deptName" :value="d.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
@@ -91,17 +89,21 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="160" />
-        <el-table-column label="操作" width="280" align="center" fixed="right">
+        <el-table-column prop="wechatOpenid" label="微信绑定" width="100" align="center">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="handleEdit(row)">
-              编辑
+            <el-tag :type="row.wechatOpenid ? 'success' : 'info'" size="small">
+              {{ row.wechatOpenid ? '已绑定' : '未绑定' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="320" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-button link type="warning" size="small" @click="handleResetPassword(row)">重置密码</el-button>
+            <el-button link type="success" size="small" @click="handleBindWechat(row)">
+              {{ row.wechatOpenid ? '换绑微信' : '绑微信' }}
             </el-button>
-            <el-button link type="warning" size="small" @click="handleResetPassword(row)">
-              重置密码
-            </el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row)">
-              删除
-            </el-button>
+            <el-button v-if="row.wechatOpenid" link type="danger" size="small" @click="handleUnbindWechat(row)">解绑</el-button>
             <el-button
               link
               :type="row.status === 0 ? 'warning' : 'success'"
@@ -128,6 +130,25 @@
       </div>
     </el-card>
 
+    <!-- 微信绑定对话框 -->
+    <el-dialog v-model="wechatDialogVisible" title="绑定微信openid" width="480px">
+      <el-form label-width="100px">
+        <el-form-item label="用户">
+          <span>{{ wechatTarget.realName }}（{{ wechatTarget.username }}）</span>
+        </el-form-item>
+        <el-form-item label="微信openid">
+          <el-input v-model="wechatOpenid" placeholder="请输入微信openid（28位字符串）" clearable />
+        </el-form-item>
+        <el-alert type="info" :closable="false" style="margin-top: 8px;">
+          openid 可从微信开发者工具或后台日志中获取，格式如：o_xxx28位字符串
+        </el-alert>
+      </el-form>
+      <template #footer>
+        <el-button @click="wechatDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="wechatSaving" @click="confirmBindWechat">确认绑定</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 新增/编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
@@ -152,19 +173,12 @@
         </el-form-item>
         <el-form-item label="部门" prop="deptId">
           <el-select v-model="form.deptId" placeholder="请选择部门" style="width: 100%">
-            <el-option label="网络运维部" :value="1" />
-            <el-option label="维护部" :value="2" />
-            <el-option label="运维中心" :value="3" />
-            <el-option label="技术部" :value="4" />
-            <el-option label="客服部" :value="5" />
+            <el-option v-for="d in deptList" :key="d.id" :label="d.deptName" :value="d.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="角色" prop="roleIds">
           <el-select v-model="form.roleIds" placeholder="请选择角色" multiple style="width: 100%">
-            <el-option label="系统管理员" :value="1" />
-            <el-option label="部门管理员" :value="2" />
-            <el-option label="仓库管理员" :value="3" />
-            <el-option label="普通员工" :value="4" />
+            <el-option v-for="r in roleList" :key="r.id" :label="r.roleName" :value="r.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="手机号" prop="phone">
@@ -191,9 +205,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listUsers, createUser, updateUser, deleteUser, updateUserStatus, resetUserPassword } from '@/api/user'
+import { listUsers, createUser, updateUser, deleteUser, updateUserStatus, resetUserPassword, bindWechat, unbindWechat } from '@/api/user'
+import { listAllDepts } from '@/api/dept'
+import request from '@/api/request'
+
+const listAllRoles = () => request({ url: '/roles/all', method: 'get' })
 
 const queryForm = reactive({
   keyword: '',
@@ -255,6 +273,71 @@ const formRules = {
 
 const dialogTitle = computed(() => isEdit.value ? '编辑用户' : '新建用户')
 
+// 部门和角色列表
+const deptList = ref([])
+const roleList = ref([])
+
+const loadDeptList = async () => {
+  try {
+    const res = await listAllDepts()
+    deptList.value = res.data || []
+  } catch (e) {
+    console.error('加载部门失败:', e)
+  }
+}
+
+const loadRoleList = async () => {
+  try {
+    const res = await listAllRoles()
+    roleList.value = res.data || []
+  } catch (e) {
+    console.error('加载角色失败:', e)
+  }
+}
+
+// 微信绑定
+const wechatDialogVisible = ref(false)
+const wechatTarget = reactive({ id: null, realName: '', username: '' })
+const wechatOpenid = ref('')
+const wechatSaving = ref(false)
+
+const handleBindWechat = (row) => {
+  Object.assign(wechatTarget, { id: row.id, realName: row.realName, username: row.username })
+  wechatOpenid.value = row.wechatOpenid || ''
+  wechatDialogVisible.value = true
+}
+
+const handleUnbindWechat = async (row) => {
+  try {
+    await ElMessageBox.confirm(`确定要解绑用户"${row.realName}"的微信吗？`, '提示', {
+      confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
+    })
+    await unbindWechat(row.id)
+    ElMessage.success('解绑成功')
+    await handleQuery()
+  } catch (error) {
+    // 取消或已处理
+  }
+}
+
+const confirmBindWechat = async () => {
+  if (!wechatOpenid.value || wechatOpenid.value.trim().length < 10) {
+    ElMessage.warning('请输入有效的微信openid')
+    return
+  }
+  wechatSaving.value = true
+  try {
+    await bindWechat(wechatTarget.id, wechatOpenid.value.trim())
+    ElMessage.success('绑定成功')
+    wechatDialogVisible.value = false
+    await handleQuery()
+  } catch (error) {
+    ElMessage.error('绑定失败')
+  } finally {
+    wechatSaving.value = false
+  }
+}
+
 const handleQuery = async () => {
   loading.value = true
   try {
@@ -268,6 +351,7 @@ const handleQuery = async () => {
     pagination.total = res.total
   } catch (error) {
     console.error('查询失败:', error)
+    ElMessage.error('查询失败')
   } finally {
     loading.value = false
   }
@@ -289,13 +373,12 @@ const handleAdd = () => {
 
 const handleEdit = (row) => {
   isEdit.value = true
-  const roleMap = { '系统管理员': 1, '部门管理员': 2, '仓库管理员': 3, '普通员工': 4 }
   Object.assign(form, {
     id: row.id,
     username: row.username,
     realName: row.realName,
-    deptId: row.deptId || 1,
-    roleIds: row.roles.map(r => roleMap[r]),
+    deptId: row.deptId,
+    roleIds: row.roleId ? [row.roleId] : [],
     phone: row.phone,
     email: row.email,
     status: row.status
@@ -383,6 +466,7 @@ const handleSave = async () => {
     await handleQuery()
   } catch (error) {
     console.error('保存失败:', error)
+    ElMessage.error('保存失败')
   } finally {
     saveLoading.value = false
   }
@@ -407,7 +491,11 @@ const resetForm = () => {
   form.status = 0
 }
 
-handleQuery()
+onMounted(() => {
+  loadDeptList()
+  loadRoleList()
+  handleQuery()
+})
 </script>
 
 <style lang="scss" scoped>

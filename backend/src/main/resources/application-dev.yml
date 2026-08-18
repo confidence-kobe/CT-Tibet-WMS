@@ -37,7 +37,7 @@ mybatis-plus:
 
 # CORS 开发环境允许本地前端访问
 cors:
-  allowed-origins: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
+  allowed-origins: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://localhost:4444
 
 # Knife4j
 knife4j:

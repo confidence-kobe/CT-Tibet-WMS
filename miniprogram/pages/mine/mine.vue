@@ -24,11 +24,11 @@
 
       <view class="menu-item" @click="goToPassword">
         <view class="menu-left">
-          <text class="menu-icon">棣冩惖</text>
+          <text class="menu-icon">🔒</text>
           <text class="menu-text">修改密码</text>
         </view>
         <view class="menu-right">
-          <text class="menu-arrow">閳?/text>
+          <text class="menu-arrow">›</text>
         </view>
       </view>
 

@@ -3,8 +3,10 @@ package com.ct.wms.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ct.wms.common.enums.ApplyStatus;
 import com.ct.wms.common.enums.OutboundSource;
+import com.ct.wms.common.enums.OutboundStatus;
 import com.ct.wms.dto.InboundStatisticsDTO;
 import com.ct.wms.dto.InventoryStatisticsDTO;
+import com.ct.wms.dto.MaterialStatisticsDTO;
 import com.ct.wms.dto.OutboundStatisticsDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
@@ -47,6 +49,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final OutboundMapper outboundMapper;
     private final OutboundDetailMapper outboundDetailMapper;
     private final InventoryMapper inventoryMapper;
+    private final InventoryLogMapper inventoryLogMapper;
     private final InventoryService inventoryService;
     private final MessageMapper messageMapper;
     private final UserMapper userMapper;
@@ -811,41 +814,20 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     /**
-     * 生成预警趋势数据（最近7天）
+     * 生成预警趋势数据（最近7天，基于库存流水真实数据）
      */
     private InventoryStatisticsDTO.WarningTrendData generateWarningTrendData(Long warehouseId) {
         InventoryStatisticsDTO.WarningTrendData trendData = new InventoryStatisticsDTO.WarningTrendData();
         List<String> dates = new ArrayList<>();
         List<Integer> counts = new ArrayList<>();
 
-        // 简化版：假设每天预警数量相同（实际应该从历史日志获取）
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(6);
 
-        // 查询当前预警数量
-        LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
-        wrapper.gt(Inventory::getQuantity, BigDecimal.ZERO);
-        if (warehouseId != null) {
-            wrapper.eq(Inventory::getWarehouseId, warehouseId);
-        }
-        List<Inventory> inventoryList = inventoryMapper.selectList(wrapper);
-
-        int currentWarningCount = 0;
-        for (Inventory inventory : inventoryList) {
-            Material material = materialMapper.selectById(inventory.getMaterialId());
-            if (material != null && material.getMinStock() != null &&
-                inventory.getQuantity().compareTo(material.getMinStock()) < 0) {
-                currentWarningCount++;
-            }
-        }
-
-        // 生成7天数据（简化版：模拟趋势）
         LocalDate current = startDate;
         while (!current.isAfter(endDate)) {
             dates.add(current.format(DATE_FORMATTER));
-            // 简化处理：最后一天为实际值，之前的天数模拟递减
-            long daysFromEnd = java.time.temporal.ChronoUnit.DAYS.between(current, endDate);
-            int dayCount = Math.max(0, currentWarningCount - (int)daysFromEnd);
+            int dayCount = inventoryLogMapper.countLowStockOnDate(current, warehouseId);
             counts.add(dayCount);
             current = current.plusDays(1);
         }
@@ -973,6 +955,109 @@ public class StatisticsServiceImpl implements StatisticsService {
         return stats;
     }
 
+    @Override
+    public MaterialStatisticsDTO getMaterialStatistics(LocalDate startDate, LocalDate endDate, Integer categoryId) {
+        if (startDate == null) startDate = LocalDate.now().minusDays(30);
+        if (endDate == null) endDate = LocalDate.now();
+        final LocalDate finalStart = startDate;
+        final LocalDate finalEnd = endDate;
+
+        // 查询所有物资
+        LambdaQueryWrapper<Material> matWrapper = new LambdaQueryWrapper<>();
+        matWrapper.eq(Material::getDeleted, 0);
+        if (categoryId != null) {
+            matWrapper.eq(Material::getCategory, categoryId.toString());
+        }
+        List<Material> materials = materialMapper.selectList(matWrapper);
+
+        // 查询时间范围内的入库明细
+        LambdaQueryWrapper<InboundDetail> inWrapper = new LambdaQueryWrapper<>();
+        inWrapper.ge(InboundDetail::getCreateTime, finalStart.atStartOfDay())
+                 .le(InboundDetail::getCreateTime, finalEnd.plusDays(1).atStartOfDay())
+                 .eq(InboundDetail::getDeleted, 0);
+        List<InboundDetail> inboundDetails = inboundDetailMapper.selectList(inWrapper);
+        Map<Long, List<InboundDetail>> inboundByMaterial = inboundDetails.stream()
+                .collect(Collectors.groupingBy(InboundDetail::getMaterialId));
+
+        // 查询时间范围内的出库明细
+        LambdaQueryWrapper<OutboundDetail> outWrapper = new LambdaQueryWrapper<>();
+        outWrapper.ge(OutboundDetail::getCreateTime, finalStart.atStartOfDay())
+                  .le(OutboundDetail::getCreateTime, finalEnd.plusDays(1).atStartOfDay())
+                  .eq(OutboundDetail::getDeleted, 0);
+        List<OutboundDetail> outboundDetails = outboundDetailMapper.selectList(outWrapper);
+        Map<Long, List<OutboundDetail>> outboundByMaterial = outboundDetails.stream()
+                .collect(Collectors.groupingBy(OutboundDetail::getMaterialId));
+
+        // 查询库存
+        LambdaQueryWrapper<Inventory> invWrapper = new LambdaQueryWrapper<>();
+        invWrapper.eq(Inventory::getDeleted, 0);
+        List<Inventory> inventories = inventoryMapper.selectList(invWrapper);
+        Map<Long, BigDecimal> stockByMaterial = inventories.stream()
+                .collect(Collectors.groupingBy(Inventory::getMaterialId,
+                        Collectors.reducing(BigDecimal.ZERO, Inventory::getQuantity, BigDecimal::add)));
+        Map<Long, BigDecimal> valueByMaterial = inventories.stream()
+                .filter(i -> i.getPrice() != null)
+                .collect(Collectors.groupingBy(Inventory::getMaterialId,
+                        Collectors.reducing(BigDecimal.ZERO,
+                                i -> i.getQuantity().multiply(i.getPrice()),
+                                BigDecimal::add)));
+
+        List<MaterialStatisticsDTO.MaterialItem> items = new ArrayList<>();
+        int activeMaterials = 0;
+        int slowMaterials = 0;
+
+        for (Material m : materials) {
+            MaterialStatisticsDTO.MaterialItem item = new MaterialStatisticsDTO.MaterialItem();
+            item.setMaterialId(m.getId());
+            item.setMaterialName(m.getMaterialName());
+            item.setMaterialCode(m.getMaterialCode());
+            item.setCategoryName(m.getCategory());
+            item.setSpecification(m.getSpec());
+
+            List<InboundDetail> inList = inboundByMaterial.getOrDefault(m.getId(), Collections.emptyList());
+            List<OutboundDetail> outList = outboundByMaterial.getOrDefault(m.getId(), Collections.emptyList());
+            BigDecimal inQty = inList.stream().map(InboundDetail::getQuantity)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal outQty = outList.stream().map(OutboundDetail::getQuantity)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            item.setInboundCount(inList.size());
+            item.setInboundQuantity(inQty);
+            item.setOutboundCount(outList.size());
+            item.setOutboundQuantity(outQty);
+
+            BigDecimal stock = stockByMaterial.getOrDefault(m.getId(), BigDecimal.ZERO);
+            item.setCurrentStock(stock);
+            item.setTotalValue(valueByMaterial.getOrDefault(m.getId(), BigDecimal.ZERO));
+
+            // 周转率 = 出库量 / ((期初库存 + 期末库存) / 2)，简化为出库量 / 当前库存
+            if (stock.compareTo(BigDecimal.ZERO) > 0) {
+                item.setTurnoverRate(outQty.divide(stock, 2, RoundingMode.HALF_UP));
+            } else {
+                item.setTurnoverRate(BigDecimal.ZERO);
+            }
+
+            if (!outList.isEmpty()) {
+                item.setStatus("正常");
+                activeMaterials++;
+            } else if (stock.compareTo(BigDecimal.ZERO) > 0) {
+                item.setStatus("滞销");
+                slowMaterials++;
+            } else {
+                item.setStatus("无库存");
+            }
+
+            items.add(item);
+        }
+
+        MaterialStatisticsDTO dto = new MaterialStatisticsDTO();
+        dto.setTotalMaterials(materials.size());
+        dto.setActiveMaterials(activeMaterials);
+        dto.setSlowMaterials(slowMaterials);
+        dto.setItems(items);
+        return dto;
+    }
+
     private MiniProgramDashboardVO.PendingTasks buildPendingTasks() {
         MiniProgramDashboardVO.PendingTasks tasks = new MiniProgramDashboardVO.PendingTasks();
 
@@ -981,8 +1066,11 @@ public class StatisticsServiceImpl implements StatisticsService {
         applyWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
         tasks.setPendingApproval(applyMapper.selectCount(applyWrapper).intValue());
 
-        // 待领取（这里简化处理，实际可能需要根据出库状态判断）
-        tasks.setPendingPickup(0);
+        // 待领取（出库单状态=0 且来源=申领）
+        LambdaQueryWrapper<Outbound> outboundWrapper = new LambdaQueryWrapper<>();
+        outboundWrapper.eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP.getValue())
+                       .eq(Outbound::getSource, OutboundSource.FROM_APPLY.getValue());
+        tasks.setPendingPickup(outboundMapper.selectCount(outboundWrapper).intValue());
 
         // 低库存预警
         List<Inventory> lowStockAlerts = inventoryService.listLowStockAlerts(null);

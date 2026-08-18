@@ -40,7 +40,7 @@ export default defineConfig({
     // 代理配置 - 解决跨域问题
     proxy: {
       '/api': {
-        target: 'http://localhost:48888',
+        target: 'http://127.0.0.1:48888',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '/api')
       }

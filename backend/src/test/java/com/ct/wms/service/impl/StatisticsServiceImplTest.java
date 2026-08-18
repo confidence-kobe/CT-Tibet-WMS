@@ -64,6 +64,9 @@ class StatisticsServiceImplTest {
     private InventoryMapper inventoryMapper;
 
     @Mock
+    private InventoryLogMapper inventoryLogMapper;
+
+    @Mock
     private InventoryService inventoryService;
 
     @InjectMocks

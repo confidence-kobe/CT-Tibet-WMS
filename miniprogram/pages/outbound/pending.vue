@@ -173,7 +173,8 @@ export default {
         })
 
         if (res.code === 200) {
-          const { list, total } = res.data
+          const list = res.data || []
+          const total = res.total || 0
 
           // 计算等待天数
           list.forEach(item => {
@@ -196,6 +197,7 @@ export default {
         }
       } catch (err) {
         console.error('加载数据失败', err)
+        uni.showToast({ title: '加载失败，请下拉刷新', icon: 'none' })
       } finally {
         this.loading = false
         this.refreshing = false
@@ -262,6 +264,7 @@ export default {
         }
       } catch (err) {
         console.error('确认出库失败', err)
+        uni.showToast({ title: '确认出库失败，请重试', icon: 'none' })
       } finally {
         this.submitting = false
       }
@@ -290,6 +293,7 @@ export default {
               }
             } catch (err) {
               console.error('取消出库失败', err)
+              uni.showToast({ title: '取消失败，请重试', icon: 'none' })
             }
           }
         }

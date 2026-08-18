@@ -2,6 +2,7 @@ package com.ct.wms.service;
 
 import com.ct.wms.dto.InboundStatisticsDTO;
 import com.ct.wms.dto.InventoryStatisticsDTO;
+import com.ct.wms.dto.MaterialStatisticsDTO;
 import com.ct.wms.dto.OutboundStatisticsDTO;
 import com.ct.wms.vo.DashboardStatsVO;
 import com.ct.wms.vo.MiniProgramDashboardVO;
@@ -51,6 +52,16 @@ public interface StatisticsService {
      * @return 库存统计数据
      */
     InventoryStatisticsDTO getInventoryStatistics(Long warehouseId);
+
+    /**
+     * 获取物资统计数据
+     *
+     * @param startDate 开始日期（可选，默认最近30天）
+     * @param endDate 结束日期（可选，默认今天）
+     * @param categoryId 物资类别ID（可选）
+     * @return 物资统计数据
+     */
+    MaterialStatisticsDTO getMaterialStatistics(LocalDate startDate, LocalDate endDate, Integer categoryId);
 
     /**
      * 获取小程序首页统计数据

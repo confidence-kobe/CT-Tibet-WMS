@@ -1,20 +1,25 @@
 package com.ct.wms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.enums.ApplyStatus;
+import com.ct.wms.common.enums.MessageType;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.ApplyDTO;
 import com.ct.wms.dto.ApprovalDTO;
+import com.ct.wms.dto.NotificationMessageDTO;
 import com.ct.wms.entity.*;
+import com.ct.wms.event.NotificationEvent;
 import com.ct.wms.mapper.*;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.ApplyService;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
-import com.ct.wms.utils.IdGenerator;
+import com.ct.wms.utils.OrderNoGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -49,7 +54,8 @@ public class ApplyServiceImpl implements ApplyService {
     private final RoleMapper roleMapper;
     private final OutboundService outboundService;
     private final InventoryService inventoryService;
-    private final IdGenerator idGenerator;
+    private final OrderNoGenerator orderNoGenerator;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public Page<Apply> listApplies(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -277,6 +283,20 @@ public class ApplyServiceImpl implements ApplyService {
 
         log.info("申请单创建成功: applyNo={}", applyNo);
 
+        // 通知仓库管理员有新申请待审批（事务提交后发送）
+        if (warehouse.getManagerId() != null) {
+            eventPublisher.publishEvent(new NotificationEvent(NotificationMessageDTO.builder()
+                    .receiverId(warehouse.getManagerId())
+                    .messageType(MessageType.APPLY_SUBMIT.getValue())
+                    .title("新的物资申请待审批")
+                    .content(String.format("员工 %s 提交了申请单 %s，请及时审批。",
+                            applicant.getRealName(), applyNo))
+                    .relatedId(apply.getId())
+                    .relatedType(3)
+                    .sendWechat(true)
+                    .build()));
+        }
+
         return apply.getId();
     }
 
@@ -328,43 +348,28 @@ public class ApplyServiceImpl implements ApplyService {
             throw new BusinessException(403, "无权审批此申请单");
         }
 
-        // 更新申请单
-        apply.setApproverId(approverId);
-        apply.setApprovalTime(LocalDateTime.now());
-        apply.setApprovalRemark(dto.getApprovalRemark());
-
         if (dto.getApprovalResult() == 1) {
-            // 审批通过 - 先锁定库存再创建出库单
+            // 条件更新抢占状态（防止并发重复审批：两个审批人同时通过会导致库存双重锁定、生成两张出库单）
+            claimApplyStatus(apply.getId(), ApplyStatus.APPROVED, approverId, dto.getApprovalRemark());
+
             // 查询申请明细
             LambdaQueryWrapper<ApplyDetail> detailWrapper = new LambdaQueryWrapper<>();
             detailWrapper.eq(ApplyDetail::getApplyId, apply.getId());
             List<ApplyDetail> applyDetails = applyDetailMapper.selectList(detailWrapper);
 
             // 锁定库存（使用乐观锁重试机制）
-            for (int i = 0; i < applyDetails.size(); i++) {
-                ApplyDetail detail = applyDetails.get(i);
+            // 任一明细库存不足即抛异常，整个事务回滚，状态抢占与已锁定的部分一并撤销
+            for (ApplyDetail detail : applyDetails) {
                 boolean locked = inventoryService.lockInventory(
                         apply.getWarehouseId(),
                         detail.getMaterialId(),
                         detail.getQuantity()
                 );
                 if (!locked) {
-                    // 库存不足，释放已锁定的库存并抛出异常
-                    for (int j = 0; j < i; j++) {
-                        inventoryService.unlockInventory(
-                                apply.getWarehouseId(),
-                                applyDetails.get(j).getMaterialId(),
-                                applyDetails.get(j).getQuantity()
-                        );
-                    }
                     Material material = materialMapper.selectById(detail.getMaterialId());
                     throw new BusinessException(1001, "库存不足: " + (material != null ? material.getMaterialName() : "物资ID:" + detail.getMaterialId()));
                 }
             }
-
-            // 库存锁定成功，更新申请状态
-            apply.setStatus(ApplyStatus.APPROVED);
-            applyMapper.updateById(apply);
 
             log.info("审批通过: applyNo={}, approverId={}", apply.getApplyNo(), approverId);
 
@@ -378,16 +383,61 @@ public class ApplyServiceImpl implements ApplyService {
 
             log.info("自动创建出库单: applyId={}, outboundId={}", apply.getId(), outboundId);
 
+            // 通知申请人审批通过（事务提交后发送）
+            eventPublisher.publishEvent(new NotificationEvent(NotificationMessageDTO.builder()
+                    .receiverId(apply.getApplicantId())
+                    .messageType(MessageType.APPLY_APPROVED.getValue())
+                    .title("申请审批通过")
+                    .content(String.format("您的申请单 %s 已审批通过，请在7天内前往仓库取货，逾期将自动取消。",
+                            apply.getApplyNo()))
+                    .relatedId(apply.getId())
+                    .relatedType(3)
+                    .sendWechat(true)
+                    .build()));
+
         } else if (dto.getApprovalResult() == 2) {
-            // 审批拒绝
-            apply.setStatus(ApplyStatus.REJECTED);
-            applyMapper.updateById(apply);
+            // 审批拒绝（同样条件更新抢占状态）
+            claimApplyStatus(apply.getId(), ApplyStatus.REJECTED, approverId, dto.getApprovalRemark());
 
             log.info("审批拒绝: applyNo={}, approverId={}, reason={}",
                     apply.getApplyNo(), approverId, dto.getApprovalRemark());
 
+            // 通知申请人审批被拒绝（事务提交后发送）
+            eventPublisher.publishEvent(new NotificationEvent(NotificationMessageDTO.builder()
+                    .receiverId(apply.getApplicantId())
+                    .messageType(MessageType.APPLY_REJECTED.getValue())
+                    .title("申请审批未通过")
+                    .content(String.format("您的申请单 %s 未通过审批。%s",
+                            apply.getApplyNo(),
+                            StringUtils.hasText(dto.getApprovalRemark()) ? "原因: " + dto.getApprovalRemark() : ""))
+                    .relatedId(apply.getId())
+                    .relatedType(3)
+                    .sendWechat(true)
+                    .build()));
+
         } else {
             throw new BusinessException(400, "审批结果无效");
+        }
+    }
+
+    /**
+     * 条件更新抢占申请单状态（仅从待审批状态迁移），失败说明已被其他人处理
+     * <p>
+     * 注意：审批意见持久化到 approvalOpinion 列（approvalRemark 是非数据库字段）
+     */
+    private void claimApplyStatus(Long applyId, ApplyStatus toStatus, Long approverId, String approvalRemark) {
+        LambdaUpdateWrapper<Apply> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(Apply::getId, applyId)
+                .eq(Apply::getStatus, ApplyStatus.PENDING)
+                .set(Apply::getStatus, toStatus)
+                .set(Apply::getApproverId, approverId)
+                .set(Apply::getApprovalTime, LocalDateTime.now())
+                .set(Apply::getApprovalOpinion, approvalRemark);
+        if (ApplyStatus.REJECTED.equals(toStatus)) {
+            wrapper.set(Apply::getRejectReason, approvalRemark);
+        }
+        if (applyMapper.update(null, wrapper) == 0) {
+            throw new BusinessException(400, "申请单已被处理，请刷新后重试");
         }
     }
 
@@ -409,34 +459,43 @@ public class ApplyServiceImpl implements ApplyService {
         }
 
         // 检查状态：只能取消待审批或已审批（待取货）的申请
-        if (!ApplyStatus.PENDING.equals(apply.getStatus()) && !ApplyStatus.APPROVED.equals(apply.getStatus())) {
+        ApplyStatus fromStatus = apply.getStatus();
+        if (!ApplyStatus.PENDING.equals(fromStatus) && !ApplyStatus.APPROVED.equals(fromStatus)) {
             throw new BusinessException(400, "当前状态不允许取消");
         }
 
-        // 如果是已审批状态，需要释放锁定的库存，并取消关联的出库单
-        if (ApplyStatus.APPROVED.equals(apply.getStatus())) {
-            // 查询申请明细并释放锁定库存
-            LambdaQueryWrapper<ApplyDetail> detailWrapper = new LambdaQueryWrapper<>();
-            detailWrapper.eq(ApplyDetail::getApplyId, apply.getId());
-            List<ApplyDetail> details = applyDetailMapper.selectList(detailWrapper);
+        // 如果是已审批状态，先取消关联的出库单（其内部会释放锁定库存，且条件更新可防止与确认取货竞态）
+        // 注意：不能在此处再按申请明细解锁一遍，否则会与出库单取消的解锁重复，导致锁定量被双重释放
+        if (ApplyStatus.APPROVED.equals(fromStatus)) {
+            boolean outboundCanceled = outboundService.cancelOutboundByApplyId(
+                    apply.getId(), "申请人取消申请，自动取消出库单");
 
-            for (ApplyDetail detail : details) {
-                inventoryService.unlockInventory(
-                        apply.getWarehouseId(),
-                        detail.getMaterialId(),
-                        detail.getQuantity()
-                );
-                log.info("释放锁定库存: warehouseId={}, materialId={}, quantity={}",
-                        apply.getWarehouseId(), detail.getMaterialId(), detail.getQuantity());
+            if (!outboundCanceled) {
+                // 理论上已审批申请必有待取货出库单；若不存在（数据异常兜底），直接按申请明细释放锁定库存
+                LambdaQueryWrapper<ApplyDetail> detailWrapper = new LambdaQueryWrapper<>();
+                detailWrapper.eq(ApplyDetail::getApplyId, apply.getId());
+                List<ApplyDetail> details = applyDetailMapper.selectList(detailWrapper);
+
+                for (ApplyDetail detail : details) {
+                    inventoryService.unlockInventory(
+                            apply.getWarehouseId(),
+                            detail.getMaterialId(),
+                            detail.getQuantity()
+                    );
+                    log.info("释放锁定库存: warehouseId={}, materialId={}, quantity={}",
+                            apply.getWarehouseId(), detail.getMaterialId(), detail.getQuantity());
+                }
             }
-
-            // 同步取消关联的出库单
-            outboundService.cancelOutboundByApplyId(apply.getId(), "申请人取消申请，自动取消出库单");
         }
 
-        // 更新状态
-        apply.setStatus(ApplyStatus.CANCELED);
-        applyMapper.updateById(apply);
+        // 条件更新状态（防止与审批/确认取货并发冲突）
+        LambdaUpdateWrapper<Apply> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(Apply::getId, id)
+                .eq(Apply::getStatus, fromStatus)
+                .set(Apply::getStatus, ApplyStatus.CANCELED);
+        if (applyMapper.update(null, updateWrapper) == 0) {
+            throw new BusinessException(400, "申请单状态已变更，无法取消");
+        }
 
         log.info("取消申请单: applyNo={}, applicantId={}", apply.getApplyNo(), userId);
     }
@@ -539,14 +598,10 @@ public class ApplyServiceImpl implements ApplyService {
     }
 
     /**
-     * 生成申请单号（使用分布式ID生成器，高性能高并发）
+     * 生成申请单号（Redis INCR 流水号，无碰撞；Redis 不可用时降级雪花取模）
      */
     private String generateApplyNo(String deptCode) {
-        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "SQ_" + deptCode + "_" + today + "_";
-        // 使用雪花算法生成的ID作为流水号，确保唯一性
-        long sequence = idGenerator.nextId() % 100000;
-        return prefix + String.format("%05d", sequence);
+        return orderNoGenerator.generate("SQ", deptCode);
     }
 
     /**

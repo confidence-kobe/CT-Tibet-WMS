@@ -58,6 +58,19 @@ export function createUser(data) {
 }
 
 /**
+ * 更新当前用户个人资料
+ * @param {Object} data - {realName, phone, email}
+ * @returns {Promise}
+ */
+export function updateProfile(data) {
+  return request({
+    url: '/users/profile',
+    method: 'put',
+    data
+  })
+}
+
+/**
  * 更新用户
  * @param {number} id - 用户ID
  * @param {Object} data - 用户数据
@@ -107,6 +120,21 @@ export function resetUserPassword(id, newPassword) {
   return request({
     url: `/users/${id}/reset-password`,
     method: 'put',
-    params: { newPassword }
+    data: { newPassword }
+  })
+}
+
+export function bindWechat(id, wechatOpenid) {
+  return request({
+    url: `/users/${id}/bind-wechat`,
+    method: 'put',
+    data: { wechatOpenid }
+  })
+}
+
+export function unbindWechat(id) {
+  return request({
+    url: `/users/${id}/bind-wechat`,
+    method: 'delete'
   })
 }

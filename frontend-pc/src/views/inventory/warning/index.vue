@@ -163,13 +163,12 @@
               查看详情
             </el-button>
             <el-button
-              v-if="row.handleStatus === 0"
               link
               type="success"
               size="small"
-              @click="handleMarkHandled(row)"
+              @click="handleReplenish(row)"
             >
-              标记已处理
+              去入库
             </el-button>
           </template>
         </el-table-column>
@@ -266,16 +265,15 @@ const handleQuery = async () => {
     }
 
     const res = await listLowStockAlerts(params)
-    tableData.value = res.data || []
-    pagination.total = res.total || 0
+    const allItems = res.data || []
+    tableData.value = allItems
+    pagination.total = allItems.length
 
-    // 更新统计数据
-    if (res.data.stats) {
-      statistics.total = res.data.stats.totalWarnings || 0
-      statistics.urgent = res.data.stats.urgentWarnings || 0
-      statistics.normal = res.data.stats.normalWarnings || 0
-      statistics.handled = res.data.stats.handledWarnings || 0
-    }
+    // 从返回数据计算统计卡片
+    statistics.total = allItems.length
+    statistics.urgent = allItems.filter(r => r.warningLevel === 2).length
+    statistics.normal = allItems.filter(r => r.warningLevel !== 2).length
+    statistics.handled = allItems.filter(r => r.handleStatus === 1).length
   } catch (error) {
     console.error('查询失败:', error)
     ElMessage.error('查询失败')
@@ -294,27 +292,11 @@ const handleReset = () => {
 }
 
 const handleViewDetail = (row) => {
-  router.push({ path: `/inventory/detail/${row.id}` })
+  router.push({ path: '/inventory/log', query: { materialId: row.materialId, warehouseId: row.warehouseId } })
 }
 
-const handleMarkHandled = async (row) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要将物资"${row.materialName}"标记为已处理吗？`,
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'info'
-      }
-    )
-
-    // TODO: 调用标记已处理的API
-    ElMessage.success('标记成功')
-    handleQuery()
-  } catch (error) {
-    // 用户取消
-  }
+const handleReplenish = (row) => {
+  router.push({ path: '/inbound/create', query: { materialId: row.materialId, warehouseId: row.warehouseId } })
 }
 
 // 初始化

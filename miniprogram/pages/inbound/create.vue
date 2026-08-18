@@ -235,6 +235,7 @@ export default {
         }
       } catch (err) {
         console.error('加载仓库列表失败', err)
+        uni.showToast({ title: '加载仓库失败', icon: 'none' })
       }
     },
 
@@ -257,7 +258,7 @@ export default {
         })
 
         if (res.code === 200) {
-          this.materials = res.data.list || []
+          this.materials = res.data || []
           this.filteredMaterials = this.materials
 
           // 提取类别
@@ -271,6 +272,7 @@ export default {
         }
       } catch (err) {
         console.error('加载物资列表失败', err)
+        uni.showToast({ title: '加载物资失败', icon: 'none' })
       }
     },
 
@@ -404,6 +406,7 @@ export default {
         }
       } catch (err) {
         console.error('入库失败', err)
+        uni.showToast({ title: '入库失败，请重试', icon: 'none' })
       } finally {
         this.submitting = false
       }

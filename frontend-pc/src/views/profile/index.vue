@@ -102,6 +102,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
+import { updateProfile } from '@/api/user'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -188,13 +189,17 @@ const handleSaveProfile = async () => {
     await editFormRef.value.validate()
     saveLoading.value = true
 
-    // TODO: 调用API保存用户信息
-    // await userStore.updateProfile(editForm)
+    await updateProfile(editForm)
+    // 同步本地 store
+    userStore.realName = editForm.realName
+    userStore.phone = editForm.phone
+    userStore.email = editForm.email
 
     ElMessage.success('保存成功')
     editDialogVisible.value = false
   } catch (error) {
     console.error('保存失败:', error)
+    ElMessage.error('保存失败，请稍后重试')
   } finally {
     saveLoading.value = false
   }
