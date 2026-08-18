@@ -21,7 +21,7 @@
         mode="vertical"
         background-color="#001529"
         text-color="#fff"
-        active-text-color="#1890ff"
+        active-text-color="#fff"
       >
         <sidebar-item
           v-for="route in routes"
