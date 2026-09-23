@@ -349,7 +349,7 @@ export const asyncRoutes = [
   {
     path: '/statistics',
     component: () => import('@/layout/index.vue'),
-    redirect: '/statistics/inoutbound',
+    redirect: '/statistics/inbound',
     name: 'Statistics',
     meta: {
       title: '统计报表',
@@ -358,30 +358,30 @@ export const asyncRoutes = [
     },
     children: [
       {
-        path: 'inoutbound',
-        name: 'StatisticsInoutbound',
-        component: () => import('@/views/statistics/inoutbound/index.vue'),
+        path: 'inbound',
+        name: 'StatisticsInbound',
+        component: () => import('@/views/statistics/inbound/index.vue'),
         meta: {
-          title: '出入库统计',
-          icon: 'TrendCharts'
+          title: '入库统计',
+          icon: 'Download'
         }
       },
       {
-        path: 'material',
-        name: 'StatisticsMaterial',
-        component: () => import('@/views/statistics/material/index.vue'),
+        path: 'outbound',
+        name: 'StatisticsOutbound',
+        component: () => import('@/views/statistics/outbound/index.vue'),
         meta: {
-          title: '物资统计',
+          title: '出库统计',
+          icon: 'Upload'
+        }
+      },
+      {
+        path: 'inventory',
+        name: 'StatisticsInventory',
+        component: () => import('@/views/statistics/inventory/index.vue'),
+        meta: {
+          title: '库存统计',
           icon: 'PieChart'
-        }
-      },
-      {
-        path: 'usage',
-        name: 'StatisticsUsage',
-        component: () => import('@/views/statistics/usage/index.vue'),
-        meta: {
-          title: '使用统计',
-          icon: 'DataLine'
         }
       }
     ]

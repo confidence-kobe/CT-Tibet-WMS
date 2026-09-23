@@ -37,14 +37,14 @@ public class AuthServiceImplTest {
         assertEquals("Bearer", vo.getTokenType());
         assertNotNull(vo.getUser());
         assertEquals("admin", vo.getUser().getUsername());
-        assertEquals("ADMIN", vo.getUser().getRoleCode());
+        assertEquals("admin", vo.getUser().getRoleCode());
     }
 
     @Test
     public void testLoginSuccessForEmployee() {
         LoginVO vo = authService.login(buildRequest("employee1", "123456"));
         assertNotNull(vo);
-        assertEquals("USER", vo.getUser().getRoleCode());
+        assertEquals("user", vo.getUser().getRoleCode());
     }
 
     @Test

@@ -21,6 +21,18 @@ export function listWarehouses(params) {
 }
 
 /**
+ * 查询当前用户可访问的仓库（启用状态）
+ * 系统管理员返回全部仓库，其他角色只返回本部门仓库
+ * @returns {Promise} 返回仓库列表
+ */
+export function getMyWarehouses() {
+  return request({
+    url: '/warehouses/my',
+    method: 'get'
+  })
+}
+
+/**
  * 查询仓库详情
  * @param {number} id - 仓库ID
  * @returns {Promise} 返回仓库详细信息

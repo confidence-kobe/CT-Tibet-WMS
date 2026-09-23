@@ -110,3 +110,30 @@ export function resetUserPassword(id, newPassword) {
     params: { newPassword }
   })
 }
+
+/**
+ * 更新当前用户个人信息
+ * @param {Object} data - 个人信息
+ * @param {string} data.realName - 真实姓名
+ * @param {string} data.phone - 手机号
+ * @param {string} data.email - 邮箱
+ * @returns {Promise} 返回更新结果
+ */
+export function updateProfile(data) {
+  return request({
+    url: '/users/profile',
+    method: 'put',
+    data
+  })
+}
+
+/**
+ * 获取当前用户个人信息（含邮箱、最后登录时间/IP）
+ * @returns {Promise} 返回个人信息
+ */
+export function getProfile() {
+  return request({
+    url: '/users/profile',
+    method: 'get'
+  })
+}

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
+import com.ct.wms.security.DataScopeHelper;
 import com.ct.wms.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final WarehouseMapper warehouseMapper;
     private final MaterialMapper materialMapper;
     private final UserMapper userMapper;
+    private final DataScopeHelper dataScopeHelper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -158,9 +160,8 @@ public class InventoryServiceImpl implements InventoryService {
 
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
 
-        if (warehouseId != null) {
-            wrapper.eq(Inventory::getWarehouseId, warehouseId);
-        }
+        // 部门数据隔离：只能查看本部门仓库（系统管理员除外）
+        dataScopeHelper.resolveWarehouseScope(warehouseId).applyTo(wrapper, Inventory::getWarehouseId);
 
         if (materialId != null) {
             wrapper.eq(Inventory::getMaterialId, materialId);
@@ -204,9 +205,8 @@ public class InventoryServiceImpl implements InventoryService {
 
         LambdaQueryWrapper<InventoryLog> wrapper = new LambdaQueryWrapper<>();
 
-        if (warehouseId != null) {
-            wrapper.eq(InventoryLog::getWarehouseId, warehouseId);
-        }
+        // 部门数据隔离：只能查看本部门仓库（系统管理员除外）
+        dataScopeHelper.resolveWarehouseScope(warehouseId).applyTo(wrapper, InventoryLog::getWarehouseId);
 
         if (materialId != null) {
             wrapper.eq(InventoryLog::getMaterialId, materialId);
@@ -238,12 +238,9 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public List<Inventory> listLowStockAlerts(Long warehouseId) {
-        // 查询所有库存
+        // 查询可见范围内的库存（部门数据隔离）
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
-
-        if (warehouseId != null) {
-            wrapper.eq(Inventory::getWarehouseId, warehouseId);
-        }
+        dataScopeHelper.resolveWarehouseScope(warehouseId).applyTo(wrapper, Inventory::getWarehouseId);
 
         List<Inventory> inventories = inventoryMapper.selectList(wrapper);
 
@@ -280,7 +277,27 @@ public class InventoryServiceImpl implements InventoryService {
             inventory.setMaterialCode(material.getMaterialCode());
             inventory.setSpec(material.getSpec());
             inventory.setUnit(material.getUnit());
+            inventory.setCategory(material.getCategory());
+            inventory.setPrice(material.getPrice());
+            inventory.setMinStock(material.getMinStock());
+            if (material.getPrice() != null && inventory.getQuantity() != null) {
+                inventory.setStockValue(material.getPrice().multiply(inventory.getQuantity()));
+            }
         }
+        inventory.setStockStatus(resolveStockStatus(inventory.getQuantity(), inventory.getMinStock()));
+    }
+
+    /**
+     * 计算库存状态：0-正常 1-低库存（低于最低库存）2-缺货（库存为0）
+     */
+    private static Integer resolveStockStatus(BigDecimal quantity, BigDecimal minStock) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            return 2;
+        }
+        if (minStock != null && quantity.compareTo(minStock) < 0) {
+            return 1;
+        }
+        return 0;
     }
 
     /**
@@ -346,7 +363,11 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public Inventory getById(Long id) {
-        return inventoryMapper.selectById(id);
+        Inventory inventory = inventoryMapper.selectById(id);
+        if (inventory != null) {
+            dataScopeHelper.checkWarehouseAccess(inventory.getWarehouseId());
+        }
+        return inventory;
     }
 
     @Override

@@ -11,6 +11,7 @@ import com.ct.wms.mapper.DeptMapper;
 import com.ct.wms.mapper.InventoryMapper;
 import com.ct.wms.mapper.UserMapper;
 import com.ct.wms.mapper.WarehouseMapper;
+import com.ct.wms.security.DataScopeHelper;
 import com.ct.wms.service.WarehouseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,7 @@ public class WarehouseServiceImpl implements WarehouseService {
     private final DeptMapper deptMapper;
     private final UserMapper userMapper;
     private final InventoryMapper inventoryMapper;
+    private final DataScopeHelper dataScopeHelper;
 
     @Override
     public List<Warehouse> listWarehouses(Long deptId, Integer status) {
@@ -184,8 +186,8 @@ public class WarehouseServiceImpl implements WarehouseService {
 
         // 普通用户只能看到自己部门的仓库
         // 管理员可以看到所有仓库
-        String roleCode = currentUser.getRoleCode();
-        if (!"ADMIN".equals(roleCode)) {
+        // 注意：User.roleCode 不是数据库字段，这里必须从角色表读取
+        if (!dataScopeHelper.isAdmin()) {
             wrapper.eq(Warehouse::getDeptId, currentUser.getDeptId());
         }
 

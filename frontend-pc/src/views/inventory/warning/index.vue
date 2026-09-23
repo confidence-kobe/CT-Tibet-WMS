@@ -3,11 +3,12 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <h2 class="page-title">库存预警</h2>
+      <span class="page-tip">当前库存低于物资最低库存即产生预警，补货入库后自动解除</span>
     </div>
 
     <!-- 统计卡片 -->
     <el-row :gutter="16" style="margin-bottom: 16px;">
-      <el-col :span="6">
+      <el-col :span="8">
         <el-card shadow="hover" class="stats-card">
           <div class="stats-content">
             <div class="stats-icon total">
@@ -20,41 +21,28 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="8">
         <el-card shadow="hover" class="stats-card">
           <div class="stats-content">
             <div class="stats-icon urgent">
               <el-icon size="32"><CircleCloseFilled /></el-icon>
             </div>
             <div class="stats-info">
-              <div class="stats-label">紧急预警</div>
-              <div class="stats-value urgent-text">{{ statistics.urgent }}</div>
+              <div class="stats-label">缺货（库存为0）</div>
+              <div class="stats-value urgent-text">{{ statistics.outOfStock }}</div>
             </div>
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="8">
         <el-card shadow="hover" class="stats-card">
           <div class="stats-content">
             <div class="stats-icon warning">
               <el-icon size="32"><WarningFilled /></el-icon>
             </div>
             <div class="stats-info">
-              <div class="stats-label">一般预警</div>
-              <div class="stats-value warning-text">{{ statistics.normal }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stats-card">
-          <div class="stats-content">
-            <div class="stats-icon handled">
-              <el-icon size="32"><CircleCheckFilled /></el-icon>
-            </div>
-            <div class="stats-info">
-              <div class="stats-label">已处理</div>
-              <div class="stats-value">{{ statistics.handled }}</div>
+              <div class="stats-label">低库存</div>
+              <div class="stats-value warning-text">{{ statistics.lowStock }}</div>
             </div>
           </div>
         </el-card>
@@ -63,18 +51,19 @@
 
     <!-- 搜索表单 -->
     <el-card shadow="never" class="search-form">
-      <el-form :model="queryForm" :inline="true">
+      <el-form :model="queryForm" :inline="true" @submit.prevent>
         <el-form-item label="仓库">
           <el-select
             v-model="queryForm.warehouseId"
-            placeholder="请选择仓库"
+            placeholder="全部仓库"
             clearable
-            @clear="handleQuery"
+            @change="handleQuery"
+            style="width: 180px"
           >
             <el-option
               v-for="warehouse in warehouseList"
               :key="warehouse.id"
-              :label="warehouse.name"
+              :label="warehouse.warehouseName"
               :value="warehouse.id"
             />
           </el-select>
@@ -84,41 +73,26 @@
             v-model="queryForm.keyword"
             placeholder="物资编号/名称"
             clearable
-            @clear="handleQuery"
             style="width: 200px"
           />
         </el-form-item>
-        <el-form-item label="预警级别">
+        <el-form-item label="预警类型">
           <el-select
-            v-model="queryForm.warningLevel"
-            placeholder="请选择预警级别"
+            v-model="queryForm.stockStatus"
+            placeholder="全部"
             clearable
-            @clear="handleQuery"
+            style="width: 140px"
           >
-            <el-option label="紧急" :value="2" />
-            <el-option label="一般" :value="1" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="处理状态">
-          <el-select
-            v-model="queryForm.isHandled"
-            placeholder="请选择处理状态"
-            clearable
-            @clear="handleQuery"
-          >
-            <el-option label="未处理" :value="false" />
-            <el-option label="已处理" :value="true" />
+            <el-option label="缺货" :value="STATUS_OUT_OF_STOCK" />
+            <el-option label="低库存" :value="STATUS_LOW_STOCK" />
           </el-select>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleQuery">
-            <el-icon><Search /></el-icon>
-            搜索
-          </el-button>
-          <el-button @click="handleReset">
             <el-icon><RefreshRight /></el-icon>
-            重置
+            刷新
           </el-button>
+          <el-button @click="handleReset">重置</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -126,53 +100,57 @@
     <!-- 数据表格 -->
     <el-card shadow="never" style="margin-top: 16px;">
       <el-table
-        :data="tableData"
+        :data="pagedData"
         v-loading="loading"
         stripe
         border
         style="width: 100%"
       >
-        <el-table-column type="index" label="序号" width="60" align="center" />
+        <el-table-column type="index" label="序号" width="60" align="center" :index="rowIndex" />
         <el-table-column prop="materialCode" label="物资编码" width="120" />
         <el-table-column prop="materialName" label="物资名称" min-width="150" />
+        <el-table-column prop="spec" label="规格" width="120" show-overflow-tooltip />
         <el-table-column prop="warehouseName" label="仓库" min-width="120" />
-        <el-table-column prop="currentStock" label="当前库存" width="100" align="right">
+        <el-table-column label="当前库存" width="100" align="right">
           <template #default="{ row }">
-            <span :class="getStockClass(row)">{{ row.currentStock }}</span>
+            <span :class="row.stockStatus === STATUS_OUT_OF_STOCK ? 'urgent-stock' : 'warning-stock'">
+              {{ formatNumber(row.quantity) }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="warningThreshold" label="预警阈值" width="100" align="right" />
-        <el-table-column prop="warningLevel" label="预警级别" width="100" align="center">
+        <el-table-column label="最低库存" width="100" align="right">
+          <template #default="{ row }">{{ formatNumber(row.minStock) }}</template>
+        </el-table-column>
+        <el-table-column label="缺口" width="100" align="right">
           <template #default="{ row }">
-            <el-tag :type="getWarningType(row)" size="small">
-              {{ getWarningLabel(row) }}
+            <span class="urgent-stock">{{ formatNumber(shortage(row)) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="unit" label="单位" width="70" align="center" />
+        <el-table-column label="预警类型" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.stockStatus === STATUS_OUT_OF_STOCK ? 'danger' : 'warning'" size="small">
+              {{ row.stockStatus === STATUS_OUT_OF_STOCK ? '缺货' : '低库存' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="warningTime" label="预警时间" width="160" />
-        <el-table-column prop="handleStatus" label="处理状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.handleStatus === 1 ? 'success' : 'info'" size="small">
-              {{ row.handleStatus === 1 ? '已处理' : '未处理' }}
-            </el-tag>
-          </template>
+        <el-table-column prop="lastOutboundTime" label="最近出库" width="160">
+          <template #default="{ row }">{{ row.lastOutboundTime || '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center" fixed="right">
+        <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="handleViewDetail(row)">
-              查看详情
+            <el-button link type="primary" size="small" @click="handleRestock(row)">
+              入库补货
             </el-button>
-            <el-button
-              v-if="row.handleStatus === 0"
-              link
-              type="success"
-              size="small"
-              @click="handleMarkHandled(row)"
-            >
-              标记已处理
+            <el-button link type="primary" size="small" @click="handleViewLog(row)">
+              流水记录
             </el-button>
           </template>
         </el-table-column>
+
+        <template #empty>
+          <el-empty description="暂无库存预警，库存状况良好" :image-size="80" />
+        </template>
       </el-table>
 
       <!-- 分页 -->
@@ -180,11 +158,9 @@
         <el-pagination
           v-model:current-page="pagination.pageNum"
           v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
+          :total="filteredData.length"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleQuery"
-          @current-change="handleQuery"
         />
       </div>
     </el-card>
@@ -192,93 +168,85 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { listLowStockAlerts } from '@/api/inventory'
-import { listWarehouses } from '@/api/warehouse'
+import { getMyWarehouses } from '@/api/warehouse'
 
 const router = useRouter()
+
+// 与后端 stockStatus 保持一致：1-低库存 2-缺货
+const STATUS_LOW_STOCK = 1
+const STATUS_OUT_OF_STOCK = 2
 
 const queryForm = reactive({
   warehouseId: null,
   keyword: '',
-  warningLevel: null,
-  isHandled: null
+  stockStatus: null
 })
 
 const pagination = reactive({
   pageNum: 1,
-  pageSize: 20,
-  total: 0
+  pageSize: 20
 })
 
-const statistics = reactive({
-  total: 0,
-  urgent: 0,
-  normal: 0,
-  handled: 0
-})
-
-const tableData = ref([])
+// 全部预警数据（后端一次返回，前端筛选分页）
+const allData = ref([])
 const loading = ref(false)
-
-// 仓库列表
 const warehouseList = ref([])
 
-// 加载仓库列表
+const statistics = computed(() => {
+  const outOfStock = allData.value.filter(item => item.stockStatus === STATUS_OUT_OF_STOCK).length
+  return {
+    total: allData.value.length,
+    outOfStock,
+    lowStock: allData.value.length - outOfStock
+  }
+})
+
+const filteredData = computed(() => {
+  const keyword = queryForm.keyword.trim().toLowerCase()
+  return allData.value
+    .filter(item => queryForm.stockStatus == null || item.stockStatus === queryForm.stockStatus)
+    .filter(item => !keyword ||
+      (item.materialName || '').toLowerCase().includes(keyword) ||
+      (item.materialCode || '').toLowerCase().includes(keyword))
+    // 缺货优先，其次按缺口从大到小
+    .sort((a, b) => (b.stockStatus - a.stockStatus) || (shortage(b) - shortage(a)))
+})
+
+const pagedData = computed(() => {
+  const start = (pagination.pageNum - 1) * pagination.pageSize
+  return filteredData.value.slice(start, start + pagination.pageSize)
+})
+
+// 本地筛选条件变化时回到第一页
+watch(() => [queryForm.keyword, queryForm.stockStatus], () => {
+  pagination.pageNum = 1
+})
+
+const rowIndex = (index) => (pagination.pageNum - 1) * pagination.pageSize + index + 1
+const shortage = (row) => Math.max(0, Number(row.minStock || 0) - Number(row.quantity || 0))
+const formatNumber = (value) => (value == null ? '-' : Number(value).toLocaleString())
+
 const loadWarehouses = async () => {
   try {
-    const res = await listWarehouses({ status: 0 })
+    const res = await getMyWarehouses()
     warehouseList.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
   }
 }
 
-const getWarningLevel = (row) => {
-  // 后端返回的warningLevel: 1-一般预警, 2-紧急预警
-  return row.warningLevel === 2 ? 'urgent' : 'normal'
-}
-
-const getWarningType = (row) => {
-  return row.warningLevel === 2 ? 'danger' : 'warning'
-}
-
-const getWarningLabel = (row) => {
-  return row.warningLevel === 2 ? '紧急' : '一般'
-}
-
-const getStockClass = (row) => {
-  return row.warningLevel === 2 ? 'urgent-stock' : 'warning-stock'
-}
-
+// 查询预警（错误提示由请求拦截器统一处理）
 const handleQuery = async () => {
   loading.value = true
   try {
-    const params = {
-      pageNum: pagination.pageNum,
-      pageSize: pagination.pageSize,
-      warehouseId: queryForm.warehouseId || undefined,
-      keyword: queryForm.keyword || undefined,
-      warningLevel: queryForm.warningLevel || undefined,
-      isHandled: queryForm.isHandled != null ? queryForm.isHandled : undefined
-    }
-
-    const res = await listLowStockAlerts(params)
-    tableData.value = res.data || []
-    pagination.total = res.total || 0
-
-    // 更新统计数据
-    if (res.data.stats) {
-      statistics.total = res.data.stats.totalWarnings || 0
-      statistics.urgent = res.data.stats.urgentWarnings || 0
-      statistics.normal = res.data.stats.normalWarnings || 0
-      statistics.handled = res.data.stats.handledWarnings || 0
-    }
+    const res = await listLowStockAlerts({ warehouseId: queryForm.warehouseId || undefined })
+    allData.value = res.data || []
+    pagination.pageNum = 1
   } catch (error) {
-    console.error('查询失败:', error)
-    ElMessage.error('查询失败')
+    console.error('查询库存预警失败:', error)
   } finally {
     loading.value = false
   }
@@ -287,37 +255,29 @@ const handleQuery = async () => {
 const handleReset = () => {
   queryForm.warehouseId = null
   queryForm.keyword = ''
-  queryForm.warningLevel = null
-  queryForm.isHandled = null
-  pagination.pageNum = 1
+  queryForm.stockStatus = null
   handleQuery()
 }
 
-const handleViewDetail = (row) => {
-  router.push({ path: `/inventory/detail/${row.id}` })
+// 跳转入库页面，自动带上仓库、物资和建议补货数量
+const handleRestock = (row) => {
+  router.push({
+    path: '/inbound/create',
+    query: {
+      warehouseId: row.warehouseId,
+      materialId: row.materialId,
+      quantity: shortage(row) || undefined
+    }
+  })
 }
 
-const handleMarkHandled = async (row) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要将物资"${row.materialName}"标记为已处理吗？`,
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'info'
-      }
-    )
-
-    // TODO: 调用标记已处理的API
-    ElMessage.success('标记成功')
-    handleQuery()
-  } catch (error) {
-    // 用户取消
-  }
+const handleViewLog = (row) => {
+  router.push({
+    path: '/inventory/log',
+    query: { warehouseId: row.warehouseId, materialId: row.materialId }
+  })
 }
 
-// 初始化
 onMounted(() => {
   loadWarehouses()
   handleQuery()
@@ -326,6 +286,11 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .inventory-warning-container {
+  .page-tip {
+    font-size: 13px;
+    color: #999;
+  }
+
   .stats-card {
     .stats-content {
       display: flex;
@@ -353,11 +318,6 @@ onMounted(() => {
         &.warning {
           background: #fff7e6;
           color: #fa8c16;
-        }
-
-        &.handled {
-          background: #f6ffed;
-          color: #52c41a;
         }
       }
 

@@ -1,8 +1,22 @@
 <template>
   <div v-if="!item.meta || !item.meta.hidden">
+    <!-- 无标题且只有一个可见子菜单的父路由（如首页）：直接显示子菜单 -->
+    <el-menu-item
+      v-if="onlyChild"
+      :index="resolvePath(onlyChild.path)"
+      @click="handleMenuClick(resolvePath(onlyChild.path))"
+    >
+      <el-icon v-if="onlyChild.meta && onlyChild.meta.icon">
+        <component :is="onlyChild.meta.icon" />
+      </el-icon>
+      <template #title>
+        <span>{{ onlyChild.meta?.title }}</span>
+      </template>
+    </el-menu-item>
+
     <!-- 有子菜单 -->
     <el-sub-menu
-      v-if="hasChildren"
+      v-else-if="hasChildren"
       :index="resolvePath(item.path)"
       :popper-append-to-body="true"
     >
@@ -55,16 +69,18 @@ const props = defineProps({
 
 const router = useRouter()
 
+// 可显示的子菜单（过滤掉隐藏的）
+const showingChildren = computed(() => {
+  return (props.item.children || []).filter(child => !child.meta?.hidden)
+})
+
 // 是否有可显示的子菜单
-const hasChildren = computed(() => {
-  if (!props.item.children) return false
+const hasChildren = computed(() => showingChildren.value.length > 0)
 
-  // 过滤掉隐藏的子菜单
-  const showingChildren = props.item.children.filter(child => {
-    return !child.meta?.hidden
-  })
-
-  return showingChildren.length > 0
+// 父路由没有标题且只有一个可见子菜单时，直接展示该子菜单
+const onlyChild = computed(() => {
+  if (props.item.meta?.title || showingChildren.value.length !== 1) return null
+  return showingChildren.value[0]
 })
 
 // 解析完整路径

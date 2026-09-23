@@ -40,7 +40,7 @@
                 <el-option
                   v-for="warehouse in warehouseList"
                   :key="warehouse.id"
-                  :label="warehouse.name"
+                  :label="warehouse.warehouseName"
                   :value="warehouse.id"
                 />
               </el-select>
@@ -89,7 +89,7 @@
                     <el-option
                       v-for="material in materials"
                       :key="material.id"
-                      :label="material.name"
+                      :label="material.materialName"
                       :value="material.id"
                     />
                   </el-select>
@@ -223,8 +223,8 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createApply } from '@/api/apply'
-import { listWarehouses } from '@/api/warehouse'
-import { listMaterials } from '@/api/material'
+import { getMyWarehouses } from '@/api/warehouse'
+import { listAllMaterials } from '@/api/material'
 import { listInventory } from '@/api/inventory'
 import { useUserStore } from '@/store/modules/user'
 
@@ -298,7 +298,7 @@ const handleRemoveMaterial = (index) => {
 // 加载仓库列表
 const loadWarehouses = async () => {
   try {
-    const res = await listWarehouses({ status: 0 })
+    const res = await getMyWarehouses()
     warehouseList.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
@@ -310,8 +310,7 @@ const loadMaterials = async () => {
   if (!form.warehouseId) return
 
   try {
-    const res = await listMaterials({ pageNum: 1, pageSize: 1000, status: 0 })
-    materials.value = res.data || []
+    materials.value = await listAllMaterials({ status: 0 })
   } catch (error) {
     console.error('加载物资列表失败:', error)
     ElMessage.error('加载物资列表失败')
@@ -332,8 +331,8 @@ const handleMaterialChange = async (index) => {
   const material = materials.value.find(m => m.id === detail.materialId)
 
   if (material) {
-    detail.materialCode = material.code
-    detail.materialName = material.name
+    detail.materialCode = material.materialCode
+    detail.materialName = material.materialName
     detail.spec = material.spec
     detail.unit = material.unit
     detail.price = material.price

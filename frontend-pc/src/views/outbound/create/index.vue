@@ -107,7 +107,7 @@
                     <el-option
                       v-for="material in materialList"
                       :key="material.id"
-                      :label="material.name"
+                      :label="material.materialName"
                       :value="material.id"
                     />
                   </el-select>
@@ -215,10 +215,11 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createOutboundDirect } from '@/api/outbound'
 import { listWarehouses } from '@/api/warehouse'
-import { listMaterials } from '@/api/material'
+import { listAllMaterials } from '@/api/material'
 import { listInventories } from '@/api/inventory'
 
 const router = useRouter()
@@ -283,8 +284,7 @@ const loadWarehouses = async () => {
 // 加载物资列表
 const loadMaterials = async () => {
   try {
-    const res = await listMaterials({ pageNum: 1, pageSize: 1000, status: 0 })
-    materialList.value = res.data || []
+    materialList.value = await listAllMaterials({ status: 0 })
   } catch (error) {
     console.error('加载物资列表失败:', error)
   }
@@ -346,9 +346,9 @@ const handleMaterialChange = async (index) => {
   const material = materialList.value.find(m => m.id === detail.materialId)
 
   if (material) {
-    detail.materialCode = material.code
-    detail.materialName = material.name
-    detail.spec = material.model || '-'
+    detail.materialCode = material.materialCode
+    detail.materialName = material.materialName
+    detail.spec = material.spec || '-'
     detail.unit = material.unit
     detail.unitPrice = 0 // 单价需要从库存中获取
 
@@ -357,7 +357,7 @@ const handleMaterialChange = async (index) => {
     detail.stock = stock
 
     if (stock === 0) {
-      ElMessage.warning(`物资"${material.name}"库存不足`)
+      ElMessage.warning(`物资"${material.materialName}"库存不足`)
       detail.quantity = 0
     } else if (detail.quantity > stock) {
       detail.quantity = stock
@@ -438,7 +438,8 @@ const handleSubmit = async () => {
       receiverName: form.receiverName,
       receiverPhone: form.receiverPhone,
       remark: form.remark,
-      outboundTime: new Date().toISOString(),
+      // 使用本地时间（toISOString 为 UTC，会比西藏本地时间早8小时）
+      outboundTime: dayjs().format('YYYY-MM-DDTHH:mm:ss'),
       details: form.details.map(item => ({
         materialId: item.materialId,
         quantity: item.quantity,

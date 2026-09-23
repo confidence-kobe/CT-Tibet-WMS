@@ -2,6 +2,7 @@ package com.ct.wms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ct.wms.common.constant.RoleCode;
 import com.ct.wms.common.enums.ApplyStatus;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.ApplyDTO;
@@ -64,7 +65,7 @@ public class ApplyServiceImpl implements ApplyService {
         if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl) {
             UserDetailsImpl currentUser = (UserDetailsImpl) auth.getPrincipal();
             Role currentRole = roleMapper.selectById(currentUser.getRoleId());
-            if (currentRole != null && "DEPT_ADMIN".equals(currentRole.getRoleCode())) {
+            if (currentRole != null && RoleCode.is(currentRole.getRoleCode(), RoleCode.DEPT_ADMIN)) {
                 User currentUserEntity = userMapper.selectById(currentUser.getId());
                 if (currentUserEntity != null && currentUserEntity.getDeptId() != null) {
                     wrapper.eq(Apply::getDeptId, currentUserEntity.getDeptId());
@@ -316,7 +317,7 @@ public class ApplyServiceImpl implements ApplyService {
         boolean isDeptAdmin = false;
         if (!isWarehouseManager && approver != null) {
             Role approverRole = roleMapper.selectById(approver.getRoleId());
-            if (approverRole != null && "DEPT_ADMIN".equals(approverRole.getRoleCode())) {
+            if (approverRole != null && RoleCode.is(approverRole.getRoleCode(), RoleCode.DEPT_ADMIN)) {
                 // 部门管理员只能审批本部门的申请
                 if (approver.getDeptId() != null && approver.getDeptId().equals(apply.getDeptId())) {
                     isDeptAdmin = true;

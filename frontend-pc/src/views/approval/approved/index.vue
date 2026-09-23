@@ -28,7 +28,7 @@
             <el-option
               v-for="warehouse in warehouseList"
               :key="warehouse.id"
-              :label="warehouse.name"
+              :label="warehouse.warehouseName"
               :value="warehouse.id"
             />
           </el-select>
@@ -143,7 +143,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getApprovedApplies, getApplyById } from '@/api/apply'
-import { listWarehouses } from '@/api/warehouse'
+import { getMyWarehouses } from '@/api/warehouse'
 
 const router = useRouter()
 
@@ -172,7 +172,7 @@ const warehouseList = ref([])
 // 加载仓库列表
 const loadWarehouses = async () => {
   try {
-    const res = await listWarehouses({ status: 0 })
+    const res = await getMyWarehouses()
     warehouseList.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
