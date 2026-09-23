@@ -9,6 +9,7 @@ import com.ct.wms.dto.UpdateProfileRequest;
 import com.ct.wms.dto.UserDTO;
 import com.ct.wms.entity.User;
 import com.ct.wms.service.UserService;
+import com.ct.wms.vo.UserOptionVO;
 import com.ct.wms.vo.UserProfileVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -19,6 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 用户管理Controller
@@ -53,6 +56,14 @@ public class UserController {
         Page<User> page = userService.listUsers(pageNum, pageSize, deptId, roleId, status, keyword);
 
         return PageResult.of(page);
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
+    @Operation(summary = "用户选项", description = "用于选择领用人：系统管理员返回全部启用用户，其他角色只返回本部门启用用户")
+    public Result<List<UserOptionVO>> listUserOptions(
+            @Parameter(description = "姓名或手机号关键词") @RequestParam(required = false) String keyword) {
+        return Result.success(userService.listUserOptions(keyword));
     }
 
     @GetMapping("/{id}")

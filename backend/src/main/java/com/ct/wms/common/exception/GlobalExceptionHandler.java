@@ -60,8 +60,9 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Result<?> handleBadCredentialsException(BadCredentialsException e) {
         log.error("Authentication failed: {}", e.getMessage());
-        // 使用异常消息（支持自定义消息，如账号锁定提示）
-        String message = e.getMessage() != null ? e.getMessage() : "用户名或密码错误";
+        // 使用自定义消息（如账号锁定提示）；Spring Security 默认的英文消息统一改为中文
+        String message = e.getMessage() == null || "Bad credentials".equals(e.getMessage())
+                ? "用户名或密码错误" : e.getMessage();
         return Result.error(401, message);
     }
 

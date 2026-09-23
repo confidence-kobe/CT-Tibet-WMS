@@ -6,6 +6,7 @@ import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.InboundDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
+import com.ct.wms.security.DataScopeHelper;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.InboundService;
 import com.ct.wms.service.InventoryService;
@@ -21,7 +22,11 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -43,6 +48,7 @@ public class InboundServiceImpl implements InboundService {
     private final UserMapper userMapper;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
+    private final DataScopeHelper dataScopeHelper;
 
     @Override
     public Page<Inbound> listInbounds(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -52,9 +58,8 @@ public class InboundServiceImpl implements InboundService {
 
         LambdaQueryWrapper<Inbound> wrapper = new LambdaQueryWrapper<>();
 
-        if (warehouseId != null) {
-            wrapper.eq(Inbound::getWarehouseId, warehouseId);
-        }
+        // 部门数据隔离：系统管理员查看全部，其他角色只能查看本部门仓库
+        dataScopeHelper.resolveWarehouseScope(warehouseId).applyTo(wrapper, Inbound::getWarehouseId);
 
         if (inboundType != null) {
             wrapper.eq(Inbound::getInboundType, inboundType);
@@ -83,6 +88,7 @@ public class InboundServiceImpl implements InboundService {
         // 填充关联数据（防御性检查，避免空指针）
         if (result != null && result.getRecords() != null && !result.getRecords().isEmpty()) {
             result.getRecords().forEach(this::fillInboundInfo);
+            fillInboundDetailsBatch(result.getRecords());
         }
 
         return result;
@@ -95,26 +101,12 @@ public class InboundServiceImpl implements InboundService {
             throw new BusinessException(404, "入库单不存在");
         }
 
-        // 填充关联数据
+        // 部门数据隔离：只能查看本部门仓库的单据
+        dataScopeHelper.checkWarehouseAccess(inbound.getWarehouseId());
+
+        // 填充关联数据和明细
         fillInboundInfo(inbound);
-
-        // 查询明细
-        LambdaQueryWrapper<InboundDetail> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(InboundDetail::getInboundId, id);
-        List<InboundDetail> details = inboundDetailMapper.selectList(wrapper);
-
-        // 填充明细物资信息
-        details.forEach(detail -> {
-            Material material = materialMapper.selectById(detail.getMaterialId());
-            if (material != null) {
-                detail.setMaterialName(material.getMaterialName());
-                detail.setMaterialCode(material.getMaterialCode());
-                detail.setSpec(material.getSpec());
-                detail.setUnit(material.getUnit());
-            }
-        });
-
-        inbound.setDetails(details);
+        fillInboundDetailsBatch(Collections.singletonList(inbound));
 
         return inbound;
     }
@@ -206,6 +198,42 @@ public class InboundServiceImpl implements InboundService {
         log.info("入库单创建成功: inboundNo={}, totalAmount={}", inboundNo, totalAmount);
 
         return inbound.getId();
+    }
+
+    /**
+     * 批量填充单据明细及物资信息（列表页用于展示"XX等N项"）
+     */
+    private void fillInboundDetailsBatch(List<Inbound> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        List<Long> ids = records.stream().map(Inbound::getId).collect(Collectors.toList());
+        Map<Long, List<InboundDetail>> detailsById = inboundDetailMapper.selectList(
+                        new LambdaQueryWrapper<InboundDetail>().in(InboundDetail::getInboundId, ids))
+                .stream()
+                .collect(Collectors.groupingBy(InboundDetail::getInboundId));
+
+        Set<Long> materialIds = detailsById.values().stream()
+                .flatMap(List::stream)
+                .map(InboundDetail::getMaterialId)
+                .collect(Collectors.toSet());
+        Map<Long, Material> materialMap = materialIds.isEmpty() ? Map.of()
+                : materialMapper.selectBatchIds(materialIds).stream()
+                        .collect(Collectors.toMap(Material::getId, Function.identity()));
+
+        for (Inbound record : records) {
+            List<InboundDetail> details = detailsById.getOrDefault(record.getId(), Collections.emptyList());
+            for (InboundDetail detail : details) {
+                Material material = materialMap.get(detail.getMaterialId());
+                if (material != null) {
+                    detail.setMaterialName(material.getMaterialName());
+                    detail.setMaterialCode(material.getMaterialCode());
+                    detail.setSpec(material.getSpec());
+                    detail.setUnit(material.getUnit());
+                }
+            }
+            record.setDetails(details);
+        }
     }
 
     /**

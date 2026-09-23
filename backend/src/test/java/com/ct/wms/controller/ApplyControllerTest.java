@@ -97,7 +97,7 @@ public class ApplyControllerTest {
         if (otherDeptWarehouse == null) return;
 
         String body = String.format(
-                "{\"warehouseId\":%d,\"details\":[{\"materialId\":1,\"quantity\":1}]}",
+                "{\"warehouseId\":%d,\"applyReason\":\"测试\",\"details\":[{\"materialId\":1,\"quantity\":1}]}",
                 otherDeptWarehouse.getId());
 
         // BusinessException(403) 由全局异常处理返回 HTTP 200，body 中 code=403

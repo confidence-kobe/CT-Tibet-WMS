@@ -5,7 +5,10 @@ import com.ct.wms.dto.ChangePasswordRequest;
 import com.ct.wms.dto.UpdateProfileRequest;
 import com.ct.wms.dto.UserDTO;
 import com.ct.wms.entity.User;
+import com.ct.wms.vo.UserOptionVO;
 import com.ct.wms.vo.UserProfileVO;
+
+import java.util.List;
 
 /**
  * 用户Service接口
@@ -105,4 +108,12 @@ public interface UserService {
      * @param request 修改密码请求
      */
     void changeCurrentUserPassword(ChangePasswordRequest request);
+
+    /**
+     * 查询可选的用户（用于选择领用人）：系统管理员返回全部启用用户，其他角色只返回本部门启用用户
+     *
+     * @param keyword 姓名或手机号关键词（可选）
+     * @return 用户选项列表
+     */
+    List<UserOptionVO> listUserOptions(String keyword);
 }

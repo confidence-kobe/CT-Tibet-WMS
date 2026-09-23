@@ -145,3 +145,37 @@ export const PAGE_CONFIG = {
   PAGE_NUM: 1,
   PAGE_SIZE: 20
 }
+
+/**
+ * 是否开启微信一键登录
+ * 需后端提供 /api/auth/wechat-login 并完成账号与微信的绑定后再开启
+ */
+export const WECHAT_LOGIN_ENABLED = false
+
+/** 审批时限（小时）：超过后提醒仓管尽快处理 */
+export const APPROVAL_TIMEOUT_HOURS = 24
+
+/**
+ * 待审批申请是否已超过审批时限
+ * @param {string} applyTime - 申请时间，格式 yyyy-MM-dd HH:mm:ss
+ */
+export function isApprovalTimeout(applyTime) {
+  if (!applyTime) return false
+  // iOS 不支持 "yyyy-MM-dd HH:mm:ss"，需替换为 "yyyy/MM/dd HH:mm:ss"
+  const time = new Date(String(applyTime).replace(/-/g, '/')).getTime()
+  return !isNaN(time) && Date.now() - time > APPROVAL_TIMEOUT_HOURS * 3600 * 1000
+}
+
+/** 待领取出库单的领取时限（天），超时自动取消 */
+export const PICKUP_TIMEOUT_DAYS = 7
+
+/**
+ * 待领取出库单已等待的天数（仅待领取状态有意义）
+ * @param {Object} outbound - 出库单，需含 status、createTime
+ */
+export function getWaitDays(outbound) {
+  if (!outbound || outbound.status !== 0 || !outbound.createTime) return 0
+  const created = new Date(String(outbound.createTime).replace(/-/g, '/')).getTime()
+  if (isNaN(created)) return 0
+  return Math.floor((Date.now() - created) / (24 * 3600 * 1000))
+}

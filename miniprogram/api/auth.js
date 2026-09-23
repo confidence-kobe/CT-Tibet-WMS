@@ -17,7 +17,7 @@ export function login(data) {
     method: 'POST',
     data: {
       ...data,
-      loginType: 2 // 小程序固定为2
+      loginType: 'PASSWORD' // 账号密码登录
     }
   })
 }

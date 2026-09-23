@@ -124,9 +124,9 @@
 
           <!-- 统计 -->
           <view class="item-summary">
-            <text class="summary-text">共 {{ item.materialCount }} 种物资</text>
+            <text class="summary-text">共 {{ (item.details || []).length }} 种物资</text>
             <text class="summary-divider">|</text>
-            <text class="summary-text">总金额 ¥{{ item.totalAmount.toFixed(2) }}</text>
+            <text class="summary-text">总金额 ¥{{ Number(item.totalAmount || 0).toFixed(2) }}</text>
           </view>
 
           <!-- 待领取提示 -->
@@ -161,6 +161,7 @@
 <script>
 import api from '@/api'
 import { mapState, mapGetters } from 'vuex'
+import { getWaitDays } from '@/utils/constant.js'
 
 export default {
   data() {
@@ -203,7 +204,8 @@ export default {
     ...mapGetters(['isWarehouse']),
 
     canCreateOutbound() {
-      return this.isWarehouse || this.userInfo.roleCode === 'DEPT_ADMIN'
+      // isWarehouse 已包含系统管理员、部门管理员、仓库管理员
+      return this.isWarehouse
     }
   },
 
@@ -212,16 +214,16 @@ export default {
       if (this.loading && !isRefresh) return
 
       if (isRefresh) {
+        // 不先清空列表：第1页返回后整体替换，避免闪现空状态
         this.page = 1
         this.hasMore = true
-        this.outbounds = []
       }
 
       this.loading = true
 
       try {
         const res = await api.outbound.getList({
-          page: this.page,
+          pageNum: this.page,
           pageSize: this.pageSize,
           startDate: this.filters.startDate || undefined,
           endDate: this.filters.endDate || undefined,
@@ -230,7 +232,7 @@ export default {
         })
 
         if (res.code === 200) {
-          const newOutbounds = res.data.records || []
+          const newOutbounds = res.data.list.map(item => ({ ...item, waitDays: getWaitDays(item) }))
 
           if (isRefresh) {
             this.outbounds = newOutbounds
@@ -238,7 +240,7 @@ export default {
             this.outbounds = [...this.outbounds, ...newOutbounds]
           }
 
-          this.hasMore = newOutbounds.length === this.pageSize
+          this.hasMore = res.data.hasMore
         }
       } catch (err) {
         console.error('加载出库列表失败', err)
@@ -310,7 +312,8 @@ export default {
     }
   },
 
-  onLoad() {
+  // 每次显示都刷新（包括首次进入、新建出库后返回）
+  onShow() {
     this.loadData(true)
   }
 }

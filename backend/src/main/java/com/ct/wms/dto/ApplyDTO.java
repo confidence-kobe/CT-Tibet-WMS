@@ -5,6 +5,7 @@ import lombok.Data;
 
 import javax.validation.Valid;
 import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -25,6 +26,7 @@ public class ApplyDTO {
     @Schema(description = "仓库ID")
     private Long warehouseId;
 
+    @NotBlank(message = "请填写用途说明")
     @Size(max = 500, message = "申请理由不能超过500字")
     @Schema(description = "申请理由")
     private String applyReason;

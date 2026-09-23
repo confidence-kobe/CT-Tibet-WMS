@@ -1,7 +1,7 @@
 /**
  * 审批管理相关API（仓管端）
  */
-import { $uRequest } from '@/utils/request.js'
+import { $uRequest, $uPageRequest } from '@/utils/request.js'
 
 /**
  * 查询待审批列表
@@ -15,7 +15,7 @@ import { $uRequest } from '@/utils/request.js'
  * @returns {Promise} 返回待审批申请列表
  */
 export function getPendingApproval(params) {
-  return $uRequest({
+  return $uPageRequest({
     url: '/api/applies/pending',
     method: 'GET',
     data: params
@@ -36,7 +36,7 @@ export function getPendingApproval(params) {
  */
 export function getApprovedList(params) {
   // 使用申请列表接口，通过status筛选已审批的（1=已通过, 2=已拒绝）
-  return $uRequest({
+  return $uPageRequest({
     url: '/api/applies',
     method: 'GET',
     data: {

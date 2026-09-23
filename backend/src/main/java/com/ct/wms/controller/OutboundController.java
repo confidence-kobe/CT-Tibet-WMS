@@ -45,13 +45,14 @@ public class OutboundController {
             @Parameter(description = "结束日期") @RequestParam(required = false) String endDate,
             @Parameter(description = "操作人ID") @RequestParam(required = false) Long operatorId,
             @Parameter(description = "领用人ID") @RequestParam(required = false) Long receiverId,
-            @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
+            @Parameter(description = "关键词") @RequestParam(required = false) String keyword,
+            @Parameter(description = "来源：1-直接出库 2-申请出库") @RequestParam(required = false) Integer source) {
 
-        log.info("查询出库单列表: pageNum={}, pageSize={}, warehouseId={}, outboundType={}, status={}",
-                pageNum, pageSize, warehouseId, outboundType, status);
+        log.info("查询出库单列表: pageNum={}, pageSize={}, warehouseId={}, outboundType={}, status={}, source={}",
+                pageNum, pageSize, warehouseId, outboundType, status, source);
 
         Page<Outbound> page = outboundService.listOutbounds(pageNum, pageSize, warehouseId,
-                outboundType, status, startDate, endDate, operatorId, receiverId, keyword);
+                outboundType, status, startDate, endDate, operatorId, receiverId, keyword, source);
 
         return PageResult.of(page);
     }

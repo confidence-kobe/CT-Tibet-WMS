@@ -3,10 +3,11 @@
     <!-- 头部信息 -->
     <view class="header">
       <view class="user-info">
-        <image class="avatar" :src="userInfo.avatar || '/static/default-avatar.png'" mode="aspectFill" />
+        <image v-if="user.avatar" class="avatar" :src="user.avatar" mode="aspectFill" />
+        <view v-else class="avatar avatar-text">{{ (user.realName || '我').charAt(0) }}</view>
         <view class="info">
-          <text class="name">{{ userInfo.realName || '未登录' }}</text>
-          <text class="dept">{{ userInfo.deptName || '' }}</text>
+          <text class="name">{{ user.realName || '未登录' }}</text>
+          <text class="dept">{{ user.deptName || '' }}</text>
         </view>
       </view>
       <view class="message-icon" @click="goToMessages">
@@ -221,7 +222,10 @@ export default {
 
   computed: {
     ...mapState(['userInfo', 'unreadCount', 'pendingTasks']),
-    ...mapGetters(['isEmployee', 'isWarehouse'])
+    ...mapGetters(['isEmployee', 'isWarehouse']),
+    user() {
+      return this.userInfo || {}
+    }
   },
 
   methods: {
@@ -277,7 +281,8 @@ export default {
       try {
         const res = await api.message.getUnreadCount()
         if (res.code === 200) {
-          this.$store.commit('SET_UNREAD_COUNT', res.data.count || 0)
+          // 接口直接返回未读数量（数字）
+          this.$store.commit('SET_UNREAD_COUNT', Number(res.data) || 0)
         }
       } catch (err) {
         console.error('获取未读消息数失败', err)
@@ -321,7 +326,8 @@ export default {
 
     // 跳转到审批列表（仓管）
     goToApprovalList() {
-      uni.switchTab({
+      // 审批列表不是 TabBar 页面，只能用 navigateTo
+      uni.navigateTo({
         url: '/pages/approval/list'
       })
     },
@@ -335,8 +341,10 @@ export default {
 
     // 跳转到库存预警
     goToLowStockAlert() {
-      uni.navigateTo({
-        url: '/pages/inventory/list?status=1'
+      // 库存页是 TabBar 页面：switchTab 不能带参数，通过缓存传递筛选条件（库存页 onShow 读取）
+      uni.setStorageSync('inventoryListStatus', 1)
+      uni.switchTab({
+        url: '/pages/inventory/list'
       })
     },
 
@@ -357,7 +365,7 @@ export default {
     // 处理消息点击
     handleMessageClick(msg) {
       // 根据消息类型跳转到相应页面
-      if (msg.relatedType === 1) {
+      if (msg.relatedType === 1 || msg.relatedType === 3) {
         // 申请单
         uni.navigateTo({
           url: `/pages/apply/detail?id=${msg.relatedId}`
@@ -371,13 +379,15 @@ export default {
     }
   },
 
-  onLoad() {
-    // 加载数据
-    this.loadData()
-  },
-
   onShow() {
-    // 页面显示时刷新数据
+    // 未登录时进入登录页（首页是小程序启动页）
+    if (!uni.getStorageSync('token')) {
+      uni.reLaunch({
+        url: '/pages/login/login'
+      })
+      return
+    }
+    // 页面显示时刷新数据（首次进入也会触发 onShow）
     this.loadData()
   },
 
@@ -421,6 +431,15 @@ export default {
 .user-info {
   display: flex;
   align-items: center;
+}
+
+.avatar-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #7c3aed;
 }
 
 .avatar {

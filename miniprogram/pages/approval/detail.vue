@@ -161,6 +161,7 @@
 <script>
 import api from '@/api'
 import { mapState } from 'vuex'
+import { isApprovalTimeout } from '@/utils/constant.js'
 
 export default {
   data() {
@@ -193,7 +194,9 @@ export default {
     ...mapState(['userInfo']),
 
     showActions() {
-      return this.detail.status === 0 && (this.userInfo.roleCode === 'WAREHOUSE' || this.userInfo.roleCode === 'DEPT_ADMIN')
+      // 仓库管理员、部门管理员可审批（角色编码为小写，比较时忽略大小写）
+      const roleCode = ((this.userInfo && this.userInfo.roleCode) || '').toLowerCase()
+      return this.detail.status === 0 && ['warehouse', 'dept_admin'].includes(roleCode)
     },
 
     allStockSufficient() {
@@ -215,7 +218,10 @@ export default {
         uni.hideLoading()
 
         if (res.code === 200) {
-          this.detail = res.data
+          this.detail = {
+            ...res.data,
+            isTimeout: res.data.status === 0 && isApprovalTimeout(res.data.applyTime)
+          }
 
           // 设置标题
           uni.setNavigationBarTitle({

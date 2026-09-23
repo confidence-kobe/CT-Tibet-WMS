@@ -61,9 +61,9 @@
               <text class="message-time">{{ formatTime(item.createTime) }}</text>
             </view>
             <text class="message-desc">{{ item.content }}</text>
-            <view v-if="item.relatedData" class="message-footer">
-              <text class="related-tag">{{ getRelatedLabel(item.type) }}</text>
-              <text class="related-no">{{ item.relatedData.no }}</text>
+            <view v-if="item.relatedId && getRelatedLabel(item.relatedType)" class="message-footer">
+              <text class="related-tag">{{ getRelatedLabel(item.relatedType) }}</text>
+              <text class="related-no">点击查看 ›</text>
             </view>
           </view>
           <view v-if="item.isRead === 0" class="unread-dot"></view>
@@ -82,7 +82,7 @@
 
 <script>
 import api from '@/api'
-import { mapState } from 'vuex'
+import { mapState, mapGetters } from 'vuex'
 
 export default {
   data() {
@@ -105,7 +105,8 @@ export default {
   },
 
   computed: {
-    ...mapState(['userInfo'])
+    ...mapState(['userInfo']),
+    ...mapGetters(['isWarehouse'])
   },
 
   methods: {
@@ -129,7 +130,7 @@ export default {
         })
 
         if (res.code === 200) {
-          const newMessages = res.data.records || []
+          const newMessages = res.data.list
 
           if (isRefresh) {
             this.messages = newMessages
@@ -139,7 +140,7 @@ export default {
 
           this.unreadCount = res.data.unreadCount || 0
           this.totalCount = res.data.total || 0
-          this.hasMore = newMessages.length === this.pageSize
+          this.hasMore = res.data.hasMore
 
           // 更新 Vuex 中的未读数
           this.$store.commit('SET_UNREAD_COUNT', this.unreadCount)
@@ -188,36 +189,25 @@ export default {
       }
 
       // 跳转到相关页面
-      if (item.relatedData) {
+      if (item.relatedId) {
         this.navigateToRelated(item)
       }
     },
 
+    // 按关联业务跳转（relatedType：3-申请单 2-出库单）
     navigateToRelated(item) {
-      const { type, relatedData } = item
-
-      switch (type) {
-        case 1: // 申请审批
-          if (this.userInfo.roleCode === 'WAREHOUSE' || this.userInfo.roleCode === 'DEPT_ADMIN') {
-            uni.navigateTo({
-              url: `/pages/approval/detail?id=${relatedData.id}`
-            })
-          } else {
-            uni.navigateTo({
-              url: `/pages/apply/detail?id=${relatedData.id}`
-            })
-          }
-          break
-        case 2: // 出库通知
-          uni.navigateTo({
-            url: `/pages/outbound/pending?highlightId=${relatedData.id}`
-          })
-          break
-        case 3: // 系统通知
-          // 系统通知一般不跳转
-          break
-        default:
-          break
+      const { relatedType, relatedId } = item
+      if (relatedType === 3) {
+        // 仓管查看待审批申请进入审批详情，员工查看自己的申请详情
+        uni.navigateTo({
+          url: this.isWarehouse
+            ? `/pages/approval/detail?id=${relatedId}`
+            : `/pages/apply/detail?id=${relatedId}`
+        })
+      } else if (relatedType === 2 && this.isWarehouse) {
+        uni.navigateTo({
+          url: `/pages/outbound/detail?id=${relatedId}`
+        })
       }
     },
 
@@ -256,24 +246,29 @@ export default {
       })
     },
 
+    // 消息类型见后端 MessageType
     getTypeIcon(type) {
       const icons = {
-        1: '📋', // 申请审批
-        2: '📦', // 出库通知
-        3: '🔔', // 系统通知
-        4: '⚠️'  // 警告提醒
+        0: '🔔', // 系统消息
+        1: '📋', // 申请提交
+        2: '📋', // 申请提醒
+        3: '✅', // 申请通过
+        4: '❌', // 申请拒绝
+        5: '📦', // 待取货提醒
+        6: '📦', // 取货提醒
+        7: '⏰', // 超时通知
+        8: '⏰', // 超时取消
+        9: '⚠️' // 库存预警
       }
       return icons[type] || '💬'
     },
 
-    getRelatedLabel(type) {
+    getRelatedLabel(relatedType) {
       const labels = {
-        1: '申请单',
         2: '出库单',
-        3: '系统',
-        4: '提醒'
+        3: '申请单'
       }
-      return labels[type] || ''
+      return labels[relatedType] || ''
     },
 
     formatTime(timeStr) {

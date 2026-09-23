@@ -936,7 +936,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             WarehouseScope scope = dataScopeHelper.currentWarehouseScope();
             dashboardVO.setTodayData(buildTodayStats(scope));
             dashboardVO.setPendingTasks(buildPendingTasks(scope));
-            dashboardVO.setRecentOperations(new ArrayList<>());  // 暂时返回空列表
+            dashboardVO.setRecentOperations(buildRecentOperations(scope));
         } else {
             // 普通员工视图
             dashboardVO.setMyApplies(buildMyApplyStats(userId));
@@ -986,6 +986,42 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
 
         return messageItems;
+    }
+
+    /**
+     * 最近操作：本部门仓库最近5条入库/出库库存流水
+     */
+    private List<MiniProgramDashboardVO.OperationItem> buildRecentOperations(WarehouseScope scope) {
+        LambdaQueryWrapper<InventoryLog> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(InventoryLog::getChangeType, 1, 2);
+        scope.applyTo(wrapper, InventoryLog::getWarehouseId);
+        wrapper.orderByDesc(InventoryLog::getCreateTime);
+        wrapper.last("LIMIT 5");
+        List<InventoryLog> logs = inventoryLogMapper.selectList(wrapper);
+        if (logs.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Set<Long> materialIds = logs.stream().map(InventoryLog::getMaterialId).collect(Collectors.toSet());
+        Map<Long, Material> materials = materialMapper.selectBatchIds(materialIds).stream()
+                .collect(Collectors.toMap(Material::getId, m -> m));
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("MM-dd HH:mm");
+
+        List<MiniProgramDashboardVO.OperationItem> items = new ArrayList<>();
+        for (InventoryLog logItem : logs) {
+            Material material = materials.get(logItem.getMaterialId());
+            String materialName = material != null ? material.getMaterialName() : "物资";
+            String unit = material != null && material.getUnit() != null ? material.getUnit() : "";
+            BigDecimal change = logItem.getChangeQuantity() != null ? logItem.getChangeQuantity() : BigDecimal.ZERO;
+            String action = logItem.getChangeType() == 1 ? "入库" : "出库";
+
+            MiniProgramDashboardVO.OperationItem item = new MiniProgramDashboardVO.OperationItem();
+            item.setTime(logItem.getCreateTime() != null ? logItem.getCreateTime().format(timeFormatter) : "");
+            item.setTitle(String.format("%s %s %s%s", action, materialName,
+                    change.abs().stripTrailingZeros().toPlainString(), unit));
+            items.add(item);
+        }
+        return items;
     }
 
     private MiniProgramDashboardVO.TodayStats buildTodayStats(WarehouseScope scope) {

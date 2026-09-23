@@ -5,16 +5,23 @@ import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.ApplyDTO;
 import com.ct.wms.dto.ApprovalDTO;
 import com.ct.wms.dto.InventoryStatisticsDTO;
+import com.ct.wms.dto.OutboundDTO;
 import com.ct.wms.entity.Apply;
+import com.ct.wms.entity.ApplyDetail;
 import com.ct.wms.entity.Inventory;
+import com.ct.wms.entity.Outbound;
 import com.ct.wms.entity.Warehouse;
 import com.ct.wms.mapper.ApplyMapper;
 import com.ct.wms.service.ApplyService;
+import com.ct.wms.service.InboundService;
 import com.ct.wms.service.InventoryService;
+import com.ct.wms.service.OutboundService;
 import com.ct.wms.service.StatisticsService;
+import com.ct.wms.service.UserService;
 import com.ct.wms.service.WarehouseService;
 import com.ct.wms.util.TestDataBuilder;
 import com.ct.wms.vo.MiniProgramDashboardVO;
+import com.ct.wms.vo.UserOptionVO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,6 +35,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -67,6 +75,15 @@ class RoleAndDataScopeTest {
 
     @Autowired
     private StatisticsService statisticsService;
+
+    @Autowired
+    private InboundService inboundService;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private OutboundService outboundService;
 
     @AfterEach
     void tearDown() {
@@ -194,5 +211,191 @@ class RoleAndDataScopeTest {
         assertThat(ownDept.getWarningCount()).isZero();
         assertThat(all.getWarningCount()).isEqualTo(1);
         assertThat(ownDept.getTotalValue()).isLessThan(all.getTotalValue());
+    }
+
+    // ==================== 申请单：待审批、明细、访问控制 ====================
+
+    @Test
+    @DisplayName("部门管理员的待审批列表包含本部门申请，且带明细和当前库存")
+    void deptAdminPendingListIncludesDetailsAndStock() {
+        Long applyId = createApply("employee1", DEPT2_WAREHOUSE_ID, 1L);
+
+        loginAs("dept_admin");
+        List<Apply> pending = applyService.listPendingApplies(1, 20).getRecords();
+        Apply apply = pending.stream().filter(a -> a.getId().equals(applyId)).findFirst().orElseThrow();
+
+        assertThat(apply.getDetails()).hasSize(1);
+        ApplyDetail detail = apply.getDetails().get(0);
+        assertThat(detail.getMaterialName()).isEqualTo("Cable 12 Core");
+        assertThat(detail.getCurrentStock()).isEqualByComparingTo("500");
+        assertThat(detail.getIsStockSufficient()).isTrue();
+    }
+
+    @Test
+    @DisplayName("仓管的待审批列表只包含自己管理仓库的申请")
+    void warehouseManagerPendingListOnlyOwnWarehouses() {
+        Long ownApply = createApply("employee1", DEPT2_WAREHOUSE_ID, 1L);
+        Long otherApply = createApply("employee2", DEPT3_WAREHOUSE_ID, 7L);
+
+        loginAs("warehouse");
+        List<Long> ids = applyService.listPendingApplies(1, 20).getRecords().stream()
+                .map(Apply::getId).collect(Collectors.toList());
+
+        assertThat(ids).contains(ownApply).doesNotContain(otherApply);
+    }
+
+    @Test
+    @DisplayName("我的申请列表带有物资明细")
+    void myAppliesIncludeDetails() {
+        createApply("employee1", DEPT2_WAREHOUSE_ID, 1L);
+
+        List<Apply> mine = applyService.listMyApplies(1, 20, null).getRecords();
+        assertThat(mine).isNotEmpty();
+        assertThat(mine.get(0).getDetails()).extracting(ApplyDetail::getMaterialName).contains("Cable 12 Core");
+    }
+
+    @Test
+    @DisplayName("员工不能查看他人的申请单，本人可以查看")
+    void employeeCannotViewOthersApply() {
+        Long applyId = createApply("employee1", DEPT2_WAREHOUSE_ID, 1L);
+        assertThat(applyService.getApplyById(applyId).getDetails()).hasSize(1);
+
+        loginAs("employee2");
+        assertThatThrownBy(() -> applyService.getApplyById(applyId))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("入库、出库列表按部门隔离")
+    void inboundOutboundListsAreScopedByDept() {
+        loginAs("warehouse");
+        assertThatThrownBy(() -> inboundService.listInbounds(1, 20, DEPT3_WAREHOUSE_ID, null, null, null, null, null))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> outboundService.listOutbounds(1, 20, DEPT3_WAREHOUSE_ID,
+                null, null, null, null, null, null, null))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    // ==================== 直接出库领用人 ====================
+
+    private OutboundDTO directOutbound() {
+        OutboundDTO dto = new OutboundDTO();
+        dto.setWarehouseId(DEPT2_WAREHOUSE_ID);
+        dto.setOutboundType(1);
+        dto.setOutboundTime(LocalDateTime.now());
+        OutboundDTO.OutboundDetailDTO detail = new OutboundDTO.OutboundDetailDTO();
+        detail.setMaterialId(1L);
+        detail.setQuantity(BigDecimal.ONE);
+        detail.setUnitPrice(BigDecimal.TEN);
+        dto.setDetails(List.of(detail));
+        return dto;
+    }
+
+    @Test
+    @DisplayName("直接出库：外部领用人可只填姓名电话；两者都不填时给出明确提示")
+    void directOutboundReceiver() {
+        loginAs("warehouse");
+
+        OutboundDTO external = directOutbound();
+        external.setReceiverName("施工队 王师傅");
+        external.setReceiverPhone("13900000000");
+        external.setPurpose("拉萨小区光缆施工");
+        Outbound saved = outboundService.getOutboundById(outboundService.createOutboundDirect(external));
+        assertThat(saved.getReceiverName()).isEqualTo("施工队 王师傅");
+        assertThat(saved.getReceiverPhone()).isEqualTo("13900000000");
+        assertThat(saved.getPurpose()).isEqualTo("拉萨小区光缆施工");
+
+        OutboundDTO internal = directOutbound();
+        internal.setReceiverId(4L);
+        Outbound savedInternal = outboundService.getOutboundById(outboundService.createOutboundDirect(internal));
+        assertThat(savedInternal.getReceiverName()).isEqualTo("Emp Zhang");
+        assertThat(savedInternal.getReceiverPhone()).isEqualTo("13800000013");
+
+        // 未填单价时按物资标准单价计算金额（物资1 单价1500）
+        OutboundDTO noPrice = directOutbound();
+        noPrice.setReceiverId(4L);
+        noPrice.getDetails().get(0).setUnitPrice(null);
+        Outbound savedNoPrice = outboundService.getOutboundById(outboundService.createOutboundDirect(noPrice));
+        assertThat(savedNoPrice.getTotalAmount()).isEqualByComparingTo("1500");
+
+        assertThatThrownBy(() -> outboundService.createOutboundDirect(directOutbound()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("领用人");
+    }
+
+    @Test
+    @DisplayName("领用人选项按部门隔离")
+    void userOptionsAreScopedByDept() {
+        loginAs("warehouse");
+        List<String> names = userService.listUserOptions(null).stream()
+                .map(UserOptionVO::getRealName).collect(Collectors.toList());
+        assertThat(names).contains("Emp Zhang").doesNotContain("Emp Li");
+
+        loginAs("admin");
+        assertThat(userService.listUserOptions(null)).extracting(UserOptionVO::getRealName).contains("Emp Li");
+    }
+
+    // ==================== 审批意见与拒绝原因 ====================
+
+    @Test
+    @DisplayName("审批意见和拒绝原因会被保存；拒绝时必须填写原因")
+    void approvalOpinionAndRejectReasonArePersisted() {
+        Long approvedId = createApply("employee1", DEPT2_WAREHOUSE_ID, 1L);
+        Long rejectedId = createApply("employee1", DEPT2_WAREHOUSE_ID, 3L);
+
+        loginAs("warehouse");
+        ApprovalDTO approve = new ApprovalDTO();
+        approve.setApplyId(approvedId);
+        approve.setApprovalResult(1);
+        approve.setApprovalRemark("同意，请尽快领取");
+        applyService.approveApply(approve);
+
+        ApprovalDTO rejectWithoutReason = new ApprovalDTO();
+        rejectWithoutReason.setApplyId(rejectedId);
+        rejectWithoutReason.setApprovalResult(2);
+        assertThatThrownBy(() -> applyService.approveApply(rejectWithoutReason))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("拒绝原因");
+
+        ApprovalDTO reject = new ApprovalDTO();
+        reject.setApplyId(rejectedId);
+        reject.setApprovalResult(2);
+        reject.setApprovalRemark("本月配额已用完");
+        applyService.approveApply(reject);
+
+        assertThat(applyMapper.selectById(approvedId).getApprovalOpinion()).isEqualTo("同意，请尽快领取");
+        loginAs("employee1");
+        Apply approvedDetail = applyService.getApplyById(approvedId);
+        assertThat(approvedDetail.getOutboundNo()).startsWith("CK_");
+        assertThat(approvedDetail.getWarehouseName()).isEqualTo("Network Warehouse");
+
+        // 待领取的出库单还没有出库时间；确认领取后才记录
+        loginAs("warehouse");
+        Outbound pendingOutbound = outboundService.getOutboundById(approvedDetail.getOutboundId());
+        assertThat(pendingOutbound.getOutboundTime()).isNull();
+        assertThat(pendingOutbound.getReceiverPhone()).isEqualTo("13800000013");
+        assertThat(pendingOutbound.getPurpose()).isEqualTo("测试申请");
+        assertThat(pendingOutbound.getApplyNo()).startsWith("SQ_");
+        outboundService.confirmOutbound(pendingOutbound.getId());
+        assertThat(outboundService.getOutboundById(pendingOutbound.getId()).getOutboundTime()).isNotNull();
+        Apply rejected = applyMapper.selectById(rejectedId);
+        assertThat(rejected.getStatus()).isEqualTo(ApplyStatus.REJECTED);
+        assertThat(rejected.getRejectReason()).isEqualTo("本月配额已用完");
+    }
+
+    @Test
+    @DisplayName("库存按状态筛选与汇总")
+    void inventoryStatusFilterAndSummary() {
+        loginAs("admin");
+        // 仓库2 的物资9 库存10，低于最低库存15
+        List<Inventory> low = inventoryService.listInventories(1, 20, null, null, null, null, 1).getRecords();
+        assertThat(low).extracting(Inventory::getMaterialId).containsExactly(9L);
+
+        var summary = inventoryService.getInventorySummary(null, null, null);
+        assertThat(summary.getLowStockCount()).isEqualTo(1);
+        assertThat(summary.getTotalMaterials()).isEqualTo(13);
+
+        loginAs("employee1");
+        assertThat(inventoryService.getInventorySummary(null, null, null).getTotalMaterials()).isEqualTo(10);
     }
 }

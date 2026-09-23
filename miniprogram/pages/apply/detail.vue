@@ -47,14 +47,18 @@
           <view v-for="(item, index) in detail.details" :key="index" class="material-item">
             <view class="material-header">
               <text class="material-name">{{ item.materialName }}</text>
-              <text :class="['stock-badge', item.isStockSufficient ? 'success' : 'warning']">
+              <!-- 库存情况只对待审批的申请有意义（审批通过后库存已锁定） -->
+              <text
+                v-if="detail.status === 0"
+                :class="['stock-badge', item.isStockSufficient ? 'success' : 'warning']"
+              >
                 {{ item.isStockSufficient ? '库存充足' : '库存不足' }}
               </text>
             </view>
             <view class="material-info">
               <text class="material-spec">规格: {{ item.spec }}</text>
               <text class="material-quantity">数量: {{ item.quantity }} {{ item.unit }}</text>
-              <text class="material-stock">当前库存: {{ item.currentStock }} {{ item.unit }}</text>
+              <text v-if="detail.status === 0" class="material-stock">当前可用库存: {{ item.currentStock }} {{ item.unit }}</text>
             </view>
           </view>
         </view>
@@ -83,14 +87,18 @@
 
       <!-- 出库信息 -->
       <view v-if="detail.status === 1 || detail.status === 3" class="info-card">
-        <view class="card-title">出库信息</view>
+        <view class="card-title">领取信息</view>
+        <view class="info-row">
+          <text class="info-label">领取仓库</text>
+          <text class="info-value">{{ detail.warehouseName || '-' }}</text>
+        </view>
         <view class="info-row">
           <text class="info-label">出库单号</text>
           <text class="info-value">{{ detail.outboundNo || '-' }}</text>
         </view>
         <view class="info-row">
           <text class="info-label">出库状态</text>
-          <text class="info-value">{{ detail.status === 3 ? '已出库' : '待领取' }}</text>
+          <text class="info-value">{{ detail.status === 3 ? '已领取' : '待领取（请在7天内领取）' }}</text>
         </view>
         <view v-if="detail.status === 3" class="info-row">
           <text class="info-label">出库时间</text>
@@ -119,7 +127,8 @@
     <!-- 底部操作栏 -->
     <view v-if="showActions" class="action-bar safe-area-inset-bottom">
       <button v-if="detail.status === 0" class="action-btn" @click="handleCancel">撤销申请</button>
-      <button v-if="detail.status === 1" class="action-btn primary" @click="handlePickup">去领取</button>
+      <!-- 员工凭上方"领取信息"到仓库领取；仓管可直接去确认领取 -->
+      <button v-if="detail.status === 1 && isWarehouse" class="action-btn primary" @click="handlePickup">去确认领取</button>
       <button v-if="detail.status === 2" class="action-btn" @click="handleReapply">重新申请</button>
     </view>
   </view>
@@ -127,6 +136,7 @@
 
 <script>
 import api from '@/api'
+import { mapGetters } from 'vuex'
 
 export default {
   data() {
@@ -148,8 +158,10 @@ export default {
   },
 
   computed: {
+    ...mapGetters(['isWarehouse']),
     showActions() {
-      return [0, 1, 2].includes(this.detail.status)
+      // 待审批可撤销、已拒绝可重新申请；已通过时仅仓管有"去确认领取"
+      return [0, 2].includes(this.detail.status) || (this.detail.status === 1 && this.isWarehouse)
     }
   },
 

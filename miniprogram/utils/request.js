@@ -15,16 +15,39 @@ const BASE_URL = process.env.NODE_ENV === 'development' ? DEV_BASE_URL : PROD_BA
 let isReloginShow = false
 
 /**
+ * 是否为登录请求（登录失败返回的 401 不应当作"登录过期"处理）
+ */
+function isLoginRequest(url = '') {
+  return url.indexOf('/api/auth/login') === 0 || url.indexOf('/api/auth/wechat-login') === 0
+}
+
+/**
+ * 去掉值为 null / undefined / 空字符串 的参数
+ */
+function cleanParams(params = {}) {
+  const result = {}
+  Object.keys(params || {}).forEach(key => {
+    const value = params[key]
+    if (value !== null && value !== undefined && value !== '') {
+      result[key] = value
+    }
+  })
+  return result
+}
+
+/**
  * 通用请求函数
  */
 export function $uRequest(options = {}) {
   return new Promise((resolve, reject) => {
     const token = uni.getStorageSync('token')
+    const method = options.method || 'GET'
 
     uni.request({
       url: BASE_URL + options.url,
-      method: options.method || 'GET',
-      data: options.data || {},
+      method,
+      // GET 请求去掉值为 null/undefined 的参数，避免拼出 "status=null" 这类无效查询条件
+      data: method === 'GET' ? cleanParams(options.data) : (options.data || {}),
       header: {
         'Content-Type': 'application/json',
         'Authorization': token ? `Bearer ${token}` : '',
@@ -39,12 +62,19 @@ export function $uRequest(options = {}) {
           // 业务状态码处理
           if (data.code === 200 || data.code === 201) {
             resolve(data)
-          } else if (data.code === 401 || data.code === 1010) {
+          } else if ((data.code === 401 || data.code === 1010) && !isLoginRequest(options.url)) {
             handleUnauthorized()
             reject(data)
           } else {
             handleBusinessError(data, reject)
           }
+        } else if (res.statusCode === 401 && isLoginRequest(options.url)) {
+          // 登录接口返回 401 表示账号或密码错误，不是登录过期
+          uni.showToast({
+            title: (data && data.message) || '用户名或密码错误',
+            icon: 'none'
+          })
+          reject(data)
         } else if (res.statusCode === 401) {
           handleUnauthorized()
           reject(data)
@@ -76,6 +106,51 @@ export function $uRequest(options = {}) {
       }
     })
   })
+}
+
+/**
+ * 分页请求：把后端分页返回 { data: [...], total, pageNum, pageSize }
+ * 统一转换为 { data: { list, total, pageNum, pageSize, hasMore } }，页面只需读取 res.data.list
+ */
+export async function $uPageRequest(options = {}) {
+  const res = await $uRequest(options)
+  const list = Array.isArray(res.data) ? res.data : []
+  const pageNum = res.pageNum || (options.data && options.data.pageNum) || 1
+  const pageSize = res.pageSize || (options.data && options.data.pageSize) || list.length
+  const total = typeof res.total === 'number' ? res.total : list.length
+  return {
+    ...res,
+    data: {
+      list,
+      total,
+      pageNum,
+      pageSize,
+      hasMore: pageNum * pageSize < total
+    }
+  }
+}
+
+/** 后端分页接口允许的最大每页条数 */
+export const MAX_PAGE_SIZE = 100
+
+/**
+ * 拉取全部数据（用于下拉选择器）：按每页100条逐页请求直到取完
+ * 返回格式与 $uPageRequest 一致
+ */
+export async function $uFetchAll(options = {}) {
+  const all = []
+  let pageNum = 1
+  let res
+  while (true) {
+    res = await $uPageRequest({
+      ...options,
+      data: { ...(options.data || {}), pageNum, pageSize: MAX_PAGE_SIZE }
+    })
+    all.push(...res.data.list)
+    if (!res.data.hasMore) break
+    pageNum++
+  }
+  return { ...res, data: { list: all, total: all.length, pageNum: 1, pageSize: all.length, hasMore: false } }
 }
 
 /**
@@ -170,5 +245,7 @@ export function $uUpload(filePath, options = {}) {
 
 export default {
   $uRequest,
+  $uPageRequest,
+  $uFetchAll,
   $uUpload
 }

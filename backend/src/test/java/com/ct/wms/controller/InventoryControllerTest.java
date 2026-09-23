@@ -10,6 +10,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -72,11 +74,14 @@ public class InventoryControllerTest {
     }
 
     @Test
-    public void testListInventoriesEmployeeForbidden() throws Exception {
+    public void testListInventoriesEmployeeCanReadOwnDept() throws Exception {
+        // PRD：普通员工可只读查询库存（仅本部门仓库）
         if (employeeToken == null) return;
         mockMvc.perform(get("/api/inventories")
                         .header("Authorization", "Bearer " + employeeToken))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[*].warehouseId", everyItem(is(1))));
     }
 
     @Test

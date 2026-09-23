@@ -156,6 +156,7 @@
 
 <script>
 import api from '@/api'
+import { formatLocalDateTime } from '@/utils/date.js'
 import { mapState } from 'vuex'
 
 export default {
@@ -382,7 +383,8 @@ export default {
         const res = await api.inbound.create({
           warehouseId: this.form.warehouseId,
           inboundType: this.form.inboundType,
-          inboundTime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          // 本地时间（后端格式 yyyy-MM-dd HH:mm:ss）
+          inboundTime: formatLocalDateTime(),
           remark: this.form.remark.trim(),
           details: this.form.details.map(item => ({
             materialId: item.materialId,
@@ -391,7 +393,7 @@ export default {
           }))
         })
 
-        if (res.code === 201) {
+        if (res.code === 200) {
           uni.showToast({
             title: '入库成功',
             icon: 'success',

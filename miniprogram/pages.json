@@ -73,6 +73,12 @@
       }
     },
     {
+      "path": "pages/inbound/detail",
+      "style": {
+        "navigationBarTitleText": "入库单详情"
+      }
+    },
+    {
       "path": "pages/outbound/create",
       "style": {
         "navigationBarTitleText": "快速出库"
@@ -83,6 +89,12 @@
       "style": {
         "navigationBarTitleText": "出库记录",
         "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/outbound/detail",
+      "style": {
+        "navigationBarTitleText": "出库单详情"
       }
     },
     {
@@ -109,6 +121,12 @@
       "path": "pages/mine/settings",
       "style": {
         "navigationBarTitleText": "设置"
+      }
+    },
+    {
+      "path": "pages/mine/password",
+      "style": {
+        "navigationBarTitleText": "修改密码"
       }
     }
   ],

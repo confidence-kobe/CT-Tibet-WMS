@@ -32,6 +32,16 @@ public interface OutboundService {
                                   String endDate, Long operatorId, Long receiverId, String keyword);
 
     /**
+     * 分页查询出库单列表（支持按来源筛选）
+     *
+     * @param source 出库来源（可选）：1-直接出库 2-申请出库
+     */
+    Page<Outbound> listOutbounds(Integer pageNum, Integer pageSize, Long warehouseId,
+                                 Integer outboundType, Integer status, String startDate,
+                                 String endDate, Long operatorId, Long receiverId, String keyword,
+                                 Integer source);
+
+    /**
      * 根据ID获取出库单详情
      *
      * @param id 出库单ID

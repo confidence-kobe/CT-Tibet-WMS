@@ -6,6 +6,7 @@ import com.ct.wms.common.api.Result;
 import com.ct.wms.entity.Inventory;
 import com.ct.wms.entity.InventoryLog;
 import com.ct.wms.service.InventoryService;
+import com.ct.wms.vo.InventorySummaryVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,22 +36,35 @@ public class InventoryController {
     private final InventoryService inventoryService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
+    // 按 PRD，普通员工可只读查询库存；部门隔离由 Service 层保证
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE', 'USER')")
     @Operation(summary = "分页查询库存列表", description = "支持多条件筛选")
     public PageResult<Inventory> listInventories(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
             @Parameter(description = "物资ID") @RequestParam(required = false) Long materialId,
-            @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
+            @Parameter(description = "关键词") @RequestParam(required = false) String keyword,
+            @Parameter(description = "物资类别") @RequestParam(required = false) String category,
+            @Parameter(description = "库存状态：0-正常 1-低库存 2-缺货") @RequestParam(required = false) Integer stockStatus) {
 
-        log.info("查询库存列表: pageNum={}, pageSize={}, warehouseId={}, materialId={}",
-                pageNum, pageSize, warehouseId, materialId);
+        log.info("查询库存列表: pageNum={}, pageSize={}, warehouseId={}, materialId={}, category={}, stockStatus={}",
+                pageNum, pageSize, warehouseId, materialId, category, stockStatus);
 
         Page<Inventory> page = inventoryService.listInventories(pageNum, pageSize, warehouseId,
-                materialId, keyword);
+                materialId, keyword, category, stockStatus);
 
         return PageResult.of(page);
+    }
+
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE', 'USER')")
+    @Operation(summary = "库存汇总", description = "按库存状态（正常/低库存/缺货）统计条数，筛选条件与列表一致")
+    public Result<InventorySummaryVO> getInventorySummary(
+            @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
+            @Parameter(description = "关键词") @RequestParam(required = false) String keyword,
+            @Parameter(description = "物资类别") @RequestParam(required = false) String category) {
+        return Result.success(inventoryService.getInventorySummary(warehouseId, keyword, category));
     }
 
     @GetMapping("/logs")
@@ -88,7 +102,7 @@ public class InventoryController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE', 'USER')")
     @Operation(summary = "查询库存详情", description = "根据ID查询库存详细信息")
     public Result<Inventory> getInventoryById(
             @Parameter(description = "库存ID") @PathVariable Long id) {

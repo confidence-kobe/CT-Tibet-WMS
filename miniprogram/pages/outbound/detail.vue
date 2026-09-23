@@ -39,10 +39,6 @@
           <text class="info-value">{{ detail.receiverPhone }}</text>
         </view>
         <view class="info-row">
-          <text class="info-label">所属部门</text>
-          <text class="info-value">{{ detail.deptName }}</text>
-        </view>
-        <view class="info-row">
           <text class="info-label">仓库名称</text>
           <text class="info-value">{{ detail.warehouseName }}</text>
         </view>
@@ -71,12 +67,12 @@
           <view v-for="(item, index) in detail.details" :key="index" class="material-item">
             <view class="material-header">
               <text class="material-name">{{ item.materialName }}</text>
-              <text class="material-amount">¥{{ item.amount.toFixed(2) }}</text>
+              <text class="material-amount">¥{{ $formatMoney(item.amount) }}</text>
             </view>
             <view class="material-info">
               <text class="material-spec">规格: {{ item.spec }}</text>
               <text class="material-quantity">数量: {{ item.quantity }} {{ item.unit }}</text>
-              <text class="material-price">单价: ¥{{ item.unitPrice.toFixed(2) }}</text>
+              <text class="material-price">单价: ¥{{ $formatMoney(item.unitPrice) }}</text>
             </view>
           </view>
         </view>
@@ -89,7 +85,7 @@
           </view>
           <view class="summary-row">
             <text class="summary-label">总金额</text>
-            <text class="summary-value primary">¥{{ detail.totalAmount.toFixed(2) }}</text>
+            <text class="summary-value primary">¥{{ $formatMoney(detail.totalAmount) }}</text>
           </view>
         </view>
       </view>
@@ -133,13 +129,14 @@
     <view v-if="showActions" class="action-bar safe-area-inset-bottom">
       <button v-if="detail.status === 0" class="action-btn" @click="handleCancel">取消</button>
       <button v-if="detail.status === 0" class="action-btn primary" @click="handleConfirm">确认出库</button>
-      <button v-if="detail.status === 1" class="action-btn" @click="handlePrint">打印单据</button>
     </view>
   </view>
 </template>
 
 <script>
 import { $uRequest } from '@/utils/request.js'
+import api from '@/api'
+import { getWaitDays } from '@/utils/constant.js'
 import { mapState, mapGetters } from 'vuex'
 
 export default {
@@ -165,7 +162,8 @@ export default {
     ...mapGetters(['isWarehouse']),
 
     showActions() {
-      return this.isWarehouse || this.userInfo.roleCode === 'DEPT_ADMIN'
+      // isWarehouse 已包含系统管理员、部门管理员、仓库管理员
+      return this.isWarehouse
     }
   },
 
@@ -182,7 +180,7 @@ export default {
         })
 
         if (res.code === 200) {
-          this.detail = res.data
+          this.detail = { ...res.data, waitDays: getWaitDays(res.data) }
 
           // 设置标题
           uni.setNavigationBarTitle({
@@ -228,13 +226,8 @@ export default {
                 title: '处理中...'
               })
 
-              const result = await $uRequest({
-                url: `/api/outbounds/${this.id}/confirm`,
-                method: 'PUT',
-                data: {
-                  confirmTime: new Date().toISOString()
-                }
-              })
+              // 后端为 POST 接口；领取时间由服务端记录
+              const result = await api.outbound.confirmPickup(this.id)
 
               uni.hideLoading()
 
@@ -269,13 +262,7 @@ export default {
                 title: '处理中...'
               })
 
-              const result = await $uRequest({
-                url: `/api/outbounds/${this.id}/cancel`,
-                method: 'PUT',
-                data: {
-                  cancelReason: '管理员取消'
-                }
-              })
+              const result = await api.outbound.cancel(this.id, '管理员取消')
 
               uni.hideLoading()
 
@@ -296,13 +283,6 @@ export default {
             }
           }
         }
-      })
-    },
-
-    handlePrint() {
-      uni.showToast({
-        title: '打印功能开发中',
-        icon: 'none'
       })
     }
   },

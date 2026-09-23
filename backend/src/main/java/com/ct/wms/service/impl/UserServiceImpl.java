@@ -13,8 +13,10 @@ import com.ct.wms.entity.User;
 import com.ct.wms.mapper.DeptMapper;
 import com.ct.wms.mapper.RoleMapper;
 import com.ct.wms.mapper.UserMapper;
+import com.ct.wms.security.DataScopeHelper;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.UserService;
+import com.ct.wms.vo.UserOptionVO;
 import com.ct.wms.vo.UserProfileVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 用户Service实现类
@@ -42,6 +47,7 @@ public class UserServiceImpl implements UserService {
     private final DeptMapper deptMapper;
     private final RoleMapper roleMapper;
     private final PasswordEncoder passwordEncoder;
+    private final DataScopeHelper dataScopeHelper;
 
     @Override
     public Page<User> listUsers(Integer pageNum, Integer pageSize, Long deptId,
@@ -363,5 +369,33 @@ public class UserServiceImpl implements UserService {
             user.setRoleName(role.getRoleName());
             user.setRoleCode(role.getRoleCode());
         }
+    }
+
+    @Override
+    public List<UserOptionVO> listUserOptions(String keyword) {
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getStatus, UserStatus.ENABLED);
+        // 部门数据隔离：系统管理员可选全部用户，其他角色只能选本部门用户
+        if (!dataScopeHelper.isAdmin()) {
+            wrapper.eq(User::getDeptId, dataScopeHelper.getCurrentUser().getDeptId());
+        }
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like(User::getRealName, keyword).or().like(User::getPhone, keyword));
+        }
+        wrapper.orderByAsc(User::getRealName);
+        wrapper.last("LIMIT 500");
+
+        List<User> users = userMapper.selectList(wrapper);
+        Map<Long, String> deptNames = deptMapper.selectList(null).stream()
+                .collect(Collectors.toMap(Dept::getId, Dept::getDeptName, (a, b) -> a));
+
+        return users.stream()
+                .map(user -> UserOptionVO.builder()
+                        .id(user.getId())
+                        .realName(user.getRealName())
+                        .phone(user.getPhone())
+                        .deptName(deptNames.get(user.getDeptId()))
+                        .build())
+                .collect(Collectors.toList());
     }
 }

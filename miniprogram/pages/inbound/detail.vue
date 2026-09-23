@@ -46,12 +46,12 @@
           <view v-for="(item, index) in detail.details" :key="index" class="material-item">
             <view class="material-header">
               <text class="material-name">{{ item.materialName }}</text>
-              <text class="material-amount">¥{{ item.amount.toFixed(2) }}</text>
+              <text class="material-amount">¥{{ $formatMoney(item.amount) }}</text>
             </view>
             <view class="material-info">
               <text class="material-spec">规格: {{ item.spec }}</text>
               <text class="material-quantity">数量: {{ item.quantity }} {{ item.unit }}</text>
-              <text class="material-price">单价: ¥{{ item.unitPrice.toFixed(2) }}</text>
+              <text class="material-price">单价: ¥{{ $formatMoney(item.unitPrice) }}</text>
             </view>
           </view>
         </view>
@@ -64,7 +64,7 @@
           </view>
           <view class="summary-row">
             <text class="summary-label">总金额</text>
-            <text class="summary-value primary">¥{{ detail.totalAmount.toFixed(2) }}</text>
+            <text class="summary-value primary">¥{{ $formatMoney(detail.totalAmount) }}</text>
           </view>
         </view>
       </view>
@@ -87,11 +87,6 @@
       <view class="safe-area-inset-bottom"></view>
     </scroll-view>
 
-    <!-- 底部操作栏 -->
-    <view v-if="showActions" class="action-bar safe-area-inset-bottom">
-      <button v-if="detail.status === 1" class="action-btn" @click="handlePrint">打印单据</button>
-      <button v-if="detail.status === 1 && canCancel" class="action-btn danger" @click="handleCancel">作废</button>
-    </view>
   </view>
 </template>
 
@@ -123,19 +118,7 @@ export default {
 
   computed: {
     ...mapState(['userInfo']),
-    ...mapGetters(['isWarehouse']),
-
-    showActions() {
-      return this.isWarehouse || this.userInfo.roleCode === 'DEPT_ADMIN'
-    },
-
-    canCancel() {
-      // 只有当天的入库单可以作废
-      if (!this.detail.inboundTime) return false
-      const inboundDate = new Date(this.detail.inboundTime).toDateString()
-      const today = new Date().toDateString()
-      return inboundDate === today
-    }
+    ...mapGetters(['isWarehouse'])
   },
 
   methods: {
@@ -151,7 +134,8 @@ export default {
         })
 
         if (res.code === 200) {
-          this.detail = res.data
+          // 入库单创建即完成入库（库存已增加），后端没有状态字段
+          this.detail = { ...res.data, status: 1 }
 
           // 设置标题
           uni.setNavigationBarTitle({
@@ -180,47 +164,6 @@ export default {
     getTypeLabel(type) {
       const typeItem = this.inboundTypes.find(t => t.value === type)
       return typeItem ? typeItem.label : '未知'
-    },
-
-    handlePrint() {
-      uni.showToast({
-        title: '打印功能开发中',
-        icon: 'none'
-      })
-    },
-
-    handleCancel() {
-      uni.showModal({
-        title: '提示',
-        content: '确定要作废该入库单吗？作废后库存将相应减少。',
-        success: async (res) => {
-          if (res.confirm) {
-            try {
-              const result = await $uRequest({
-                url: `/api/inbounds/${this.id}/cancel`,
-                method: 'PUT',
-                data: {
-                  cancelReason: '用户作废'
-                }
-              })
-
-              if (result.code === 200) {
-                uni.showToast({
-                  title: '作废成功',
-                  icon: 'success',
-                  duration: 2000
-                })
-
-                setTimeout(() => {
-                  uni.navigateBack()
-                }, 2000)
-              }
-            } catch (err) {
-              console.error('作废失败', err)
-            }
-          }
-        }
-      })
     }
   },
 

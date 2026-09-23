@@ -1,7 +1,7 @@
 /**
  * 用户管理相关API
  */
-import { $uRequest } from '@/utils/request.js'
+import { $uRequest, $uPageRequest } from '@/utils/request.js'
 
 /**
  * 获取个人信息
@@ -58,7 +58,7 @@ export function changePassword(data) {
  * @returns {Promise} 返回用户列表
  */
 export function getUserList(params) {
-  return $uRequest({
+  return $uPageRequest({
     url: '/api/users',
     method: 'GET',
     data: params

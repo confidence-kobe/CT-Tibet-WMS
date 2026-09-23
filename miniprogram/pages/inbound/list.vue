@@ -42,20 +42,6 @@
             <text class="picker-arrow">▼</text>
           </view>
         </picker>
-
-        <picker
-          :range="statusOptions"
-          range-key="label"
-          :value="selectedStatusIndex"
-          @change="onStatusChange"
-          class="status-picker"
-        >
-          <view class="picker-content">
-            <text class="picker-label">状态</text>
-            <text class="picker-value">{{ statusOptions[selectedStatusIndex].label }}</text>
-            <text class="picker-arrow">▼</text>
-          </view>
-        </picker>
       </view>
 
       <view class="filter-actions">
@@ -88,8 +74,9 @@
           <!-- 头部 -->
           <view class="item-header">
             <text class="inbound-no">{{ item.inboundNo }}</text>
-            <view :class="['status-badge', `status-${item.status}`]">
-              <text>{{ statusMap[item.status] }}</text>
+            <!-- 入库单创建即完成入库，没有其他状态 -->
+            <view class="status-badge status-1">
+              <text>已入库</text>
             </view>
           </view>
 
@@ -115,9 +102,9 @@
 
           <!-- 统计 -->
           <view class="item-summary">
-            <text class="summary-text">共 {{ item.materialCount }} 种物资</text>
+            <text class="summary-text">共 {{ (item.details || []).length }} 种物资</text>
             <text class="summary-divider">|</text>
-            <text class="summary-text">总金额 ¥{{ item.totalAmount.toFixed(2) }}</text>
+            <text class="summary-text">总金额 ¥{{ Number(item.totalAmount || 0).toFixed(2) }}</text>
           </view>
 
           <!-- 备注 -->
@@ -153,8 +140,7 @@ export default {
       filters: {
         startDate: '',
         endDate: '',
-        inboundType: null,
-        status: null
+        inboundType: null
       },
       inboundTypes: [
         { label: '全部类型', value: null },
@@ -163,17 +149,7 @@ export default {
         { label: '调拨入库', value: 3 },
         { label: '其他', value: 4 }
       ],
-      statusOptions: [
-        { label: '全部状态', value: null },
-        { label: '已完成', value: 1 },
-        { label: '已取消', value: 2 }
-      ],
-      statusMap: {
-        1: '已完成',
-        2: '已取消'
-      },
       selectedTypeIndex: 0,
-      selectedStatusIndex: 0,
       inbounds: [],
       page: 1,
       pageSize: 20,
@@ -188,7 +164,8 @@ export default {
     ...mapGetters(['isWarehouse']),
 
     canCreateInbound() {
-      return this.isWarehouse || this.userInfo.roleCode === 'DEPT_ADMIN'
+      // isWarehouse 已包含系统管理员、部门管理员、仓库管理员
+      return this.isWarehouse
     }
   },
 
@@ -197,25 +174,24 @@ export default {
       if (this.loading && !isRefresh) return
 
       if (isRefresh) {
+        // 不先清空列表：第1页返回后整体替换，避免闪现空状态
         this.page = 1
         this.hasMore = true
-        this.inbounds = []
       }
 
       this.loading = true
 
       try {
         const res = await api.inbound.getList({
-          page: this.page,
+          pageNum: this.page,
           pageSize: this.pageSize,
           startDate: this.filters.startDate || undefined,
           endDate: this.filters.endDate || undefined,
-          inboundType: this.filters.inboundType,
-          status: this.filters.status
+          inboundType: this.filters.inboundType
         })
 
         if (res.code === 200) {
-          const newInbounds = res.data.records || []
+          const newInbounds = res.data.list
 
           if (isRefresh) {
             this.inbounds = newInbounds
@@ -223,7 +199,7 @@ export default {
             this.inbounds = [...this.inbounds, ...newInbounds]
           }
 
-          this.hasMore = newInbounds.length === this.pageSize
+          this.hasMore = res.data.hasMore
         }
       } catch (err) {
         console.error('加载入库列表失败', err)
@@ -250,20 +226,13 @@ export default {
       this.filters.inboundType = this.inboundTypes[e.detail.value].value
     },
 
-    onStatusChange(e) {
-      this.selectedStatusIndex = e.detail.value
-      this.filters.status = this.statusOptions[e.detail.value].value
-    },
-
     resetFilters() {
       this.filters = {
         startDate: '',
         endDate: '',
-        inboundType: null,
-        status: null
+        inboundType: null
       }
       this.selectedTypeIndex = 0
-      this.selectedStatusIndex = 0
       this.handleSearch()
     },
 
@@ -300,7 +269,8 @@ export default {
     }
   },
 
-  onLoad() {
+  // 每次显示都刷新（包括首次进入、新建入库后返回）
+  onShow() {
     this.loadData(true)
   }
 }
