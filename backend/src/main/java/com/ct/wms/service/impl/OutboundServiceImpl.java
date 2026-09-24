@@ -10,7 +10,9 @@ import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.OutboundDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
+import com.ct.wms.security.DataScopeHelper;
 import com.ct.wms.security.UserDetailsImpl;
+import com.ct.wms.service.NotificationService;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
 import com.ct.wms.utils.IdGenerator;
@@ -24,9 +26,15 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 出库Service实现类
@@ -49,18 +57,28 @@ public class OutboundServiceImpl implements OutboundService {
     private final ApplyDetailMapper applyDetailMapper;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
+    private final DataScopeHelper dataScopeHelper;
+    private final NotificationService notificationService;
 
     @Override
     public Page<Outbound> listOutbounds(Integer pageNum, Integer pageSize, Long warehouseId,
                                         Integer outboundType, Integer status, String startDate,
                                         String endDate, Long operatorId, Long receiverId, String keyword) {
+        return listOutbounds(pageNum, pageSize, warehouseId, outboundType, status, startDate,
+                endDate, operatorId, receiverId, keyword, null);
+    }
+
+    @Override
+    public Page<Outbound> listOutbounds(Integer pageNum, Integer pageSize, Long warehouseId,
+                                        Integer outboundType, Integer status, String startDate,
+                                        String endDate, Long operatorId, Long receiverId, String keyword,
+                                        Integer source) {
         Page<Outbound> page = new Page<>(pageNum, pageSize);
 
         LambdaQueryWrapper<Outbound> wrapper = new LambdaQueryWrapper<>();
 
-        if (warehouseId != null) {
-            wrapper.eq(Outbound::getWarehouseId, warehouseId);
-        }
+        // 部门数据隔离：系统管理员查看全部，其他角色只能查看本部门仓库
+        dataScopeHelper.resolveWarehouseScope(warehouseId).applyTo(wrapper, Outbound::getWarehouseId);
 
         if (outboundType != null) {
             wrapper.eq(Outbound::getOutboundType, outboundType);
@@ -68,6 +86,10 @@ public class OutboundServiceImpl implements OutboundService {
 
         if (status != null) {
             wrapper.eq(Outbound::getStatus, status);
+        }
+
+        if (source != null) {
+            wrapper.eq(Outbound::getSource, source);
         }
 
         if (StringUtils.hasText(startDate)) {
@@ -97,6 +119,7 @@ public class OutboundServiceImpl implements OutboundService {
         // 填充关联数据（防御性检查，避免空指针）
         if (result != null && result.getRecords() != null && !result.getRecords().isEmpty()) {
             result.getRecords().forEach(this::fillOutboundInfo);
+            fillOutboundDetailsBatch(result.getRecords());
         }
 
         return result;
@@ -109,26 +132,12 @@ public class OutboundServiceImpl implements OutboundService {
             throw new BusinessException(404, "出库单不存在");
         }
 
-        // 填充关联数据
+        // 部门数据隔离：只能查看本部门仓库的单据
+        dataScopeHelper.checkWarehouseAccess(outbound.getWarehouseId());
+
+        // 填充关联数据和明细
         fillOutboundInfo(outbound);
-
-        // 查询明细
-        LambdaQueryWrapper<OutboundDetail> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(OutboundDetail::getOutboundId, id);
-        List<OutboundDetail> details = outboundDetailMapper.selectList(wrapper);
-
-        // 填充明细物资信息
-        details.forEach(detail -> {
-            Material material = materialMapper.selectById(detail.getMaterialId());
-            if (material != null) {
-                detail.setMaterialName(material.getMaterialName());
-                detail.setMaterialCode(material.getMaterialCode());
-                detail.setSpec(material.getSpec());
-                detail.setUnit(material.getUnit());
-            }
-        });
-
-        outbound.setDetails(details);
+        fillOutboundDetailsBatch(Collections.singletonList(outbound));
 
         return outbound;
     }
@@ -181,13 +190,18 @@ public class OutboundServiceImpl implements OutboundService {
         // 生成出库单号: CK_部门编码_YYYYMMDD_流水号
         String outboundNo = generateOutboundNo(dept.getDeptCode());
 
+        // 未填写单价时使用物资标准单价，避免出库金额记为0
+        for (OutboundDTO.OutboundDetailDTO detail : dto.getDetails()) {
+            if (detail.getUnitPrice() == null) {
+                Material material = materialMapper.selectById(detail.getMaterialId());
+                detail.setUnitPrice(material != null && material.getPrice() != null
+                        ? material.getPrice() : BigDecimal.ZERO);
+            }
+        }
+
         // 计算总金额
         BigDecimal totalAmount = dto.getDetails().stream()
-                .map(detail -> {
-                    BigDecimal unitPrice = detail.getUnitPrice() != null ?
-                            detail.getUnitPrice() : BigDecimal.ZERO;
-                    return unitPrice.multiply(detail.getQuantity());
-                })
+                .map(detail -> detail.getUnitPrice().multiply(detail.getQuantity()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // 创建出库单
@@ -208,12 +222,24 @@ public class OutboundServiceImpl implements OutboundService {
         outbound.setOperatorId(operatorId);
         outbound.setOperatorName(operator != null ? operator.getRealName() : null);
 
-        // 获取领用人信息
+        // 领用人：优先使用系统用户；不是系统用户时（如外部施工人员）使用填写的姓名和电话
+        // 注意：生产库 receiver_name 为 NOT NULL，必须保证有值
         if (dto.getReceiverId() != null) {
             User receiver = userMapper.selectById(dto.getReceiverId());
-            outbound.setReceiverId(dto.getReceiverId());
-            outbound.setReceiverName(receiver != null ? receiver.getRealName() : null);
+            if (receiver == null) {
+                throw new BusinessException(400, "领用人不存在");
+            }
+            outbound.setReceiverId(receiver.getId());
+            outbound.setReceiverName(receiver.getRealName());
+            outbound.setReceiverPhone(StringUtils.hasText(dto.getReceiverPhone())
+                    ? dto.getReceiverPhone() : receiver.getPhone());
+        } else if (StringUtils.hasText(dto.getReceiverName())) {
+            outbound.setReceiverName(dto.getReceiverName().trim());
+            outbound.setReceiverPhone(dto.getReceiverPhone());
+        } else {
+            throw new BusinessException(400, "请选择或填写领用人");
         }
+        outbound.setPurpose(dto.getPurpose());
 
         outbound.setOutboundTime(dto.getOutboundTime());
         outbound.setTotalAmount(totalAmount);
@@ -323,11 +349,15 @@ public class OutboundServiceImpl implements OutboundService {
         if (receiverId != null) {
             User receiver = userMapper.selectById(receiverId);
             outbound.setReceiverId(receiverId);
-            outbound.setReceiverName(receiver != null ? receiver.getRealName() : null);
+            outbound.setReceiverName(receiver != null ? receiver.getRealName() : apply.getApplicantName());
+            outbound.setReceiverPhone(receiver != null ? receiver.getPhone() : apply.getApplicantPhone());
         }
 
         outbound.setApplyId(applyId);
-        outbound.setOutboundTime(apply.getApplyTime());
+        outbound.setPurpose(apply.getPurpose());
+        // outbound_time 表示实际出库（确认领取）时间：待领取时为空，确认领取时再写入，
+        // 否则统计会把尚未领取、甚至之后被取消的出库单算作已出库
+        outbound.setOutboundTime(null);
         outbound.setTotalAmount(totalAmount);
         outbound.setRemark("来自申请单: " + apply.getApplyNo());
 
@@ -396,8 +426,9 @@ public class OutboundServiceImpl implements OutboundService {
             log.info("确认出库，锁定转扣减: materialId={}, quantity={}", detail.getMaterialId(), detail.getQuantity());
         }
 
-        // 更新出库单状态
+        // 更新出库单状态，记录实际出库（领取）时间
         outbound.setStatus(OutboundStatus.COMPLETED);
+        outbound.setOutboundTime(LocalDateTime.now());
         outboundMapper.updateById(outbound);
 
         // 更新申请单状态为已完成
@@ -410,6 +441,9 @@ public class OutboundServiceImpl implements OutboundService {
         }
 
         log.info("确认出库完成: outboundNo={}", outbound.getOutboundNo());
+
+        // 通知领用人（事务提交后发送）
+        notificationService.notifyOutboundCompleted(outbound);
     }
 
     @Override
@@ -455,12 +489,59 @@ public class OutboundServiceImpl implements OutboundService {
         }
 
         log.info("取消出库单: outboundNo={}, reason={}", outbound.getOutboundNo(), reason);
+
+        // 通知领用人（仓管取消或超时自动取消，事务提交后发送）
+        notificationService.notifyOutboundCancelled(outbound, reason);
+    }
+
+    /**
+     * 批量填充单据明细及物资信息（列表页用于展示"XX等N项"）
+     */
+    private void fillOutboundDetailsBatch(List<Outbound> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        List<Long> ids = records.stream().map(Outbound::getId).collect(Collectors.toList());
+        Map<Long, List<OutboundDetail>> detailsById = outboundDetailMapper.selectList(
+                        new LambdaQueryWrapper<OutboundDetail>().in(OutboundDetail::getOutboundId, ids))
+                .stream()
+                .collect(Collectors.groupingBy(OutboundDetail::getOutboundId));
+
+        Set<Long> materialIds = detailsById.values().stream()
+                .flatMap(List::stream)
+                .map(OutboundDetail::getMaterialId)
+                .collect(Collectors.toSet());
+        Map<Long, Material> materialMap = materialIds.isEmpty() ? Map.of()
+                : materialMapper.selectBatchIds(materialIds).stream()
+                        .collect(Collectors.toMap(Material::getId, Function.identity()));
+
+        for (Outbound record : records) {
+            List<OutboundDetail> details = detailsById.getOrDefault(record.getId(), Collections.emptyList());
+            for (OutboundDetail detail : details) {
+                Material material = materialMap.get(detail.getMaterialId());
+                if (material != null) {
+                    detail.setMaterialName(material.getMaterialName());
+                    detail.setMaterialCode(material.getMaterialCode());
+                    detail.setSpec(material.getSpec());
+                    detail.setUnit(material.getUnit());
+                }
+            }
+            record.setDetails(details);
+        }
     }
 
     /**
      * 填充出库单关联信息
      */
     private void fillOutboundInfo(Outbound outbound) {
+        // 来自申请的出库单：填充申请单号
+        if (outbound.getApplyId() != null) {
+            Apply apply = applyMapper.selectById(outbound.getApplyId());
+            if (apply != null) {
+                outbound.setApplyNo(apply.getApplyNo());
+            }
+        }
+
         // 填充仓库名称
         Warehouse warehouse = warehouseMapper.selectById(outbound.getWarehouseId());
         if (warehouse != null) {

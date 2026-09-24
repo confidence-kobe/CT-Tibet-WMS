@@ -20,11 +20,12 @@
             @clear="handleQuery"
             style="width: 160px"
           >
-            <el-option label="系统通知" value="SYSTEM" />
-            <el-option label="审批通知" value="APPROVAL" />
-            <el-option label="入库通知" value="INBOUND" />
-            <el-option label="出库通知" value="OUTBOUND" />
-            <el-option label="库存预警" value="WARNING" />
+            <el-option
+              v-for="(item, code) in messageTypeMap"
+              :key="code"
+              :label="item.text"
+              :value="Number(code)"
+            />
           </el-select>
         </el-form-item>
 
@@ -36,8 +37,8 @@
             @clear="handleQuery"
             style="width: 140px"
           >
-            <el-option label="未读" :value="false" />
-            <el-option label="已读" :value="true" />
+            <el-option label="未读" :value="0" />
+            <el-option label="已读" :value="1" />
           </el-select>
         </el-form-item>
 
@@ -177,6 +178,9 @@
 
       <template #footer>
         <el-button @click="dialogVisible = false">关闭</el-button>
+        <el-button v-if="relatedLink(currentMessage)" type="primary" plain @click="goRelated(currentMessage)">
+          {{ relatedLink(currentMessage).label }}
+        </el-button>
         <el-button
           v-if="currentMessage && !currentMessage.isRead"
           type="primary"
@@ -191,8 +195,13 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listMessages, markAsRead, markAllAsRead, deleteMessage } from '@/api/message'
+import { listMessages, markAsRead, markAllAsRead, deleteMessage, notifyUnreadChanged } from '@/api/message'
+import { useUserStore } from '@/store'
+
+const router = useRouter()
+const userStore = useUserStore()
 
 // 查询表单
 const queryForm = reactive({
@@ -222,21 +231,61 @@ const loading = ref(false)
 const dialogVisible = ref(false)
 const currentMessage = ref(null)
 
-// 消息类型映射
+// 消息类型映射（与后端 MessageType 枚举编码一致）
 const messageTypeMap = {
-  SYSTEM: { text: '系统通知', tag: 'info' },
-  APPROVAL: { text: '审批通知', tag: 'warning' },
-  INBOUND: { text: '入库通知', tag: 'success' },
-  OUTBOUND: { text: '出库通知', tag: 'primary' },
-  WARNING: { text: '库存预警', tag: 'danger' }
+  1: { text: '待审批', tag: 'warning' },
+  2: { text: '审批提醒', tag: 'warning' },
+  3: { text: '申请通过', tag: 'success' },
+  4: { text: '申请未通过', tag: 'danger' },
+  5: { text: '待领取', tag: 'primary' },
+  6: { text: '领取提醒', tag: 'primary' },
+  7: { text: '超时通知', tag: 'info' },
+  8: { text: '取消通知', tag: 'info' },
+  9: { text: '库存预警', tag: 'danger' },
+  0: { text: '系统通知', tag: 'info' }
 }
 
 const getMessageTypeText = (type) => {
-  return messageTypeMap[type]?.text || type
+  return messageTypeMap[type]?.text || '通知'
 }
 
 const getMessageTypeTag = (type) => {
   return messageTypeMap[type]?.tag || 'info'
+}
+
+/** 关联业务类型：2-出库单 3-申请单 */
+const RELATED_OUTBOUND = 2
+const RELATED_APPLY = 3
+const STOCK_ALERT = 9
+
+// 消息对应的业务页面（员工看自己的申请，审批人看审批详情）
+const isRole = (...codes) => codes.some(code => (userStore.roles || []).includes(code))
+
+const relatedLink = (message) => {
+  if (!message) return null
+  if (message.type === STOCK_ALERT && isRole('admin', 'dept_admin', 'warehouse')) {
+    return { label: '查看库存预警', path: '/inventory/warning' }
+  }
+  if (!message.relatedId) return null
+  if (message.relatedType === RELATED_APPLY) {
+    if (isRole('user')) {
+      return { label: '查看申请', path: `/apply/detail/${message.relatedId}` }
+    }
+    if (isRole('warehouse', 'dept_admin')) {
+      return { label: '查看申请', path: `/approval/detail/${message.relatedId}` }
+    }
+  }
+  if (message.relatedType === RELATED_OUTBOUND && isRole('admin', 'dept_admin', 'warehouse')) {
+    return { label: '查看出库单', path: `/outbound/detail/${message.relatedId}` }
+  }
+  return null
+}
+
+const goRelated = (message) => {
+  const link = relatedLink(message)
+  if (!link) return
+  dialogVisible.value = false
+  router.push(link.path)
 }
 
 // 查询数据
@@ -251,14 +300,15 @@ const handleQuery = async () => {
     }
 
     const res = await listMessages(params)
-    tableData.value = res.data || []
-    pagination.total = res.total || 0
+    const data = res.data || {}
+    tableData.value = data.list || []
+    pagination.total = Number(data.total) || 0
 
     // 更新统计数据
-    if (res.data.stats) {
-      statistics.total = res.data.stats.total || 0
-      statistics.unread = res.data.stats.unread || 0
-      statistics.read = res.data.stats.read || 0
+    if (data.stats) {
+      statistics.total = data.stats.total || 0
+      statistics.unread = data.stats.unread || 0
+      statistics.read = data.stats.read || 0
     }
   } catch (error) {
     console.error('查询失败:', error)
@@ -284,9 +334,10 @@ const handleRowClick = (row) => {
   // 如果是未读消息，自动标记为已读
   if (!row.isRead) {
     markAsRead(row.id).then(() => {
-      row.isRead = true
+      row.isRead = 1
       statistics.unread = Math.max(0, statistics.unread - 1)
       statistics.read += 1
+      notifyUnreadChanged()
     }).catch(error => {
       console.error('标记已读失败:', error)
     })
@@ -297,9 +348,10 @@ const handleRowClick = (row) => {
 const handleMarkRead = async (row) => {
   try {
     await markAsRead(row.id)
-    row.isRead = true
+    row.isRead = 1
     statistics.unread = Math.max(0, statistics.unread - 1)
     statistics.read += 1
+    notifyUnreadChanged()
     ElMessage.success('已标记为已读')
   } catch (error) {
     console.error('标记已读失败:', error)
@@ -330,6 +382,7 @@ const handleMarkAllRead = async () => {
 
     await markAllAsRead()
     ElMessage.success('已全部标记为已读')
+    notifyUnreadChanged()
     handleQuery()
   } catch (error) {
     if (error !== 'cancel') {
@@ -354,6 +407,7 @@ const handleDelete = async (row) => {
 
     await deleteMessage(row.id)
     ElMessage.success('删除成功')
+    notifyUnreadChanged()
     handleQuery()
   } catch (error) {
     if (error !== 'cancel') {

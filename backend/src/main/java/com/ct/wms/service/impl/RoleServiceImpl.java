@@ -2,6 +2,7 @@ package com.ct.wms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ct.wms.common.constant.RoleCode;
 import com.ct.wms.common.enums.UserStatus;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.RoleDTO;
@@ -78,7 +79,7 @@ public class RoleServiceImpl implements RoleService {
         // 创建角色
         Role role = new Role();
         role.setRoleName(dto.getRoleName());
-        role.setRoleCode(dto.getRoleCode().toUpperCase());
+        role.setRoleCode(RoleCode.normalize(dto.getRoleCode()));
         role.setRoleLevel(dto.getRoleLevel());
         role.setStatus(UserStatus.ENABLED.getValue());
         role.setRemark(dto.getRemark());
@@ -100,7 +101,7 @@ public class RoleServiceImpl implements RoleService {
         }
 
         // 检查角色编码是否重复
-        if (!role.getRoleCode().equals(dto.getRoleCode().toUpperCase())) {
+        if (!RoleCode.is(role.getRoleCode(), RoleCode.normalize(dto.getRoleCode()))) {
             if (checkRoleCodeExists(dto.getRoleCode(), id)) {
                 throw new BusinessException(400, "角色编码已存在");
             }
@@ -108,7 +109,7 @@ public class RoleServiceImpl implements RoleService {
 
         // 更新角色
         role.setRoleName(dto.getRoleName());
-        role.setRoleCode(dto.getRoleCode().toUpperCase());
+        role.setRoleCode(RoleCode.normalize(dto.getRoleCode()));
         role.setRoleLevel(dto.getRoleLevel());
         role.setRemark(dto.getRemark());
 
@@ -144,7 +145,8 @@ public class RoleServiceImpl implements RoleService {
     @Override
     public boolean checkRoleCodeExists(String roleCode, Long excludeId) {
         LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Role::getRoleCode, roleCode.toUpperCase());
+        // 忽略大小写比较，兼容历史数据中大小写不一致的角色编码
+        wrapper.apply("LOWER(role_code) = {0}", RoleCode.normalize(roleCode));
 
         if (excludeId != null) {
             wrapper.ne(Role::getId, excludeId);

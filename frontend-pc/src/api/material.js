@@ -23,6 +23,29 @@ export function listMaterials(params) {
   })
 }
 
+/** 后端分页接口允许的最大每页条数 */
+const MAX_PAGE_SIZE = 100
+
+/**
+ * 查询全部物资（用于下拉选择器）
+ * 后端每页最多返回100条，这里自动逐页拉取直到取完
+ * @param {Object} params - 查询参数（同 listMaterials，无需分页参数）
+ * @returns {Promise<Array>} 返回物资数组
+ */
+export async function listAllMaterials(params = {}) {
+  const all = []
+  let pageNum = 1
+  while (true) {
+    const res = await listMaterials({ ...params, pageNum, pageSize: MAX_PAGE_SIZE })
+    const records = res.data || []
+    all.push(...records)
+    if (records.length < MAX_PAGE_SIZE || all.length >= (res.total || 0)) {
+      return all
+    }
+    pageNum++
+  }
+}
+
 /**
  * 查询物资详情
  * @param {number} id - 物资ID

@@ -21,59 +21,17 @@
       </div>
     </el-card>
 
-    <!-- 数据统计卡片 -->
-    <el-row :gutter="16" class="stats-row">
-      <el-col :xs="12" :sm="6" :md="6" :lg="6">
-        <el-card shadow="hover" class="stat-card">
+    <!-- 数据统计卡片（管理人员） -->
+    <el-row v-if="isManager" :gutter="16" class="stats-row">
+      <el-col v-for="card in statCards" :key="card.key" :xs="12" :sm="6" :md="6" :lg="6">
+        <el-card shadow="hover" class="stat-card" @click="handleQuickAction(card.path)">
           <div class="stat-content">
-            <el-icon :size="32" class="stat-icon primary">
-              <Download />
+            <el-icon :size="32" :class="['stat-icon', card.color]">
+              <component :is="card.icon" />
             </el-icon>
             <div class="stat-info">
-              <div class="stat-label">今日入库</div>
-              <div class="stat-value">{{ stats.todayInbound }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :xs="12" :sm="6" :md="6" :lg="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-content">
-            <el-icon :size="32" class="stat-icon success">
-              <Upload />
-            </el-icon>
-            <div class="stat-info">
-              <div class="stat-label">今日出库</div>
-              <div class="stat-value">{{ stats.todayOutbound }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :xs="12" :sm="6" :md="6" :lg="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-content">
-            <el-icon :size="32" class="stat-icon warning">
-              <Clock />
-            </el-icon>
-            <div class="stat-info">
-              <div class="stat-label">待审批</div>
-              <div class="stat-value">{{ stats.pendingApproval }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :xs="12" :sm="6" :md="6" :lg="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-content">
-            <el-icon :size="32" class="stat-icon error">
-              <WarningFilled />
-            </el-icon>
-            <div class="stat-info">
-              <div class="stat-label">库存预警</div>
-              <div class="stat-value">{{ stats.stockWarning }}</div>
+              <div class="stat-label">{{ card.label }}</div>
+              <div class="stat-value">{{ stats[card.key] ?? 0 }}</div>
             </div>
           </div>
         </el-card>
@@ -99,8 +57,34 @@
       </el-row>
     </el-card>
 
-    <!-- 数据图表 -->
-    <el-row :gutter="16" class="charts-row">
+    <!-- 我的最近申请（普通员工） -->
+    <el-card v-if="!isManager" shadow="hover" class="recent-applies">
+      <template #header>
+        <div class="card-header">
+          <span>我的最近申请</span>
+          <el-button link type="primary" @click="handleQuickAction('/apply/list')">查看全部</el-button>
+        </div>
+      </template>
+      <el-table :data="recentApplies" v-loading="appliesLoading" @row-click="row => handleQuickAction(`/apply/detail/${row.id}`)">
+        <el-table-column prop="applyNo" label="申请单号" min-width="180" />
+        <el-table-column prop="warehouseName" label="仓库" min-width="140" />
+        <el-table-column prop="applyReason" label="用途" min-width="200" show-overflow-tooltip />
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="applyStatusTag(row.status)" size="small">{{ formatApplyStatus(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="applyTime" label="申请时间" width="170" />
+        <template #empty>
+          <el-empty description="还没有申请记录" :image-size="80">
+            <el-button type="primary" @click="handleQuickAction('/apply/create')">新建申请</el-button>
+          </el-empty>
+        </template>
+      </el-table>
+    </el-card>
+
+    <!-- 数据图表（管理人员） -->
+    <el-row v-if="isManager" :gutter="16" class="charts-row">
       <el-col :xs="24" :sm="24" :md="12" :lg="12">
         <el-card shadow="hover" class="chart-card">
           <template #header>
@@ -132,7 +116,10 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store'
 import dayjs from 'dayjs'
 import EChart from '@/components/Chart/EChart.vue'
-import { getDashboardStats } from '@/api/statistics'
+import { getDashboardStats, getInboundStatistics, getOutboundStatistics } from '@/api/statistics'
+import { getInventorySummary } from '@/api/inventory'
+import { getMyApplies } from '@/api/apply'
+import { formatApplyStatus } from '@/utils/format'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -140,35 +127,45 @@ const userStore = useUserStore()
 // 当前时间
 const currentTime = ref(dayjs().format('YYYY年MM月DD日 HH:mm:ss'))
 
-// 统计数据
-const stats = ref({
-  todayInbound: 0,
-  todayOutbound: 0,
-  pendingApproval: 0,
-  stockWarning: 0
-})
+const isManager = computed(() => ['admin', 'dept_admin', 'warehouse'].includes(userStore.roleCode))
+
+// 统计数据（后端 DashboardStatsVO）
+const stats = ref({})
+const statCards = [
+  { key: 'monthInboundCount', label: '本月入库单', icon: 'Download', color: 'primary', path: '/inbound/list' },
+  { key: 'monthOutboundCount', label: '本月出库单', icon: 'Upload', color: 'success', path: '/outbound/list' },
+  { key: 'pendingApplies', label: '待审批申请', icon: 'Clock', color: 'warning', path: '/approval/pending' },
+  { key: 'lowStockAlerts', label: '库存预警', icon: 'WarningFilled', color: 'error', path: '/inventory/warning' }
+]
+
+// 近7天出入库趋势（按单据数）
+const TREND_DAYS = 7
+const trend = ref({ dates: [], inbound: [], outbound: [] })
+// 库存状态分布
+const inventorySummary = ref({ normalCount: 0, lowStockCount: 0, outOfStockCount: 0 })
+
+// 员工：最近申请
+const recentApplies = ref([])
+const appliesLoading = ref(false)
+const applyStatusTag = (status) => ({ 0: 'warning', 1: 'primary', 2: 'danger', 3: 'success', 4: 'info' }[status] || 'info')
 
 // 快捷操作列表（根据角色显示不同的操作）
 const quickActions = computed(() => {
-  const baseActions = [
-    { name: '库存查询', icon: 'Search', path: '/inventory/query' },
-    { name: '库存预警', icon: 'Warning', path: '/inventory/warning' }
-  ]
-
-  if (['admin', 'dept_admin', 'warehouse'].includes(userStore.roleCode)) {
+  if (isManager.value) {
     return [
       { name: '新建入库', icon: 'Download', path: '/inbound/create' },
       { name: '新建出库', icon: 'Upload', path: '/outbound/create' },
       { name: '审批管理', icon: 'CircleCheck', path: '/approval/pending' },
-      ...baseActions
-    ]
-  } else {
-    return [
-      { name: '新建申请', icon: 'Document', path: '/apply/create' },
-      { name: '我的申请', icon: 'List', path: '/apply/list' },
-      ...baseActions
+      { name: '库存查询', icon: 'Search', path: '/inventory/query' },
+      { name: '库存预警', icon: 'Warning', path: '/inventory/warning' }
     ]
   }
+  return [
+    { name: '新建申请', icon: 'Document', path: '/apply/create' },
+    { name: '我的申请', icon: 'List', path: '/apply/list' },
+    { name: '库存查询', icon: 'Search', path: '/inventory/query' },
+    { name: '消息中心', icon: 'Bell', path: '/message/list' }
+  ]
 })
 
 // 获取角色名称
@@ -223,11 +220,12 @@ const trendChartOption = computed(() => ({
   xAxis: {
     type: 'category',
     boundaryGap: false,
-    data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+    data: trend.value.dates
   },
   yAxis: {
     type: 'value',
-    name: '数量',
+    name: '单据数',
+    minInterval: 1,
     nameTextStyle: {
       fontSize: 12
     }
@@ -237,7 +235,7 @@ const trendChartOption = computed(() => ({
       name: '入库',
       type: 'line',
       smooth: true,
-      data: [12, 15, 8, 20, 18, 11, 15],
+      data: trend.value.inbound,
       itemStyle: {
         color: '#409EFF'
       },
@@ -260,7 +258,7 @@ const trendChartOption = computed(() => ({
       name: '出库',
       type: 'line',
       smooth: true,
-      data: [10, 12, 18, 15, 22, 13, 16],
+      data: trend.value.outbound,
       itemStyle: {
         color: '#67C23A'
       },
@@ -330,30 +328,61 @@ const stockChartOption = computed(() => ({
         }
       },
       data: [
-        { value: 245, name: '充足', itemStyle: { color: '#67C23A' } },
-        { value: 89, name: '正常', itemStyle: { color: '#409EFF' } },
-        { value: 34, name: '预警', itemStyle: { color: '#E6A23C' } },
-        { value: 12, name: '紧急', itemStyle: { color: '#F56C6C' } }
+        { value: inventorySummary.value.normalCount || 0, name: '正常', itemStyle: { color: '#67C23A' } },
+        { value: inventorySummary.value.lowStockCount || 0, name: '低库存', itemStyle: { color: '#E6A23C' } },
+        { value: inventorySummary.value.outOfStockCount || 0, name: '缺货', itemStyle: { color: '#F56C6C' } }
       ]
     }
   ]
 }))
 
-// 加载统计数据
+// 按天取单据数，日期显示为 MM-DD
+const toDailyCounts = (res) => (res?.data?.dailyData || []).map(d => Number(d.count) || 0)
+
+// 加载统计数据（管理人员）
 const loadStats = async () => {
+  const endDate = dayjs().format('YYYY-MM-DD')
+  const startDate = dayjs().subtract(TREND_DAYS - 1, 'day').format('YYYY-MM-DD')
+  const [dashboard, inbound, outbound, summary] = await Promise.allSettled([
+    getDashboardStats(),
+    getInboundStatistics({ startDate, endDate }),
+    getOutboundStatistics({ startDate, endDate }),
+    getInventorySummary()
+  ])
+  if (dashboard.status === 'fulfilled') stats.value = dashboard.value.data || {}
+  if (inbound.status === 'fulfilled' && outbound.status === 'fulfilled') {
+    const days = inbound.value?.data?.dailyData || []
+    trend.value = {
+      dates: days.map(d => dayjs(d.date).format('MM-DD')),
+      inbound: toDailyCounts(inbound.value),
+      outbound: toDailyCounts(outbound.value)
+    }
+  }
+  if (summary.status === 'fulfilled') inventorySummary.value = summary.value.data || {}
+}
+
+// 加载我的最近申请（普通员工）
+const loadRecentApplies = async () => {
+  appliesLoading.value = true
   try {
-    const res = await getDashboardStats()
-    stats.value = res.data
+    const res = await getMyApplies({ pageNum: 1, pageSize: 5 })
+    recentApplies.value = res.data || []
   } catch (error) {
-    console.error('加载统计数据失败:', error)
+    console.error('加载我的申请失败:', error)
+  } finally {
+    appliesLoading.value = false
   }
 }
 
 onMounted(() => {
   // 每秒更新时间
   timer = setInterval(updateTime, 1000)
-  // 加载统计数据
-  loadStats()
+  // 管理人员看统计，员工看自己的申请
+  if (isManager.value) {
+    loadStats()
+  } else {
+    loadRecentApplies()
+  }
 })
 
 onUnmounted(() => {
@@ -411,6 +440,8 @@ onUnmounted(() => {
     margin-bottom: 16px;
 
     .stat-card {
+      cursor: pointer;
+
       .stat-content {
         display: flex;
         align-items: center;
@@ -493,7 +524,18 @@ onUnmounted(() => {
     }
   }
 
+  .recent-applies {
+    margin-bottom: 16px;
+
+    :deep(.el-table__row) {
+      cursor: pointer;
+    }
+  }
+
   .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-size: 16px;
     font-weight: 600;
     color: $text-color-primary;

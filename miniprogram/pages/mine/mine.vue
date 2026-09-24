@@ -1,11 +1,12 @@
-﻿<template>
+<template>
   <view class="mine-container">
     <!-- 用户信息 -->
     <view class="user-header">
-      <image class="avatar" :src="userInfo.avatar || '/static/default-avatar.png'" mode="aspectFill" />
+      <image v-if="user.avatar" class="avatar" :src="user.avatar" mode="aspectFill" />
+      <view v-else class="avatar avatar-text">{{ (user.realName || '我').charAt(0) }}</view>
       <view class="user-info">
-        <text class="user-name">{{ userInfo.realName || '未登录' }}</text>
-        <text class="user-dept">{{ userInfo.deptName || '' }} | {{ userInfo.roleName || '' }}</text>
+        <text class="user-name">{{ user.realName || '未登录' }}</text>
+        <text class="user-dept">{{ [user.deptName, roleLabel].filter(Boolean).join(' | ') }}</text>
       </view>
     </view>
 
@@ -24,11 +25,11 @@
 
       <view class="menu-item" @click="goToPassword">
         <view class="menu-left">
-          <text class="menu-icon">棣冩惖</text>
+          <text class="menu-icon">🔑</text>
           <text class="menu-text">修改密码</text>
         </view>
         <view class="menu-right">
-          <text class="menu-arrow">閳?/text>
+          <text class="menu-arrow">›</text>
         </view>
       </view>
 
@@ -71,7 +72,20 @@ import { mapState } from 'vuex'
 
 export default {
   computed: {
-    ...mapState(['userInfo', 'unreadCount'])
+    ...mapState(['userInfo', 'unreadCount']),
+    // 未登录或退出登录时 userInfo 为 null，避免模板报错
+    user() {
+      return this.userInfo || {}
+    },
+    roleLabel() {
+      const map = {
+        admin: '系统管理员',
+        dept_admin: '部门管理员',
+        warehouse: '仓库管理员',
+        user: '普通员工'
+      }
+      return map[(this.user.roleCode || '').toLowerCase()] || this.user.roleName || ''
+    }
   },
 
   methods: {
@@ -163,6 +177,15 @@ export default {
   border-radius: 50%;
   margin-right: 32rpx;
   background-color: #ffffff;
+}
+
+.avatar-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56rpx;
+  font-weight: 600;
+  color: #7c3aed;
 }
 
 .user-info {

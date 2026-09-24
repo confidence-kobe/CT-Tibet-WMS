@@ -1,5 +1,6 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
+import { $uRequest } from '@/utils/request.js'
 
 Vue.use(Vuex)
 
@@ -68,12 +69,14 @@ const store = new Vuex.Store({
     // 获取未读消息数量
     async getUnreadCount({ commit }) {
       try {
-        const res = await this.$request({
+        // 注意：Vuex action 中没有组件上的 this.$request，需直接使用请求函数
+        const res = await $uRequest({
           url: '/api/messages/unread-count',
           method: 'GET'
         })
         if (res.code === 200) {
-          commit('SET_UNREAD_COUNT', res.data.total || 0)
+          // 接口直接返回未读数量（数字）
+          commit('SET_UNREAD_COUNT', Number(res.data) || 0)
         }
       } catch (err) {
         console.error('获取未读消息数量失败', err)
@@ -82,12 +85,12 @@ const store = new Vuex.Store({
     // 获取待办事项统计
     async getPendingTasks({ commit }) {
       try {
-        const res = await this.$request({
-          url: '/api/stats/dashboard',
+        const res = await $uRequest({
+          url: '/api/statistics/miniprogram',
           method: 'GET'
         })
-        if (res.code === 200) {
-          commit('SET_PENDING_TASKS', res.data.pendingTasks || {})
+        if (res.code === 200 && res.data && res.data.pendingTasks) {
+          commit('SET_PENDING_TASKS', res.data.pendingTasks)
         }
       } catch (err) {
         console.error('获取待办事项统计失败', err)
@@ -100,9 +103,10 @@ const store = new Vuex.Store({
     // 用户角色代码
     roleCode: state => (state.userInfo ? state.userInfo.roleCode : '') || '',
     // 是否是仓库管理员
-    isWarehouse: state => ['admin', 'dept_admin', 'warehouse'].includes(state.userInfo ? state.userInfo.roleCode : ''),
+    // 角色编码比较忽略大小写（数据库为小写，历史数据可能存在大写）
+    isWarehouse: state => ['admin', 'dept_admin', 'warehouse'].includes(((state.userInfo && state.userInfo.roleCode) || '').toLowerCase()),
     // 是否是普通员工
-    isEmployee: state => state.userInfo ? state.userInfo.roleCode === 'user' : false,
+    isEmployee: state => ((state.userInfo && state.userInfo.roleCode) || '').toLowerCase() === 'user',
     // TabBar列表（根据角色动态生成）
     tabBarList: (state, getters) => {
       const isWarehouse = getters.isWarehouse

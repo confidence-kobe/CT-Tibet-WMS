@@ -50,7 +50,7 @@ public class RoleServiceImplTest {
     public void testGetRoleById() {
         Role role = roleService.getRoleById(1L);
         assertNotNull(role);
-        assertEquals("ADMIN", role.getRoleCode());
+        assertEquals("admin", role.getRoleCode());
     }
 
     @Test

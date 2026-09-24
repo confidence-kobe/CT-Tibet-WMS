@@ -1,7 +1,7 @@
 /**
  * 库存管理相关API
  */
-import { $uRequest } from '@/utils/request.js'
+import { $uRequest, $uPageRequest, $uFetchAll } from '@/utils/request.js'
 
 /**
  * 查询库存列表
@@ -15,7 +15,7 @@ import { $uRequest } from '@/utils/request.js'
  * @returns {Promise} 返回库存列表
  */
 export function getInventoryList(params) {
-  return $uRequest({
+  return $uPageRequest({
     url: '/api/inventories',
     method: 'GET',
     data: params
@@ -41,7 +41,7 @@ export function getInventoryDetail(id) {
  * @returns {Promise} 返回搜索结果
  */
 export function searchInventory(keyword, warehouseId) {
-  return $uRequest({
+  return $uPageRequest({
     url: '/api/inventories',
     method: 'GET',
     data: {
@@ -92,8 +92,32 @@ export function getInventoryStats(warehouseId) {
  * @returns {Promise} 返回变动记录列表
  */
 export function getInventoryHistory(params) {
-  return $uRequest({
+  return $uPageRequest({
     url: '/api/inventories/logs',
+    method: 'GET',
+    data: params
+  })
+}
+
+/**
+ * 获取仓库的全部库存（自动分页拉取），用于申请时展示各物资可用库存
+ * @param {number} warehouseId - 仓库ID
+ */
+export function getAllInventory(warehouseId) {
+  return $uFetchAll({
+    url: '/api/inventories',
+    method: 'GET',
+    data: { warehouseId }
+  })
+}
+
+/**
+ * 库存汇总：按库存状态（正常/低库存/缺货）统计条数
+ * @param {Object} params - { warehouseId, keyword, category }
+ */
+export function getInventorySummary(params) {
+  return $uRequest({
+    url: '/api/inventories/summary',
     method: 'GET',
     data: params
   })
@@ -101,7 +125,13 @@ export function getInventoryHistory(params) {
 
 export default {
   getInventoryList,
+  getInventorySummary,
   getInventoryDetail,
+  // 别名（匹配页面调用）
+  getList: getInventoryList,
+  getSummary: getInventorySummary,
+  getAll: getAllInventory,
+  getDetail: getInventoryDetail,
   searchInventory,
   getWarningList,
   getInventoryStats,

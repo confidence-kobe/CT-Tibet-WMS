@@ -56,7 +56,7 @@ page {
 }
 
 /* 重置样式 */
-view, text, button, input, textarea {
+view, text, button, input, textarea, scroll-view {
   box-sizing: border-box;
 }
 

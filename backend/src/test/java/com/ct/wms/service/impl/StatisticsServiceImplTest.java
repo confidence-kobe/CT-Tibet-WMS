@@ -7,6 +7,8 @@ import com.ct.wms.dto.InventoryStatisticsDTO;
 import com.ct.wms.dto.OutboundStatisticsDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
+import com.ct.wms.security.DataScopeHelper;
+import com.ct.wms.security.WarehouseScope;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.util.TestDataBuilder;
 import com.ct.wms.vo.DashboardStatsVO;
@@ -66,6 +68,12 @@ class StatisticsServiceImplTest {
     @Mock
     private InventoryService inventoryService;
 
+    @Mock
+    private InventoryLogMapper inventoryLogMapper;
+
+    @Mock
+    private DataScopeHelper dataScopeHelper;
+
     @InjectMocks
     private StatisticsServiceImpl statisticsService;
 
@@ -84,6 +92,13 @@ class StatisticsServiceImplTest {
 
         testWarehouse1 = TestDataBuilder.createWarehouse(1L, "仓库A", 1L);
         testWarehouse2 = TestDataBuilder.createWarehouse(2L, "仓库B", 2L);
+
+        // 默认以系统管理员身份统计（不做部门限制）；部门隔离另有专门测试
+        lenient().when(dataScopeHelper.currentWarehouseScope()).thenReturn(WarehouseScope.all());
+        lenient().when(dataScopeHelper.resolveWarehouseScope(any())).thenAnswer(invocation -> {
+            Long warehouseId = invocation.getArgument(0);
+            return warehouseId == null ? WarehouseScope.all() : WarehouseScope.of(List.of(warehouseId));
+        });
     }
 
     @Test
@@ -91,7 +106,7 @@ class StatisticsServiceImplTest {
     void testGetDashboardStats() {
         // Given
         when(materialMapper.selectCount(null)).thenReturn(100L);
-        when(warehouseMapper.selectCount(null)).thenReturn(14L);
+        when(warehouseMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(14L);
         when(inventoryService.listLowStockAlerts(null)).thenReturn(Collections.emptyList());
         when(applyMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(5L);
 
@@ -112,7 +127,7 @@ class StatisticsServiceImplTest {
         List<Inventory> mockInventories = Arrays.asList(
             TestDataBuilder.createInventory(1L, 1L, 1L, BigDecimal.valueOf(100))
         );
-        when(inventoryMapper.selectList(null)).thenReturn(mockInventories);
+        when(inventoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(mockInventories);
         when(materialMapper.selectById(1L)).thenReturn(testMaterial1);
 
         // When
@@ -130,7 +145,7 @@ class StatisticsServiceImplTest {
         assertThat(stats.getMonthOutboundAmount()).isEqualByComparingTo(BigDecimal.valueOf(20000));
 
         verify(materialMapper, times(1)).selectCount(null);
-        verify(warehouseMapper, times(1)).selectCount(null);
+        verify(warehouseMapper, times(1)).selectCount(any(LambdaQueryWrapper.class));
     }
 
     @Test
@@ -392,6 +407,7 @@ class StatisticsServiceImplTest {
             .thenReturn(mockInventories);
 
         when(materialMapper.selectById(3L)).thenReturn(lowStockMaterial);
+        when(materialMapper.selectBatchIds(any())).thenReturn(List.of(lowStockMaterial));
         when(outboundMapper.selectList(any(LambdaQueryWrapper.class)))
             .thenReturn(Collections.emptyList());
 
@@ -403,6 +419,34 @@ class StatisticsServiceImplTest {
         assertThat(result.getWarningCount()).isEqualTo(1);
 
         verify(inventoryMapper, atLeastOnce()).selectList(any(LambdaQueryWrapper.class));
+    }
+
+    @Test
+    @DisplayName("测试库存统计 - 预警趋势按库存流水还原历史数据")
+    void testGetInventoryStatistics_WarningTrendFromLogs() {
+        // Given: 最低库存100，当前库存150；今天刚入库100，所以今天之前日终库存为50（低于最低库存）
+        Material material = TestDataBuilder.createMaterial(3L, "光缆", "线缆", BigDecimal.valueOf(10));
+        material.setMinStock(BigDecimal.valueOf(100));
+
+        Inventory inventory = TestDataBuilder.createInventory(1L, 1L, 3L, BigDecimal.valueOf(150));
+        inventory.setCreateTime(LocalDateTime.now().minusDays(30));
+        when(inventoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(inventory));
+        when(materialMapper.selectById(3L)).thenReturn(material);
+        when(materialMapper.selectBatchIds(any())).thenReturn(List.of(material));
+
+        InventoryLog todayInbound = new InventoryLog();
+        todayInbound.setWarehouseId(1L);
+        todayInbound.setMaterialId(3L);
+        todayInbound.setChangeQuantity(BigDecimal.valueOf(100));
+        todayInbound.setCreateTime(LocalDate.now().atStartOfDay().plusHours(1));
+        when(inventoryLogMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(todayInbound));
+
+        // When
+        InventoryStatisticsDTO result = statisticsService.getInventoryStatistics(null);
+
+        // Then: 前6天都处于预警，今天已补货不再预警
+        assertThat(result.getWarningTrendData().getCounts()).containsExactly(1, 1, 1, 1, 1, 1, 0);
+        assertThat(result.getWarningCount()).isZero();
     }
 
     @Test

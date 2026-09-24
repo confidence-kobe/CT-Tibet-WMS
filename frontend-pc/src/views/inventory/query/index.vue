@@ -5,59 +5,67 @@
       <h2 class="page-title">库存查询</h2>
     </div>
 
+    <!-- 统计信息 -->
+    <el-row :gutter="16" style="margin-bottom: 16px;">
+      <el-col :span="8">
+        <el-card shadow="hover">
+          <el-statistic title="在库物资种类" :value="statistics.materialCount">
+            <template #suffix>种</template>
+          </el-statistic>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover">
+          <el-statistic title="库存总值" :value="statistics.totalValue" :precision="2">
+            <template #prefix>¥</template>
+          </el-statistic>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover" class="clickable" @click="router.push('/inventory/warning')">
+          <el-statistic title="低库存预警" :value="statistics.warningCount">
+            <template #suffix>项</template>
+          </el-statistic>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <!-- 搜索表单 -->
     <el-card shadow="never" class="search-form">
-      <el-form :model="queryForm" :inline="true">
+      <el-form :model="queryForm" :inline="true" @submit.prevent="handleSearch">
         <el-form-item label="物资">
           <el-input
             v-model="queryForm.keyword"
             placeholder="物资编号/名称"
             clearable
-            @clear="handleQuery"
+            @clear="handleSearch"
             style="width: 200px"
           />
         </el-form-item>
         <el-form-item label="仓库">
           <el-select
             v-model="queryForm.warehouseId"
-            placeholder="请选择仓库"
+            placeholder="全部仓库"
             clearable
-            @clear="handleQuery"
+            @change="handleSearch"
             style="width: 180px"
           >
             <el-option
               v-for="warehouse in warehouseList"
               :key="warehouse.id"
-              :label="warehouse.name"
+              :label="warehouse.warehouseName"
               :value="warehouse.id"
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="库存状态">
-          <el-select
-            v-model="queryForm.status"
-            placeholder="请选择"
-            clearable
-            @clear="handleQuery"
-            style="width: 140px"
-          >
-            <el-option label="充足" :value="0" />
-            <el-option label="预警" :value="1" />
-            <el-option label="紧急" :value="2" />
-          </el-select>
-        </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleQuery">
+          <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
           <el-button @click="handleReset">
             <el-icon><RefreshRight /></el-icon>
             重置
-          </el-button>
-          <el-button type="success" @click="handleExport">
-            <el-icon><Download /></el-icon>
-            导出
           </el-button>
         </el-form-item>
       </el-form>
@@ -77,28 +85,37 @@
         <el-table-column prop="materialName" label="物资名称" min-width="150" />
         <el-table-column prop="category" label="类别" width="100" />
         <el-table-column prop="spec" label="规格型号" width="120" />
-        <el-table-column prop="unit" label="单位" width="80" align="center" />
+        <el-table-column prop="unit" label="单位" width="70" align="center" />
         <el-table-column prop="warehouseName" label="仓库" min-width="120" />
-        <el-table-column prop="stock" label="当前库存" width="100" align="right">
+        <el-table-column prop="quantity" label="当前库存" width="100" align="right">
           <template #default="{ row }">
-            <span :class="getStockClass(row)">{{ row.stock }}</span>
+            <span :class="stockClass[row.stockStatus]">{{ formatNumber(row.quantity) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="minStock" label="最低库存" width="100" align="right" />
+        <el-table-column prop="availableQuantity" label="可用库存" width="100" align="right">
+          <template #default="{ row }">
+            {{ formatNumber(row.availableQuantity) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="minStock" label="最低库存" width="100" align="right">
+          <template #default="{ row }">
+            {{ row.minStock != null ? formatNumber(row.minStock) : '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="price" label="单价(元)" width="100" align="right">
           <template #default="{ row }">
-            ¥{{ row.price?.toFixed(2) || '0.00' }}
+            {{ row.price != null ? `¥${formatMoney(row.price)}` : '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="totalValue" label="库存金额(元)" width="120" align="right">
+        <el-table-column prop="stockValue" label="库存金额(元)" width="130" align="right">
           <template #default="{ row }">
-            <span class="amount">¥{{ (row.stock * row.price).toFixed(2) }}</span>
+            <span class="amount">{{ row.stockValue != null ? `¥${formatMoney(row.stockValue)}` : '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
-            <el-tag :type="getStockStatusType(row)" size="small">
-              {{ getStockStatusText(row) }}
+            <el-tag :type="statusTag[row.stockStatus]?.type" size="small">
+              {{ statusTag[row.stockStatus]?.text || '-' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -125,45 +142,33 @@
         />
       </div>
     </el-card>
-
-    <!-- 统计信息 -->
-    <el-row :gutter="16" style="margin-top: 16px;">
-      <el-col :span="8">
-        <el-card shadow="hover">
-          <el-statistic title="物资总数" :value="statistics.totalItems">
-            <template #suffix>种</template>
-          </el-statistic>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover">
-          <el-statistic title="库存总值" :value="statistics.totalValue" :precision="2">
-            <template #prefix>¥</template>
-          </el-statistic>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover">
-          <el-statistic title="预警数量" :value="statistics.warningCount">
-            <template #suffix>项</template>
-          </el-statistic>
-        </el-card>
-      </el-col>
-    </el-row>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { listInventories } from '@/api/inventory'
-import { listWarehouses } from '@/api/warehouse'
+import { getMyWarehouses } from '@/api/warehouse'
+import { getInventoryStatistics } from '@/api/statistics'
+
+const router = useRouter()
+
+// 库存状态（后端 stockStatus：0-正常 1-低库存 2-缺货）
+const statusTag = {
+  0: { type: 'success', text: '正常' },
+  1: { type: 'warning', text: '低库存' },
+  2: { type: 'danger', text: '缺货' }
+}
+const stockClass = {
+  1: 'text-warning',
+  2: 'text-danger'
+}
 
 // 查询表单
 const queryForm = reactive({
   keyword: '',
-  warehouseId: null,
-  status: null
+  warehouseId: null
 })
 
 // 分页参数
@@ -182,101 +187,94 @@ const warehouseList = ref([])
 
 // 统计数据
 const statistics = reactive({
-  totalItems: 0,
+  materialCount: 0,
   totalValue: 0,
   warningCount: 0
+})
+
+const formatNumber = (value) => (value == null ? '-' : Number(value).toLocaleString())
+const formatMoney = (value) => Number(value).toLocaleString(undefined, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
 })
 
 // 加载仓库列表
 const loadWarehouses = async () => {
   try {
-    const res = await listWarehouses({ status: 0 })
+    const res = await getMyWarehouses()
     warehouseList.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
   }
 }
 
-// 获取库存状态类名
-const getStockClass = (row) => {
-  if (row.stock === 0) return 'text-danger'
-  if (row.stock <= row.minStock) return 'text-warning'
-  return ''
+// 加载统计数据（与所选仓库一致）
+const loadStatistics = async () => {
+  try {
+    const res = await getInventoryStatistics({ warehouseId: queryForm.warehouseId || undefined })
+    const data = res.data || {}
+    statistics.materialCount = data.materialCount || 0
+    statistics.totalValue = Number(data.totalValue || 0)
+    statistics.warningCount = data.warningCount || 0
+  } catch (error) {
+    console.error('加载库存统计失败:', error)
+  }
 }
 
-// 获取库存状态类型
-const getStockStatusType = (row) => {
-  if (row.stock === 0) return 'danger'
-  if (row.stock <= row.minStock) return 'warning'
-  return 'success'
-}
-
-// 获取库存状态文本
-const getStockStatusText = (row) => {
-  if (row.stock === 0) return '缺货'
-  if (row.stock <= row.minStock) return '低库存'
-  return '正常'
-}
-
-// 查询数据
+// 查询数据（错误提示由请求拦截器统一处理）
 const handleQuery = async () => {
   loading.value = true
   try {
-    const params = {
+    const res = await listInventories({
       pageNum: pagination.pageNum,
       pageSize: pagination.pageSize,
       keyword: queryForm.keyword || undefined,
-      warehouseId: queryForm.warehouseId || undefined,
-      status: queryForm.status != null ? queryForm.status : undefined
-    }
-
-    const res = await listInventories(params)
+      warehouseId: queryForm.warehouseId || undefined
+    })
     tableData.value = res.data || []
     pagination.total = res.total || 0
-
-    // 更新统计数据
-    if (res.data.stats) {
-      statistics.totalItems = res.data.stats.totalItems || 0
-      statistics.totalValue = res.data.stats.totalValue || 0
-      statistics.warningCount = res.data.stats.warningCount || 0
-    }
   } catch (error) {
     console.error('查询失败:', error)
-    ElMessage.error('查询失败')
   } finally {
     loading.value = false
   }
+}
+
+// 条件变化时回到第一页，并同步刷新统计
+const handleSearch = () => {
+  pagination.pageNum = 1
+  handleQuery()
+  loadStatistics()
 }
 
 // 重置查询
 const handleReset = () => {
   queryForm.keyword = ''
   queryForm.warehouseId = null
-  queryForm.status = null
-  pagination.pageNum = 1
-  handleQuery()
-}
-
-// 导出
-const handleExport = () => {
-  ElMessage.info('导出功能开发中')
+  handleSearch()
 }
 
 // 查看流水记录
 const handleViewLog = (row) => {
-  ElMessage.info(`查看"${row.materialName}"的库存流水记录`)
-  // TODO: 跳转到库存流水页面或打开对话框
+  router.push({
+    path: '/inventory/log',
+    query: { warehouseId: row.warehouseId, materialId: row.materialId }
+  })
 }
 
 // 初始化
 onMounted(() => {
   loadWarehouses()
-  handleQuery()
+  handleSearch()
 })
 </script>
 
 <style lang="scss" scoped>
 .inventory-query-container {
+  .clickable {
+    cursor: pointer;
+  }
+
   .amount {
     color: $error-color;
     font-weight: 500;

@@ -1,7 +1,7 @@
 /**
  * 出库管理相关API（仓管端）
  */
-import { $uRequest } from '@/utils/request.js'
+import { $uRequest, $uPageRequest } from '@/utils/request.js'
 
 /**
  * 创建直接出库单
@@ -37,7 +37,7 @@ export function createOutbound(data) {
  * @returns {Promise} 返回待领取出库单列表
  */
 export function getPendingOutbound(params) {
-  return $uRequest({
+  return $uPageRequest({
     url: '/api/outbounds/pending',
     method: 'GET',
     data: params
@@ -70,7 +70,7 @@ export function confirmOutbound(id) {
  * @returns {Promise} 返回出库记录列表
  */
 export function getOutboundList(params) {
-  return $uRequest({
+  return $uPageRequest({
     url: '/api/outbounds',
     method: 'GET',
     data: params

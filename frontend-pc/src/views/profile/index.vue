@@ -4,13 +4,13 @@
       <h2 class="page-title">个人信息</h2>
     </div>
 
-    <el-card shadow="never">
+    <el-card v-loading="profileLoading" shadow="never">
       <el-row :gutter="24">
         <!-- 左侧头像 -->
         <el-col :xs="24" :sm="8" :md="6">
           <div class="avatar-section">
-            <el-avatar :size="120" :src="userStore.avatar" class="user-avatar">
-              {{ userStore.realName?.charAt(0) || 'U' }}
+            <el-avatar :size="120" :src="profile.avatar" class="user-avatar">
+              {{ profile.realName?.charAt(0) || 'U' }}
             </el-avatar>
             <el-button type="primary" size="small" class="upload-btn" @click="handleUploadAvatar">
               更换头像
@@ -23,30 +23,30 @@
           <div class="info-section">
             <el-descriptions :column="2" border>
               <el-descriptions-item label="用户名">
-                {{ userStore.username }}
+                {{ profile.username }}
               </el-descriptions-item>
               <el-descriptions-item label="真实姓名">
-                {{ userStore.realName }}
+                {{ profile.realName }}
               </el-descriptions-item>
               <el-descriptions-item label="手机号">
-                {{ userStore.phone }}
+                {{ profile.phone }}
               </el-descriptions-item>
               <el-descriptions-item label="邮箱">
-                {{ userStore.email || '未设置' }}
+                {{ profile.email || '未设置' }}
               </el-descriptions-item>
               <el-descriptions-item label="所属部门">
-                {{ userStore.deptName }}
+                {{ profile.deptName }}
               </el-descriptions-item>
               <el-descriptions-item label="角色">
-                <el-tag :type="getRoleTagType(userStore.roleCode)">
-                  {{ getRoleName(userStore.roleCode) }}
+                <el-tag :type="getRoleTagType(profile.roleCode)">
+                  {{ getRoleName(profile.roleCode) }}
                 </el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="最后登录时间">
-                {{ formatTime(userStore.lastLoginTime) }}
+                {{ formatTime(profile.lastLoginTime) }}
               </el-descriptions-item>
               <el-descriptions-item label="最后登录IP">
-                {{ userStore.lastLoginIp || '-' }}
+                {{ profile.lastLoginIp || '-' }}
               </el-descriptions-item>
             </el-descriptions>
 
@@ -97,14 +97,33 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
+import { getProfile, updateProfile } from '@/api/user'
 
 const router = useRouter()
 const userStore = useUserStore()
+
+// 个人信息（来自 /users/profile，包含邮箱、最后登录时间/IP）
+const profile = ref({})
+const profileLoading = ref(false)
+
+const loadProfile = async () => {
+  profileLoading.value = true
+  try {
+    const res = await getProfile()
+    profile.value = res.data || {}
+  } catch (error) {
+    console.error('获取个人信息失败:', error)
+  } finally {
+    profileLoading.value = false
+  }
+}
+
+onMounted(loadProfile)
 
 // 编辑对话框
 const editDialogVisible = ref(false)
@@ -167,9 +186,9 @@ const handleUploadAvatar = () => {
 
 // 编辑资料
 const handleEditProfile = () => {
-  editForm.realName = userStore.realName
-  editForm.phone = userStore.phone
-  editForm.email = userStore.email
+  editForm.realName = profile.value.realName
+  editForm.phone = profile.value.phone
+  editForm.email = profile.value.email
   editDialogVisible.value = true
 }
 
@@ -188,8 +207,9 @@ const handleSaveProfile = async () => {
     await editFormRef.value.validate()
     saveLoading.value = true
 
-    // TODO: 调用API保存用户信息
-    // await userStore.updateProfile(editForm)
+    await updateProfile({ ...editForm })
+    // 刷新本页展示，并同步顶部栏等处使用的用户信息
+    await Promise.all([loadProfile(), userStore.getUserInfo()])
 
     ElMessage.success('保存成功')
     editDialogVisible.value = false

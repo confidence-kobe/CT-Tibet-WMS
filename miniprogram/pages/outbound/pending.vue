@@ -138,6 +138,7 @@
 
 <script>
 import api from '@/api'
+import { getWaitDays } from '@/utils/constant.js'
 
 export default {
   data() {
@@ -173,14 +174,9 @@ export default {
         })
 
         if (res.code === 200) {
-          const { list, total } = res.data
-
-          // 计算等待天数
-          list.forEach(item => {
-            const createDate = new Date(item.createTime)
-            const now = new Date()
-            item.waitDays = Math.floor((now - createDate) / (1000 * 60 * 60 * 24))
-          })
+          const { total } = res.data
+          // 计算等待天数（兼容 iOS 日期格式）
+          const list = res.data.list.map(item => ({ ...item, waitDays: getWaitDays(item) }))
 
           if (this.pageNum === 1) {
             this.list = list
@@ -203,9 +199,9 @@ export default {
     },
 
     onRefresh() {
+      // 不先清空列表：第1页返回后整体替换，避免闪现空状态
       this.refreshing = true
       this.pageNum = 1
-      this.list = []
       this.noMore = false
       this.loadData()
     },
@@ -276,9 +272,7 @@ export default {
         success: async (res) => {
           if (res.confirm) {
             try {
-              const result = await api.outbound.cancel(item.id, {
-                cancelReason: res.content || '仓管取消'
-              })
+              const result = await api.outbound.cancel(item.id, res.content || '仓管取消')
 
               if (result.code === 200) {
                 uni.showToast({
@@ -301,13 +295,11 @@ export default {
     if (options.highlightId) {
       this.highlightId = options.highlightId
     }
-    this.loadData()
   },
 
+  // 数据统一在 onShow 加载（首次进入也会触发）
   onShow() {
-    if (this.list.length > 0) {
-      this.onRefresh()
-    }
+    this.onRefresh()
   },
 
   onPullDownRefresh() {

@@ -197,6 +197,7 @@
 
 <script>
 import api from '@/api'
+import { formatLocalDateTime } from '@/utils/date.js'
 import { mapState } from 'vuex'
 
 export default {
@@ -280,8 +281,10 @@ export default {
       this.selectedWarehouse = this.warehouses[index]
       this.form.warehouseId = this.selectedWarehouse.id
 
-      // 清空已选物资，因为库存需要重新加载
+      // 清空已选物资和物资列表，库存需按新仓库重新加载
       this.form.details = []
+      this.materials = []
+      this.filteredMaterials = []
     },
 
     handleTypeChange(e) {
@@ -299,13 +302,11 @@ export default {
       }
 
       try {
-        const res = await api.inventory.getList({
-          warehouseId: this.form.warehouseId,
-          pageSize: 1000
-        })
+        // 拉取该仓库的全部库存（后端每页最多100条，自动分页）
+        const res = await api.inventory.getAll(this.form.warehouseId)
 
         if (res.code === 200) {
-          this.materials = res.data.list || []
+          this.materials = res.data.list
           this.filteredMaterials = this.materials
         }
       } catch (err) {
@@ -362,6 +363,7 @@ export default {
         spec: material.spec,
         unit: material.unit,
         quantity: '',
+        unitPrice: material.price,
         currentStock: material.availableQuantity
       })
 
@@ -395,14 +397,11 @@ export default {
 
     async loadUsers() {
       try {
-        const res = await api.common.getUsers({
-          deptId: this.userInfo ? this.userInfo.deptId : null,
-          status: 0,
-          pageSize: 1000
-        })
+        // 本部门启用的用户（系统管理员为全部用户）
+        const res = await api.common.getUsers()
 
         if (res.code === 200) {
-          this.users = res.data.list || []
+          this.users = res.data || []
           this.filteredUsers = this.users
         }
       } catch (err) {
@@ -490,16 +489,19 @@ export default {
         const res = await api.outbound.create({
           warehouseId: this.form.warehouseId,
           outboundType: this.form.outboundType,
+          // 本地时间（ISO 格式，不带时区）
+          outboundTime: formatLocalDateTime(new Date(), 'T'),
           receiverId: this.form.receiverId,
           purpose: this.form.purpose.trim(),
           remark: this.form.remark.trim(),
           details: this.form.details.map(item => ({
             materialId: item.materialId,
-            quantity: parseFloat(item.quantity)
+            quantity: parseFloat(item.quantity),
+            unitPrice: item.unitPrice
           }))
         })
 
-        if (res.code === 201) {
+        if (res.code === 200) {
           uni.showToast({
             title: '出库成功',
             icon: 'success',

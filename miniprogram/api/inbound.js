@@ -1,7 +1,7 @@
 /**
  * 入库管理相关API（仓管端）
  */
-import { $uRequest } from '@/utils/request.js'
+import { $uRequest, $uPageRequest } from '@/utils/request.js'
 
 /**
  * 创建入库单
@@ -37,7 +37,7 @@ export function createInbound(data) {
  * @returns {Promise} 返回入库记录列表
  */
 export function getInboundList(params) {
-  return $uRequest({
+  return $uPageRequest({
     url: '/api/inbounds',
     method: 'GET',
     data: params

@@ -2,13 +2,16 @@ package com.ct.wms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ct.wms.common.constant.RoleCode;
 import com.ct.wms.common.enums.ApplyStatus;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.ApplyDTO;
 import com.ct.wms.dto.ApprovalDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
+import com.ct.wms.security.DataScopeHelper;
 import com.ct.wms.security.UserDetailsImpl;
+import com.ct.wms.service.NotificationService;
 import com.ct.wms.service.ApplyService;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
@@ -21,12 +24,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -50,6 +56,10 @@ public class ApplyServiceImpl implements ApplyService {
     private final OutboundService outboundService;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
+    private final InventoryMapper inventoryMapper;
+    private final OutboundMapper outboundMapper;
+    private final DataScopeHelper dataScopeHelper;
+    private final NotificationService notificationService;
 
     @Override
     public Page<Apply> listApplies(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -59,22 +69,8 @@ public class ApplyServiceImpl implements ApplyService {
 
         LambdaQueryWrapper<Apply> wrapper = new LambdaQueryWrapper<>();
 
-        // 部门管理员只能查看本部门的申请（数据隔离）
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl) {
-            UserDetailsImpl currentUser = (UserDetailsImpl) auth.getPrincipal();
-            Role currentRole = roleMapper.selectById(currentUser.getRoleId());
-            if (currentRole != null && "DEPT_ADMIN".equals(currentRole.getRoleCode())) {
-                User currentUserEntity = userMapper.selectById(currentUser.getId());
-                if (currentUserEntity != null && currentUserEntity.getDeptId() != null) {
-                    wrapper.eq(Apply::getDeptId, currentUserEntity.getDeptId());
-                }
-            }
-        }
-
-        if (warehouseId != null) {
-            wrapper.eq(Apply::getWarehouseId, warehouseId);
-        }
+        // 部门数据隔离：系统管理员查看全部，其他角色只能查看本部门仓库的申请
+        dataScopeHelper.resolveWarehouseScope(warehouseId).applyTo(wrapper, Apply::getWarehouseId);
 
         if (status != null) {
             wrapper.eq(Apply::getStatus, status);
@@ -106,6 +102,7 @@ public class ApplyServiceImpl implements ApplyService {
 
         // 批量填充关联数据
         fillApplyInfoBatch(result.getRecords());
+        fillApplyDetailsBatch(result.getRecords());
 
         return result;
     }
@@ -129,48 +126,49 @@ public class ApplyServiceImpl implements ApplyService {
 
         // 批量填充关联数据
         fillApplyInfoBatch(result.getRecords());
+        fillApplyDetailsBatch(result.getRecords());
 
         return result;
     }
 
     @Override
     public Page<Apply> listPendingApplies(Integer pageNum, Integer pageSize) {
-        // 获取当前用户
-        Long userId = getCurrentUserId();
-        User user = userMapper.selectById(userId);
+        // 待审批列表与审批权限保持一致：
+        // 仓管员可审批自己管理的仓库，部门管理员可审批本部门的申请
+        User user = dataScopeHelper.getCurrentUser();
+        boolean isDeptAdmin = RoleCode.is(dataScopeHelper.getCurrentRoleCode(), RoleCode.DEPT_ADMIN)
+                && user.getDeptId() != null;
 
-        if (user == null) {
-            throw new BusinessException(404, "用户不存在");
-        }
+        List<Long> managedWarehouseIds = warehouseMapper.selectList(
+                        new LambdaQueryWrapper<Warehouse>()
+                                .select(Warehouse::getId)
+                                .eq(Warehouse::getManagerId, user.getId()))
+                .stream()
+                .map(Warehouse::getId)
+                .collect(Collectors.toList());
 
-        // 查询当前用户管理的仓库
-        LambdaQueryWrapper<Warehouse> warehouseWrapper = new LambdaQueryWrapper<>();
-        warehouseWrapper.eq(Warehouse::getManagerId, userId);
-        List<Warehouse> warehouses = warehouseMapper.selectList(warehouseWrapper);
-
-        if (warehouses.isEmpty()) {
-            // 如果不是仓管员，返回空列表
+        if (managedWarehouseIds.isEmpty() && !isDeptAdmin) {
+            // 既不是仓管员也不是部门管理员，没有可审批的申请
             return new Page<>(pageNum, pageSize);
         }
 
-        // 查询这些仓库的待审批申请
-        Page<Apply> page = new Page<>(pageNum, pageSize);
-
         LambdaQueryWrapper<Apply> wrapper = new LambdaQueryWrapper<>();
-        // 收集仓库ID列表，避免空列表导致的SQL语法错误
-        List<Long> warehouseIds = warehouses.stream()
-                .map(Warehouse::getId)
-                .collect(Collectors.toList());
-        if (!warehouseIds.isEmpty()) {
-            wrapper.in(Apply::getWarehouseId, warehouseIds);
-        }
         wrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
+        if (!managedWarehouseIds.isEmpty() && isDeptAdmin) {
+            wrapper.and(w -> w.in(Apply::getWarehouseId, managedWarehouseIds)
+                    .or().eq(Apply::getDeptId, user.getDeptId()));
+        } else if (!managedWarehouseIds.isEmpty()) {
+            wrapper.in(Apply::getWarehouseId, managedWarehouseIds);
+        } else {
+            wrapper.eq(Apply::getDeptId, user.getDeptId());
+        }
         wrapper.orderByAsc(Apply::getApplyTime);
 
-        Page<Apply> result = applyMapper.selectPage(page, wrapper);
+        Page<Apply> result = applyMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
 
-        // 批量填充关联数据
+        // 批量填充关联数据（含明细和当前库存，便于审批时判断）
         fillApplyInfoBatch(result.getRecords());
+        fillApplyDetailsBatch(result.getRecords());
 
         return result;
     }
@@ -182,26 +180,20 @@ public class ApplyServiceImpl implements ApplyService {
             throw new BusinessException(404, "申请单不存在");
         }
 
+        // 访问控制：申请人本人可查看；普通员工不能查看他人申请；管理角色只能查看本部门仓库的申请
+        User currentUser = dataScopeHelper.getCurrentUser();
+        if (!currentUser.getId().equals(apply.getApplicantId())) {
+            if (RoleCode.is(dataScopeHelper.getCurrentRoleCode(), RoleCode.USER)) {
+                throw new BusinessException(403, "无权查看他人的申请单");
+            }
+            dataScopeHelper.checkWarehouseAccess(apply.getWarehouseId());
+        }
+
         // 填充关联数据
         fillApplyInfo(apply);
 
-        // 查询明细
-        LambdaQueryWrapper<ApplyDetail> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ApplyDetail::getApplyId, id);
-        List<ApplyDetail> details = applyDetailMapper.selectList(wrapper);
-
-        // 填充明细物资信息
-        details.forEach(detail -> {
-            Material material = materialMapper.selectById(detail.getMaterialId());
-            if (material != null) {
-                detail.setMaterialName(material.getMaterialName());
-                detail.setMaterialCode(material.getMaterialCode());
-                detail.setSpec(material.getSpec());
-                detail.setUnit(material.getUnit());
-            }
-        });
-
-        apply.setDetails(details);
+        // 查询明细（含物资信息和当前库存）
+        fillApplyDetailsBatch(Collections.singletonList(apply));
 
         return apply;
     }
@@ -277,6 +269,9 @@ public class ApplyServiceImpl implements ApplyService {
 
         log.info("申请单创建成功: applyNo={}", applyNo);
 
+        // 通知可审批的人（事务提交后发送）
+        notificationService.notifyApplySubmit(apply);
+
         return apply.getId();
     }
 
@@ -316,7 +311,7 @@ public class ApplyServiceImpl implements ApplyService {
         boolean isDeptAdmin = false;
         if (!isWarehouseManager && approver != null) {
             Role approverRole = roleMapper.selectById(approver.getRoleId());
-            if (approverRole != null && "DEPT_ADMIN".equals(approverRole.getRoleCode())) {
+            if (approverRole != null && RoleCode.is(approverRole.getRoleCode(), RoleCode.DEPT_ADMIN)) {
                 // 部门管理员只能审批本部门的申请
                 if (approver.getDeptId() != null && approver.getDeptId().equals(apply.getDeptId())) {
                     isDeptAdmin = true;
@@ -332,6 +327,8 @@ public class ApplyServiceImpl implements ApplyService {
         apply.setApproverId(approverId);
         apply.setApprovalTime(LocalDateTime.now());
         apply.setApprovalRemark(dto.getApprovalRemark());
+        // approvalRemark 不是数据库字段：审批意见必须写入 approval_opinion 才会被保存
+        apply.setApprovalOpinion(dto.getApprovalRemark());
 
         if (dto.getApprovalResult() == 1) {
             // 审批通过 - 先锁定库存再创建出库单
@@ -378,13 +375,29 @@ public class ApplyServiceImpl implements ApplyService {
 
             log.info("自动创建出库单: applyId={}, outboundId={}", apply.getId(), outboundId);
 
+            // 关联出库单，申请人可在申请详情中看到出库单号
+            Apply outboundLink = new Apply();
+            outboundLink.setId(apply.getId());
+            outboundLink.setOutboundId(outboundId);
+            applyMapper.updateById(outboundLink);
+
+            // 通知申请人领取（事务提交后发送）
+            notificationService.notifyApplyApproved(apply);
+
         } else if (dto.getApprovalResult() == 2) {
-            // 审批拒绝
+            // 审批拒绝：必须填写原因，申请人才知道为什么被拒绝
+            if (!StringUtils.hasText(dto.getApprovalRemark())) {
+                throw new BusinessException(400, "请填写拒绝原因");
+            }
             apply.setStatus(ApplyStatus.REJECTED);
+            apply.setRejectReason(dto.getApprovalRemark());
             applyMapper.updateById(apply);
 
             log.info("审批拒绝: applyNo={}, approverId={}, reason={}",
                     apply.getApplyNo(), approverId, dto.getApprovalRemark());
+
+            // 通知申请人拒绝原因（事务提交后发送）
+            notificationService.notifyApplyRejected(apply);
 
         } else {
             throw new BusinessException(400, "审批结果无效");
@@ -448,6 +461,9 @@ public class ApplyServiceImpl implements ApplyService {
         if (applies == null || applies.isEmpty()) {
             return;
         }
+
+        // 申请原因不单独存储，与领用用途相同
+        applies.forEach(this::fillApplyReason);
 
         // 收集所有需要的ID
         Set<Long> warehouseIds = applies.stream()
@@ -514,9 +530,87 @@ public class ApplyServiceImpl implements ApplyService {
     }
 
     /**
+     * 批量填充申请明细（物资信息）；待审批的申请额外填充仓库当前可用库存及是否充足
+     */
+    private void fillApplyDetailsBatch(List<Apply> applies) {
+        if (applies == null || applies.isEmpty()) {
+            return;
+        }
+
+        List<Long> applyIds = applies.stream().map(Apply::getId).collect(Collectors.toList());
+        Map<Long, List<ApplyDetail>> detailsByApply = applyDetailMapper.selectList(
+                        new LambdaQueryWrapper<ApplyDetail>().in(ApplyDetail::getApplyId, applyIds))
+                .stream()
+                .collect(Collectors.groupingBy(ApplyDetail::getApplyId));
+
+        Set<Long> materialIds = detailsByApply.values().stream()
+                .flatMap(List::stream)
+                .map(ApplyDetail::getMaterialId)
+                .collect(Collectors.toSet());
+        Map<Long, Material> materialMap = materialIds.isEmpty() ? Map.of()
+                : materialMapper.selectBatchIds(materialIds).stream()
+                        .collect(Collectors.toMap(Material::getId, Function.identity()));
+
+        // 只有待审批的申请需要展示当前库存（已通过的申请库存已锁定，再比较没有意义）
+        Set<Long> pendingWarehouseIds = applies.stream()
+                .filter(apply -> ApplyStatus.PENDING.equals(apply.getStatus()))
+                .map(Apply::getWarehouseId)
+                .collect(Collectors.toSet());
+        Map<String, BigDecimal> availableStock = Map.of();
+        if (!pendingWarehouseIds.isEmpty() && !materialIds.isEmpty()) {
+            availableStock = inventoryMapper.selectList(new LambdaQueryWrapper<Inventory>()
+                            .in(Inventory::getWarehouseId, pendingWarehouseIds)
+                            .in(Inventory::getMaterialId, materialIds))
+                    .stream()
+                    .collect(Collectors.toMap(
+                            inventory -> inventory.getWarehouseId() + ":" + inventory.getMaterialId(),
+                            inventory -> inventory.getAvailableQuantity() != null
+                                    ? inventory.getAvailableQuantity() : BigDecimal.ZERO,
+                            (a, b) -> a));
+        }
+
+        for (Apply apply : applies) {
+            List<ApplyDetail> details = detailsByApply.getOrDefault(apply.getId(), Collections.emptyList());
+            boolean pending = ApplyStatus.PENDING.equals(apply.getStatus());
+            for (ApplyDetail detail : details) {
+                Material material = materialMap.get(detail.getMaterialId());
+                if (material != null) {
+                    detail.setMaterialName(material.getMaterialName());
+                    detail.setMaterialCode(material.getMaterialCode());
+                    detail.setSpec(material.getSpec());
+                    detail.setUnit(material.getUnit());
+                }
+                if (pending) {
+                    BigDecimal stock = availableStock.getOrDefault(
+                            apply.getWarehouseId() + ":" + detail.getMaterialId(), BigDecimal.ZERO);
+                    detail.setCurrentStock(stock);
+                    detail.setIsStockSufficient(detail.getQuantity() != null
+                            && stock.compareTo(detail.getQuantity()) >= 0);
+                }
+            }
+            apply.setDetails(details);
+        }
+    }
+
+    /**
      * 填充申请单关联信息
      */
+    private void fillApplyReason(Apply apply) {
+        if (apply.getApplyReason() == null) {
+            apply.setApplyReason(apply.getPurpose());
+        }
+    }
+
     private void fillApplyInfo(Apply apply) {
+        fillApplyReason(apply);
+        // 填充关联出库单号及领取时间（审批通过后自动生成出库单）
+        if (apply.getOutboundId() != null) {
+            Outbound outbound = outboundMapper.selectById(apply.getOutboundId());
+            if (outbound != null) {
+                apply.setOutboundNo(outbound.getOutboundNo());
+            }
+        }
+
         // 填充仓库名称
         Warehouse warehouse = warehouseMapper.selectById(apply.getWarehouseId());
         if (warehouse != null) {

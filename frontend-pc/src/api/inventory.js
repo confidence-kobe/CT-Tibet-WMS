@@ -61,3 +61,15 @@ export function listLowStockAlerts(params) {
  * 查询库存列表（别名，用于申请创建页面）
  */
 export const listInventory = listInventories
+
+/**
+ * 库存状态汇总（正常/低库存/缺货数量），按当前用户数据范围统计
+ * @param {Object} params - { warehouseId }
+ */
+export function getInventorySummary(params) {
+  return request({
+    url: '/inventories/summary',
+    method: 'get',
+    params
+  })
+}

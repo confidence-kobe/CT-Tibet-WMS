@@ -2,6 +2,27 @@
   <view class="create-apply-container">
     <!-- 表单 -->
     <view class="form">
+      <!-- 领用仓库（本部门仓库；只有一个时自动选中） -->
+      <view class="form-item required">
+        <view class="label">领用仓库</view>
+        <picker
+          v-if="warehouses.length > 1"
+          mode="selector"
+          :range="warehouses"
+          range-key="warehouseName"
+          :value="warehouseIndex"
+          @change="handleWarehouseChange"
+        >
+          <view class="picker-value">
+            <text>{{ currentWarehouse ? currentWarehouse.warehouseName : '请选择仓库' }}</text>
+            <text class="picker-arrow">▼</text>
+          </view>
+        </picker>
+        <view v-else class="picker-value readonly">
+          <text>{{ currentWarehouse ? currentWarehouse.warehouseName : '本部门暂无可用仓库' }}</text>
+        </view>
+      </view>
+
       <!-- 用途说明 -->
       <view class="form-item required">
         <view class="label">用途说明</view>
@@ -193,6 +214,10 @@ export default {
         details: []
       },
       submitting: false,
+      // 仓库与库存
+      warehouses: [],
+      warehouseIndex: 0,
+      stockMap: {},
       // 物资选择器
       showSelector: false,
       materials: [],
@@ -209,8 +234,12 @@ export default {
   },
 
   computed: {
+    currentWarehouse() {
+      return this.warehouses[this.warehouseIndex] || null
+    },
     canSubmit() {
       return (
+        !!this.currentWarehouse &&
         this.form.purpose.trim().length > 0 &&
         this.form.details.length > 0 &&
         !this.submitting
@@ -223,13 +252,12 @@ export default {
     async loadMaterials() {
       try {
         const res = await api.common.getMaterials({
-          status: 0, // 只获取启用的物资
-          pageSize: 1000 // 获取所有物资
+          status: 0 // 只获取启用的物资（自动分页拉取全部）
         })
 
         if (res.code === 200) {
-          this.materials = res.data.list || []
-          this.filteredMaterials = this.materials
+          this.materials = this.withStock(res.data.list || [])
+          this.filterMaterials()
 
           // 提取类别
           const categorySet = new Set(['全部'])
@@ -246,6 +274,84 @@ export default {
           title: '加载物资列表失败',
           icon: 'none'
         })
+      }
+    },
+
+    // 加载本部门仓库
+    async loadWarehouses() {
+      try {
+        const res = await api.common.getWarehouses()
+        this.warehouses = res.data || []
+        if (this.warehouses.length > 0) {
+          await this.loadStock()
+        }
+      } catch (err) {
+        console.error('加载仓库失败', err)
+      }
+    },
+
+    // 切换仓库：重新加载该仓库库存
+    async handleWarehouseChange(e) {
+      this.warehouseIndex = Number(e.detail.value)
+      await this.loadStock()
+    },
+
+    // 加载当前仓库的可用库存，并刷新已选物资的库存状态
+    async loadStock() {
+      if (!this.currentWarehouse) return
+      try {
+        const res = await api.inventory.getAll(this.currentWarehouse.id)
+        const stockMap = {}
+        const inventories = res.data.list || []
+        inventories.forEach(inventory => {
+          stockMap[inventory.materialId] = Number(inventory.availableQuantity) || 0
+        })
+        this.stockMap = stockMap
+        this.materials = this.withStock(this.materials)
+        this.filterMaterials()
+        this.form.details.forEach(item => {
+          item.currentStock = stockMap[item.materialId] || 0
+          item.isStockSufficient = Number(item.quantity) <= item.currentStock
+        })
+      } catch (err) {
+        console.error('加载库存失败', err)
+      }
+    },
+
+    // 给物资附加当前仓库的可用库存
+    withStock(materials) {
+      return materials.map(material => ({
+        ...material,
+        stock: this.stockMap[material.id] || 0
+      }))
+    },
+
+    // 重新申请：带入被拒绝申请的仓库、用途和物资
+    async loadReapply(applyId) {
+      try {
+        const res = await api.apply.getApplyDetail(applyId)
+        const apply = res.data || {}
+        this.form.purpose = apply.purpose || apply.applyReason || ''
+        const index = this.warehouses.findIndex(warehouse => warehouse.id === apply.warehouseId)
+        if (index >= 0 && index !== this.warehouseIndex) {
+          this.warehouseIndex = index
+          await this.loadStock()
+        }
+        this.form.details = (apply.details || []).map(detail => {
+          const currentStock = this.stockMap[detail.materialId] || 0
+          return {
+            materialId: detail.materialId,
+            materialName: detail.materialName,
+            materialCode: detail.materialCode,
+            spec: detail.spec,
+            unit: detail.unit,
+            quantity: Number(detail.quantity),
+            currentStock,
+            isStockSufficient: Number(detail.quantity) <= currentStock
+          }
+        })
+      } catch (err) {
+        console.error('加载原申请失败', err)
       }
     },
 
@@ -296,7 +402,7 @@ export default {
     },
 
     // 选择物资
-    async selectMaterial(material) {
+    selectMaterial(material) {
       // 检查是否已选择
       const exists = this.form.details.find(item => item.materialId === material.id)
       if (exists) {
@@ -307,28 +413,14 @@ export default {
         return
       }
 
-      // 获取库存信息
-      try {
-        const res = await api.common.getMaterialById(material.id)
-
-        if (res.code === 200) {
-          this.selectedMaterial = {
-            ...material,
-            ...res.data,
-            stock: res.data.totalStock || 0
-          }
-          this.editingIndex = -1
-          this.tempQuantity = ''
-          this.showQuantityInput = true
-          this.hideMaterialSelector()
-        }
-      } catch (err) {
-        console.error('获取物资信息失败', err)
-        uni.showToast({
-          title: '获取物资信息失败',
-          icon: 'none'
-        })
+      this.selectedMaterial = {
+        ...material,
+        stock: this.stockMap[material.id] || 0
       }
+      this.editingIndex = -1
+      this.tempQuantity = ''
+      this.showQuantityInput = true
+      this.hideMaterialSelector()
     },
 
     // 判断是否已选择
@@ -462,12 +554,21 @@ export default {
         return
       }
 
+      if (!this.currentWarehouse) {
+        uni.showToast({
+          title: '请选择领用仓库',
+          icon: 'none'
+        })
+        return
+      }
+
       this.submitting = true
       uni.showLoading({ title: '提交中...' })
 
       try {
         const res = await api.apply.createApply({
-          purpose: this.form.purpose.trim(),
+          warehouseId: this.currentWarehouse.id,
+          applyReason: this.form.purpose.trim(),
           details: this.form.details.map(item => ({
             materialId: item.materialId,
             quantity: item.quantity
@@ -500,8 +601,11 @@ export default {
     }
   },
 
-  onLoad() {
-    // 初始化
+  async onLoad(options) {
+    await this.loadWarehouses()
+    if (options && options.reapplyId) {
+      await this.loadReapply(options.reapplyId)
+    }
   }
 }
 </script>
@@ -535,6 +639,27 @@ export default {
   font-weight: 500;
   color: #262626;
   margin-bottom: 16rpx;
+}
+
+.picker-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #262626;
+  background-color: #fafafa;
+  border-radius: 8rpx;
+
+  &.readonly {
+    color: #595959;
+  }
+}
+
+.picker-arrow {
+  font-size: 22rpx;
+  color: #bfbfbf;
 }
 
 .textarea {

@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.LoginRequest;
+import com.ct.wms.entity.Dept;
 import com.ct.wms.entity.Role;
 import com.ct.wms.entity.User;
+import com.ct.wms.mapper.DeptMapper;
 import com.ct.wms.mapper.RoleMapper;
 import com.ct.wms.mapper.UserMapper;
 import com.ct.wms.service.AuthService;
@@ -53,6 +55,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
+    private final DeptMapper deptMapper;
     private final JwtUtils jwtUtils;
     private final Environment environment;
 
@@ -123,7 +126,7 @@ public class AuthServiceImpl implements AuthService {
                 .realName(user.getRealName())
                 .phone(user.getPhone())
                 .deptId(user.getDeptId())
-                .deptName(user.getDeptName())
+                .deptName(deptNameOf(user))
                 .roleId(user.getRoleId())
                 .roleName(role.getRoleName())
                 .roleCode(role.getRoleCode())
@@ -192,7 +195,7 @@ public class AuthServiceImpl implements AuthService {
                 .realName(user.getRealName())
                 .phone(user.getPhone())
                 .deptId(user.getDeptId())
-                .deptName(user.getDeptName())
+                .deptName(deptNameOf(user))
                 .roleId(user.getRoleId())
                 .roleName(role.getRoleName())
                 .roleCode(role.getRoleCode())
@@ -262,5 +265,16 @@ public class AuthServiceImpl implements AuthService {
         } catch (Exception e) {
             log.warn("更新登录信息失败: userId={}", userId, e);
         }
+    }
+
+    /**
+     * 用户所在部门名称（用户表只存部门ID）
+     */
+    private String deptNameOf(User user) {
+        if (user.getDeptId() == null) {
+            return null;
+        }
+        Dept dept = deptMapper.selectById(user.getDeptId());
+        return dept != null ? dept.getDeptName() : null;
     }
 }

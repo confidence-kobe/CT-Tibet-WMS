@@ -1,7 +1,7 @@
 /**
  * 申请管理相关API（员工端）
  */
-import { $uRequest } from '@/utils/request.js'
+import { $uRequest, $uPageRequest } from '@/utils/request.js'
 
 /**
  * 创建物资申请
@@ -34,7 +34,7 @@ export function createApply(data) {
  * @returns {Promise} 返回分页数据
  */
 export function getMyApplies(params) {
-  return $uRequest({
+  return $uPageRequest({
     url: '/api/applies/my',
     method: 'GET',
     data: params

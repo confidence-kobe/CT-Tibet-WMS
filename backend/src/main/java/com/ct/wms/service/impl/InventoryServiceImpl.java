@@ -5,7 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
+import com.ct.wms.security.DataScopeHelper;
 import com.ct.wms.service.InventoryService;
+import com.ct.wms.service.NotificationService;
+import com.ct.wms.vo.InventorySummaryVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -14,7 +17,12 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 库存Service实现类
@@ -32,6 +40,8 @@ public class InventoryServiceImpl implements InventoryService {
     private final WarehouseMapper warehouseMapper;
     private final MaterialMapper materialMapper;
     private final UserMapper userMapper;
+    private final DataScopeHelper dataScopeHelper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -154,47 +164,115 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     public Page<Inventory> listInventories(Integer pageNum, Integer pageSize, Long warehouseId,
                                            Long materialId, String keyword) {
+        return listInventories(pageNum, pageSize, warehouseId, materialId, keyword, null, null);
+    }
+
+    @Override
+    public Page<Inventory> listInventories(Integer pageNum, Integer pageSize, Long warehouseId,
+                                           Long materialId, String keyword, String category, Integer stockStatus) {
         Page<Inventory> page = new Page<>(pageNum, pageSize);
 
-        LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
-
-        if (warehouseId != null) {
-            wrapper.eq(Inventory::getWarehouseId, warehouseId);
+        LambdaQueryWrapper<Inventory> wrapper = buildInventoryQuery(warehouseId, keyword, category);
+        if (wrapper == null) {
+            // 关键词/类别没有匹配的物资，返回空结果
+            return page;
         }
-
         if (materialId != null) {
             wrapper.eq(Inventory::getMaterialId, materialId);
         }
-
-        // 关键词搜索（需要联表查询物资名称，这里简化处理）
-        if (StringUtils.hasText(keyword)) {
-            // 先查询匹配的物资ID
-            LambdaQueryWrapper<Material> materialWrapper = new LambdaQueryWrapper<>();
-            materialWrapper.like(Material::getMaterialName, keyword)
-                    .or().like(Material::getMaterialCode, keyword);
-            List<Material> materials = materialMapper.selectList(materialWrapper);
-
-            if (!materials.isEmpty()) {
-                List<Long> materialIds = materials.stream()
-                        .map(Material::getId)
-                        .collect(java.util.stream.Collectors.toList());
-                wrapper.in(Inventory::getMaterialId, materialIds);
-            } else {
-                // 如果没有匹配的物资，返回空结果
-                return page;
-            }
-        }
-
         wrapper.orderByDesc(Inventory::getUpdateTime);
 
-        Page<Inventory> result = inventoryMapper.selectPage(page, wrapper);
-
-        // 填充关联数据（防御性检查，避免空指针）
-        if (result != null && result.getRecords() != null && !result.getRecords().isEmpty()) {
-            result.getRecords().forEach(this::fillInventoryInfo);
+        if (stockStatus == null) {
+            Page<Inventory> result = inventoryMapper.selectPage(page, wrapper);
+            if (result != null && result.getRecords() != null && !result.getRecords().isEmpty()) {
+                result.getRecords().forEach(this::fillInventoryInfo);
+            }
+            return result;
         }
 
-        return result;
+        // 库存状态由数量与物资最低库存计算得出，无法直接用 SQL 过滤：
+        // 在部门可见范围内（数据量有限）先计算状态再分页
+        List<Inventory> matched = inventoryMapper.selectList(wrapper);
+        matched.forEach(this::fillInventoryInfo);
+        List<Inventory> filtered = matched.stream()
+                .filter(inventory -> stockStatus.equals(inventory.getStockStatus()))
+                .collect(Collectors.toList());
+
+        int from = (int) Math.min((long) (pageNum - 1) * pageSize, filtered.size());
+        int to = Math.min(from + pageSize, filtered.size());
+        page.setRecords(filtered.subList(from, to));
+        page.setTotal(filtered.size());
+        return page;
+    }
+
+    @Override
+    public InventorySummaryVO getInventorySummary(Long warehouseId, String keyword, String category) {
+        LambdaQueryWrapper<Inventory> wrapper = buildInventoryQuery(warehouseId, keyword, category);
+        List<Inventory> inventories = wrapper == null ? Collections.emptyList()
+                : inventoryMapper.selectList(wrapper);
+
+        Map<Long, BigDecimal> minStocks = new HashMap<>();
+        Set<Long> materialIds = inventories.stream()
+                .map(Inventory::getMaterialId).collect(Collectors.toSet());
+        if (!materialIds.isEmpty()) {
+            materialMapper.selectBatchIds(materialIds).forEach(material -> {
+                if (material.getMinStock() != null) {
+                    minStocks.put(material.getId(), material.getMinStock());
+                }
+            });
+        }
+
+        int normal = 0;
+        int low = 0;
+        int out = 0;
+        for (Inventory inventory : inventories) {
+            int status = resolveStockStatus(inventory.getQuantity(), minStocks.get(inventory.getMaterialId()));
+            if (status == 2) {
+                out++;
+            } else if (status == 1) {
+                low++;
+            } else {
+                normal++;
+            }
+        }
+        return InventorySummaryVO.builder()
+                .totalMaterials(inventories.size())
+                .normalCount(normal)
+                .lowStockCount(low)
+                .outOfStockCount(out)
+                .build();
+    }
+
+    /**
+     * 构建库存查询条件：部门数据隔离 + 按物资关键词/类别筛选
+     *
+     * @return 查询条件；关键词或类别没有匹配任何物资时返回 null
+     */
+    private LambdaQueryWrapper<Inventory> buildInventoryQuery(Long warehouseId, String keyword, String category) {
+        LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
+
+        // 部门数据隔离：只能查看本部门仓库（系统管理员除外）
+        dataScopeHelper.resolveWarehouseScope(warehouseId).applyTo(wrapper, Inventory::getWarehouseId);
+
+        if (StringUtils.hasText(keyword) || StringUtils.hasText(category)) {
+            LambdaQueryWrapper<Material> materialWrapper = new LambdaQueryWrapper<>();
+            materialWrapper.select(Material::getId);
+            if (StringUtils.hasText(keyword)) {
+                materialWrapper.and(w -> w.like(Material::getMaterialName, keyword)
+                        .or().like(Material::getMaterialCode, keyword));
+            }
+            if (StringUtils.hasText(category)) {
+                materialWrapper.eq(Material::getCategory, category);
+            }
+            List<Long> materialIds = materialMapper.selectList(materialWrapper).stream()
+                    .map(Material::getId)
+                    .collect(Collectors.toList());
+            if (materialIds.isEmpty()) {
+                return null;
+            }
+            wrapper.in(Inventory::getMaterialId, materialIds);
+        }
+        return wrapper;
     }
 
     @Override
@@ -204,9 +282,8 @@ public class InventoryServiceImpl implements InventoryService {
 
         LambdaQueryWrapper<InventoryLog> wrapper = new LambdaQueryWrapper<>();
 
-        if (warehouseId != null) {
-            wrapper.eq(InventoryLog::getWarehouseId, warehouseId);
-        }
+        // 部门数据隔离：只能查看本部门仓库（系统管理员除外）
+        dataScopeHelper.resolveWarehouseScope(warehouseId).applyTo(wrapper, InventoryLog::getWarehouseId);
 
         if (materialId != null) {
             wrapper.eq(InventoryLog::getMaterialId, materialId);
@@ -238,12 +315,9 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public List<Inventory> listLowStockAlerts(Long warehouseId) {
-        // 查询所有库存
+        // 查询可见范围内的库存（部门数据隔离）
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
-
-        if (warehouseId != null) {
-            wrapper.eq(Inventory::getWarehouseId, warehouseId);
-        }
+        dataScopeHelper.resolveWarehouseScope(warehouseId).applyTo(wrapper, Inventory::getWarehouseId);
 
         List<Inventory> inventories = inventoryMapper.selectList(wrapper);
 
@@ -280,7 +354,27 @@ public class InventoryServiceImpl implements InventoryService {
             inventory.setMaterialCode(material.getMaterialCode());
             inventory.setSpec(material.getSpec());
             inventory.setUnit(material.getUnit());
+            inventory.setCategory(material.getCategory());
+            inventory.setPrice(material.getPrice());
+            inventory.setMinStock(material.getMinStock());
+            if (material.getPrice() != null && inventory.getQuantity() != null) {
+                inventory.setStockValue(material.getPrice().multiply(inventory.getQuantity()));
+            }
         }
+        inventory.setStockStatus(resolveStockStatus(inventory.getQuantity(), inventory.getMinStock()));
+    }
+
+    /**
+     * 计算库存状态：0-正常 1-低库存（低于最低库存）2-缺货（库存为0）
+     */
+    private static Integer resolveStockStatus(BigDecimal quantity, BigDecimal minStock) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            return 2;
+        }
+        if (minStock != null && quantity.compareTo(minStock) < 0) {
+            return 1;
+        }
+        return 0;
     }
 
     /**
@@ -342,11 +436,24 @@ public class InventoryServiceImpl implements InventoryService {
         log.setRemark(remark);
 
         inventoryLogMapper.insert(log);
+
+        // 出库导致库存跌破最低库存时发送预警（只在跨越阈值时发送一次，避免每次出库都提醒）
+        if (changeType == 2 && material != null && material.getMinStock() != null
+                && beforeQuantity != null && afterQuantity != null
+                && beforeQuantity.compareTo(material.getMinStock()) >= 0
+                && afterQuantity.compareTo(material.getMinStock()) < 0) {
+            notificationService.notifyLowStockAlert(warehouseId, materialId, material.getMaterialName(),
+                    afterQuantity, material.getMinStock());
+        }
     }
 
     @Override
     public Inventory getById(Long id) {
-        return inventoryMapper.selectById(id);
+        Inventory inventory = inventoryMapper.selectById(id);
+        if (inventory != null) {
+            dataScopeHelper.checkWarehouseAccess(inventory.getWarehouseId());
+        }
+        return inventory;
     }
 
     @Override

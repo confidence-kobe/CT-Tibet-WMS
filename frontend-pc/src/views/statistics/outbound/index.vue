@@ -36,7 +36,7 @@
             <el-option
               v-for="warehouse in warehouseList"
               :key="warehouse.id"
-              :label="warehouse.name"
+              :label="warehouse.warehouseName"
               :value="warehouse.id"
             />
           </el-select>
@@ -142,8 +142,9 @@
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import dayjs from 'dayjs'
 import { getOutboundStatistics } from '@/api/statistics'
-import { listWarehouses } from '@/api/warehouse'
+import { getMyWarehouses } from '@/api/warehouse'
 
 // 查询表单
 const queryForm = reactive({
@@ -208,7 +209,7 @@ let pieChart = null
 // 加载仓库列表
 const loadWarehouses = async () => {
   try {
-    const res = await listWarehouses({ status: 0 })
+    const res = await getMyWarehouses()
     warehouseList.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
@@ -377,13 +378,10 @@ onMounted(() => {
   loadWarehouses()
   initCharts()
 
-  // 设置默认时间范围为最近一个月
-  const end = new Date()
-  const start = new Date()
-  start.setTime(start.getTime() - 3600 * 1000 * 24 * 30)
+  // 设置默认时间范围为最近一个月（按本地日期，避免 UTC 导致日期偏移）
   queryForm.dateRange = [
-    start.toISOString().split('T')[0],
-    end.toISOString().split('T')[0]
+    dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
+    dayjs().format('YYYY-MM-DD')
   ]
 
   handleQuery()

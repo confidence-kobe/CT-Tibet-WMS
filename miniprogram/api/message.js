@@ -12,12 +12,27 @@ import { $uRequest } from '@/utils/request.js'
  * @param {number} params.readStatus - 阅读状态（可选）0-未读 1-已读
  * @returns {Promise} 返回消息列表
  */
-export function getMessages(params) {
-  return $uRequest({
+export async function getMessages(params = {}) {
+  const res = await $uRequest({
     url: '/api/messages',
     method: 'GET',
     data: params
   })
+  // 后端返回 { list, total, stats: { total, unread, read } }，统一为页面使用的格式
+  const data = res.data || {}
+  const list = data.list || []
+  const pageNum = params.pageNum || 1
+  const pageSize = params.pageSize || list.length
+  const total = data.total || 0
+  return {
+    ...res,
+    data: {
+      list,
+      total,
+      unreadCount: (data.stats && data.stats.unread) || 0,
+      hasMore: pageNum * pageSize < total
+    }
+  }
 }
 
 /**
@@ -66,33 +81,6 @@ export function deleteMessage(id) {
   })
 }
 
-/**
- * 批量删除消息
- * @param {Array} ids - 消息ID数组
- * @returns {Promise} 返回批量删除结果
- */
-export function batchDeleteMessages(ids) {
-  return $uRequest({
-    url: '/api/messages/batch-delete',
-    method: 'POST',
-    data: {
-      ids
-    }
-  })
-}
-
-/**
- * 查询消息详情
- * @param {number} id - 消息ID
- * @returns {Promise} 返回消息详情
- */
-export function getMessageDetail(id) {
-  return $uRequest({
-    url: `/api/messages/${id}`,
-    method: 'GET'
-  })
-}
-
 export default {
   // 原始方法名
   getMessages,
@@ -100,10 +88,7 @@ export default {
   markRead,
   markAllRead,
   deleteMessage,
-  batchDeleteMessages,
-  getMessageDetail,
   // 别名（匹配页面调用）
   getList: getMessages,
-  getDetail: getMessageDetail,
   delete: deleteMessage
 }

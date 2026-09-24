@@ -2,12 +2,10 @@ package com.ct.wms.schedule;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.ct.wms.service.NotificationService;
 import com.ct.wms.common.enums.ApplyStatus;
-import com.ct.wms.common.enums.MessageType;
-import com.ct.wms.dto.NotificationMessageDTO;
 import com.ct.wms.entity.Apply;
 import com.ct.wms.mapper.ApplyMapper;
-import com.ct.wms.mq.NotificationProducer;
 import com.ct.wms.utils.RedisLockUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +23,7 @@ import java.util.List;
 /**
  * 申请超时定时任务
  *
- * 说明：NotificationProducer 为可选依赖，如果 RabbitMQ 未启用，将跳过消息通知
+ * 说明：站内消息通过 NotificationService 直接写入，不依赖 RabbitMQ
  *
  * @author CT Development Team
  * @since 2025-11-11
@@ -35,15 +33,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ApplyTimeoutTask {
 
+    private final NotificationService notificationService;
     private final ApplyMapper applyMapper;
 
     // 可选依赖：如果 Redis 未启用（测试环境），此字段为 null
     @Autowired(required = false)
     private RedisLockUtils redisLockUtils;
 
-    // 可选依赖：如果 RabbitMQ 未启用，此字段为 null
-    @Autowired(required = false)
-    private NotificationProducer notificationProducer;
 
     // 分布式锁KEY前缀
     private static final String LOCK_PREFIX = "wms:lock:apply_timeout_task:";
@@ -100,29 +96,12 @@ public class ApplyTimeoutTask {
 
             log.info("发现 {} 条超时待审批的申请，开始发送提醒", timeoutApplies.size());
 
-            // 如果 RabbitMQ 未启用，跳过消息通知
-            if (notificationProducer == null) {
-                log.warn("RabbitMQ 未启用，跳过消息队列通知（降级模式）");
-                return;
-            }
-
             int successCount = 0;
 
             for (Apply apply : timeoutApplies) {
                 try {
-                    // 发送提醒消息给审批人
-                    NotificationMessageDTO notification = NotificationMessageDTO.builder()
-                            .receiverId(apply.getApproverId())
-                            .messageType(MessageType.APPLY_REMINDER.getValue())
-                            .title("申请审批超时提醒")
-                            .content(String.format("申请单 %s 已提交超过24小时，请及时审批。申请人: %s",
-                                    apply.getApplyNo(), apply.getApplicantName()))
-                            .relatedId(apply.getId())
-                            .relatedType(3) // 3-申请
-                            .sendWechat(true)
-                            .build();
-
-                    notificationProducer.sendNotification(notification);
+                    // 提醒可审批的人（仓库管理员、本部门的部门管理员）；待审批时 approverId 尚未确定
+                    notificationService.notifyApplyTimeoutReminder(apply);
 
                     successCount++;
                     log.info("发送审批超时提醒成功: id={}, applyNo={}, approverId={}",
@@ -214,21 +193,8 @@ public class ApplyTimeoutTask {
                     int updated = applyMapper.update(null, updateWrapper);
 
                     if (updated > 0) {
-                        // 发送通知给申请人（如果 RabbitMQ 可用）
-                        if (notificationProducer != null) {
-                            NotificationMessageDTO notification = NotificationMessageDTO.builder()
-                                    .receiverId(apply.getApplicantId())
-                                    .messageType(MessageType.TIMEOUT_CANCEL.getValue())
-                                    .title("申请超时取消通知")
-                                    .content(String.format("您的申请单 %s 因超过7天未审批已被系统自动取消。",
-                                            apply.getApplyNo()))
-                                    .relatedId(apply.getId())
-                                    .relatedType(3) // 3-申请
-                                    .sendWechat(true)
-                                    .build();
-
-                            notificationProducer.sendNotification(notification);
-                        }
+                        // 通知申请人（站内消息）
+                        notificationService.notifyApplyTimeoutCancelled(apply);
 
                         successCount++;
                         log.info("成功取消申请: id={}, applyNo={}", apply.getId(), apply.getApplyNo());

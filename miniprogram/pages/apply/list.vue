@@ -1,5 +1,33 @@
 <template>
-  <view class="apply-list-container">
+  <!-- 仓管/管理员不提交领用申请：此标签页显示工作台入口 -->
+  <view v-if="isWarehouse" class="apply-list-container">
+    <view class="workbench">
+      <text class="workbench-title">仓管工作台</text>
+      <text class="workbench-desc">领用申请由员工提交，您可以在这里处理审批和出入库</text>
+      <view class="workbench-grid">
+        <view class="workbench-item" @click="openPage('/pages/approval/list')">
+          <text class="workbench-icon">✅</text>
+          <text class="workbench-text">待审批</text>
+          <text v-if="pendingTasks.pendingApproval > 0" class="workbench-badge">{{ pendingTasks.pendingApproval }}</text>
+        </view>
+        <view class="workbench-item" @click="openPage('/pages/outbound/pending')">
+          <text class="workbench-icon">📦</text>
+          <text class="workbench-text">待领取</text>
+          <text v-if="pendingTasks.pendingPickup > 0" class="workbench-badge">{{ pendingTasks.pendingPickup }}</text>
+        </view>
+        <view class="workbench-item" @click="openPage('/pages/inbound/list')">
+          <text class="workbench-icon">📥</text>
+          <text class="workbench-text">入库记录</text>
+        </view>
+        <view class="workbench-item" @click="openPage('/pages/outbound/list')">
+          <text class="workbench-icon">📤</text>
+          <text class="workbench-text">出库记录</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view v-else class="apply-list-container">
     <!-- 标签页 -->
     <view class="tabs">
       <view
@@ -58,7 +86,7 @@
               撤销申请
             </button>
             <button v-if="item.status === 1" class="btn-action primary" @click.stop="goToPickup(item)">
-              去领取
+              领取信息
             </button>
             <button v-if="item.status === 2" class="btn-action" @click.stop="reapply(item)">
               重新申请
@@ -93,6 +121,7 @@
 
 <script>
 import api from '@/api'
+import { mapState, mapGetters } from 'vuex'
 
 export default {
   data() {
@@ -118,6 +147,11 @@ export default {
       pageSize: 20,
       noMore: false
     }
+  },
+
+  computed: {
+    ...mapState(['pendingTasks']),
+    ...mapGetters(['isWarehouse'])
   },
 
   methods: {
@@ -174,16 +208,18 @@ export default {
 
     // 获取物资摘要
     getMaterialSummary(item) {
-      const count = item.materialCount || 0
-      const first = item.firstMaterialName || '物资'
+      // 列表接口带有明细，据此生成"XX等N项"
+      const details = item.details || []
+      const count = details.length
+      const first = (details[0] && details[0].materialName) || '物资申请'
       return count > 1 ? `${first}等${count}项` : first
     },
 
     // 下拉刷新
     onRefresh() {
+      // 不先清空列表：第1页返回后整体替换，避免闪现空状态
       this.refreshing = true
       this.pageNum = 1
-      this.list = []
       this.noMore = false
       this.loadData()
     },
@@ -197,6 +233,10 @@ export default {
     },
 
     // 跳转到详情
+    openPage(url) {
+      uni.navigateTo({ url })
+    },
+
     goToDetail(id) {
       uni.navigateTo({
         url: `/pages/apply/detail?id=${id}`
@@ -242,10 +282,8 @@ export default {
 
     // 去领取
     goToPickup(item) {
-      // 跳转到待领取出库单列表
-      uni.navigateTo({
-        url: `/pages/outbound/pending?applyId=${item.id}`
-      })
+      // 待领取出库单列表仅仓管可见；员工在申请详情中查看领取信息（出库单号、仓库）
+      this.goToDetail(item.id)
     },
 
     // 重新申请
@@ -261,10 +299,10 @@ export default {
         const res = await api.apply.getApplyStats()
 
         if (res.code === 200) {
-          const { pendingCount, approvedCount, rejectedCount } = res.data
+          // 首页统计接口：{ myApplies: { pendingCount, approvedCount, pickupCount } }
+          const { pendingCount, approvedCount } = res.data.myApplies || {}
           this.tabs[0].count = pendingCount || 0
           this.tabs[1].count = approvedCount || 0
-          this.tabs[2].count = rejectedCount || 0
         }
       } catch (err) {
         console.error('加载统计失败', err)
@@ -272,16 +310,15 @@ export default {
     }
   },
 
-  onLoad() {
-    this.loadData()
-    this.loadStats()
-  },
-
+  // TabBar 页面：每次显示都刷新（包括首次进入、提交申请后返回）
   onShow() {
-    // 从详情页返回时刷新
-    if (this.list.length > 0) {
-      this.onRefresh()
+    if (this.isWarehouse) {
+      // 仓管：刷新待办数量
+      this.$store.dispatch('getPendingTasks')
+      return
     }
+    this.onRefresh()
+    this.loadStats()
   },
 
   onPullDownRefresh() {
@@ -293,6 +330,68 @@ export default {
 
 <style lang="scss" scoped>
 @import "@/styles/design-system.scss";
+
+.workbench {
+  margin: 32rpx;
+  padding: 40rpx 32rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.06);
+}
+
+.workbench-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #262626;
+}
+
+.workbench-desc {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: #8c8c8c;
+}
+
+.workbench-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 32rpx;
+}
+
+.workbench-item {
+  position: relative;
+  width: 50%;
+  padding: 32rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.workbench-icon {
+  font-size: 56rpx;
+}
+
+.workbench-text {
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  color: #262626;
+}
+
+.workbench-badge {
+  position: absolute;
+  top: 20rpx;
+  right: 25%;
+  min-width: 36rpx;
+  height: 36rpx;
+  padding: 0 10rpx;
+  line-height: 36rpx;
+  border-radius: 18rpx;
+  background: #f5222d;
+  color: #ffffff;
+  font-size: 22rpx;
+  text-align: center;
+}
 
 .apply-list-container {
   min-height: 100vh;

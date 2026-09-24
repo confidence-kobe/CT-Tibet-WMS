@@ -104,7 +104,7 @@
                     <el-option
                       v-for="material in materials"
                       :key="material.id"
-                      :label="`${material.code} - ${material.name}`"
+                      :label="`${material.materialCode} - ${material.materialName}`"
                       :value="material.id"
                     />
                   </el-select>
@@ -196,13 +196,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createInbound } from '@/api/inbound'
 import { listWarehouses } from '@/api/warehouse'
-import { listMaterials } from '@/api/material'
+import { listAllMaterials } from '@/api/material'
 
+const route = useRoute()
 const router = useRouter()
 
 // 仓库列表
@@ -237,12 +238,7 @@ const loadWarehouses = async () => {
 // 加载物资列表
 const loadMaterials = async () => {
   try {
-    const res = await listMaterials({
-      pageNum: 1,
-      pageSize: 1000,
-      status: 0
-    })
-    materials.value = res.data || []
+    materials.value = await listAllMaterials({ status: 0 })
   } catch (error) {
     console.error('加载物资列表失败:', error)
   }
@@ -291,9 +287,9 @@ const handleMaterialChange = (index) => {
   const material = materials.value.find(m => m.id === detail.materialId)
 
   if (material) {
-    detail.materialCode = material.code
-    detail.materialName = material.name
-    detail.spec = material.model || ''
+    detail.materialCode = material.materialCode
+    detail.materialName = material.materialName
+    detail.spec = material.spec || ''
     detail.unit = material.unit
     // 注意：后端物资表可能没有price字段，需要手动输入
     detail.price = material.price || 0
@@ -420,14 +416,45 @@ const formatDateTime = () => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
 
+// 根据地址参数预填（从库存预警页"入库补货"跳转：?warehouseId=&materialId=&quantity=）
+const applyPrefill = () => {
+  const { warehouseId, materialId, quantity } = route.query
+  if (warehouseId) {
+    form.warehouseId = Number(warehouseId)
+  }
+  if (!materialId) return
+
+  const id = Number(materialId)
+  let index = form.details.findIndex(detail => detail.materialId === id)
+  if (index === -1) {
+    handleAddMaterial()
+    index = form.details.length - 1
+    form.details[index].materialId = id
+    handleMaterialChange(index)
+  }
+  if (quantity) {
+    form.details[index].quantity = Number(quantity)
+    calculateAmount(index)
+  }
+}
+
 // 初始化
-onMounted(() => {
+onMounted(async () => {
   // 设置默认入库时间为当前时间
   form.inboundTime = formatDateTime()
 
   loadWarehouses()
-  loadMaterials()
+  await loadMaterials()
+  applyPrefill()
 })
+
+// 页面被 keep-alive 缓存，再次带参数跳转时重新预填
+watch(
+  () => route.query,
+  () => {
+    if (route.path === '/inbound/create') applyPrefill()
+  }
+)
 </script>
 
 <style lang="scss" scoped>

@@ -22,7 +22,7 @@
             <el-option
               v-for="warehouse in warehouseList"
               :key="warehouse.id"
-              :label="warehouse.name"
+              :label="warehouse.warehouseName"
               :value="warehouse.id"
             />
           </el-select>
@@ -120,7 +120,7 @@ import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { getInventoryStatistics } from '@/api/statistics'
-import { listWarehouses } from '@/api/warehouse'
+import { getMyWarehouses } from '@/api/warehouse'
 
 // 查询表单
 const queryForm = reactive({
@@ -152,7 +152,7 @@ let lineChart = null
 // 加载仓库列表
 const loadWarehouses = async () => {
   try {
-    const res = await listWarehouses({ status: 0 })
+    const res = await getMyWarehouses()
     warehouseList.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)

@@ -62,3 +62,10 @@ export function getUnreadCount() {
     method: 'get'
   })
 }
+
+/** 未读数量变化时派发的窗口事件，顶部铃铛监听后刷新 */
+export const UNREAD_CHANGED_EVENT = 'wms:unread-changed'
+
+export function notifyUnreadChanged() {
+  window.dispatchEvent(new Event(UNREAD_CHANGED_EVENT))
+}

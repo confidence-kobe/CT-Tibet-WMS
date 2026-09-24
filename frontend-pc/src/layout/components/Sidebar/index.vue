@@ -112,7 +112,9 @@ const routes = computed(() => {
       }
 
       &.is-active {
+        // 选中项背景与 active-text-color 同为蓝色，文字需改为白色才能看见
         background-color: #1890ff !important;
+        color: #fff !important;
       }
     }
   }

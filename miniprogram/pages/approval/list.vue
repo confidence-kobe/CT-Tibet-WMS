@@ -122,6 +122,7 @@
 
 <script>
 import api from '@/api'
+import { isApprovalTimeout } from '@/utils/constant.js'
 
 export default {
   data() {
@@ -164,7 +165,8 @@ export default {
         })
 
         if (res.code === 200) {
-          const { list, total } = res.data
+          const { total } = res.data
+          const list = res.data.list.map(item => ({ ...item, isTimeout: isApprovalTimeout(item.applyTime) }))
 
           if (this.pageNum === 1) {
             this.list = list
@@ -187,9 +189,9 @@ export default {
     },
 
     onRefresh() {
+      // 不先清空列表：第1页返回后整体替换，避免闪现空状态
       this.refreshing = true
       this.pageNum = 1
-      this.list = []
       this.noMore = false
       this.loadData()
     },
@@ -256,10 +258,10 @@ export default {
       try {
         uni.showLoading({ title: '处理中...' })
 
-        const res = await api.approval.approveApply(this.currentApply.id, {
-          approvalStatus: this.approvalType === 'approve' ? 1 : 2,
-          rejectReason: this.approvalType === 'reject' ? this.approvalForm.opinion.trim() : ''
-        })
+        const opinion = this.approvalForm.opinion.trim()
+        const res = await api.approval.approveApply(this.currentApply.id, this.approvalType === 'approve'
+          ? { approvalStatus: 1, approvalOpinion: opinion }
+          : { approvalStatus: 2, rejectReason: opinion })
 
         uni.hideLoading()
 
@@ -286,14 +288,9 @@ export default {
     }
   },
 
-  onLoad() {
-    this.loadData()
-  },
-
+  // 每次显示都刷新（包括首次进入、从详情页审批后返回）
   onShow() {
-    if (this.list.length > 0) {
-      this.onRefresh()
-    }
+    this.onRefresh()
   },
 
   onPullDownRefresh() {

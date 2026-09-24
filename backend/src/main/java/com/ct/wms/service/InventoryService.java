@@ -3,6 +3,7 @@ package com.ct.wms.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.entity.Inventory;
 import com.ct.wms.entity.InventoryLog;
+import com.ct.wms.vo.InventorySummaryVO;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -72,6 +73,20 @@ public interface InventoryService {
      */
     Page<Inventory> listInventories(Integer pageNum, Integer pageSize, Long warehouseId,
                                      Long materialId, String keyword);
+
+    /**
+     * 分页查询库存列表（支持按物资类别、库存状态筛选）
+     *
+     * @param category    物资类别（可选）
+     * @param stockStatus 库存状态（可选）：0-正常 1-低库存 2-缺货
+     */
+    Page<Inventory> listInventories(Integer pageNum, Integer pageSize, Long warehouseId,
+                                     Long materialId, String keyword, String category, Integer stockStatus);
+
+    /**
+     * 库存汇总：按库存状态统计（筛选条件与列表一致，不含库存状态）
+     */
+    InventorySummaryVO getInventorySummary(Long warehouseId, String keyword, String category);
 
     /**
      * 分页查询库存流水

@@ -162,20 +162,24 @@ export default {
       this.loading = true
 
       try {
+        const filters = {
+          category: this.selectedCategory === '全部' ? '' : this.selectedCategory,
+          keyword: this.keyword
+        }
         const res = await api.inventory.getList({
+          ...filters,
           pageNum: this.pageNum,
           pageSize: this.pageSize,
-          category: this.selectedCategory === '全部' ? '' : this.selectedCategory,
-          status: this.statusOptions[this.selectedStatusIndex].value,
-          keyword: this.keyword
+          stockStatus: this.statusOptions[this.selectedStatusIndex].value
         })
 
         if (res.code === 200) {
-          const { list, summary, total } = res.data
+          const { list, total } = res.data
 
           if (this.pageNum === 1) {
             this.list = list
-            this.summary = summary || {}
+            // 汇总不受"状态"筛选影响，便于对比各状态数量
+            this.loadSummary(filters)
           } else {
             this.list = this.list.concat(list)
           }
@@ -192,6 +196,17 @@ export default {
       }
     },
 
+    async loadSummary(filters) {
+      try {
+        const res = await api.inventory.getSummary(filters)
+        if (res.code === 200) {
+          this.summary = res.data || {}
+        }
+      } catch (err) {
+        console.error('加载库存汇总失败', err)
+      }
+    },
+
     async loadCategories() {
       try {
         const res = await api.common.getCategories()
@@ -205,8 +220,8 @@ export default {
     },
 
     handleSearch() {
+      // 不先清空列表：第1页数据返回后整体替换，避免闪现"暂无数据"
       this.pageNum = 1
-      this.list = []
       this.noMore = false
       this.loadData()
     },
@@ -224,7 +239,6 @@ export default {
     onRefresh() {
       this.refreshing = true
       this.pageNum = 1
-      this.list = []
       this.noMore = false
       this.loadData()
     },
@@ -254,18 +268,20 @@ export default {
     }
   },
 
-  onLoad(options) {
-    if (options.status) {
-      this.selectedStatusIndex = parseInt(options.status) + 1
-    }
+  onLoad() {
     this.loadCategories()
-    this.loadData()
   },
 
+  // 数据统一在 onShow 加载（首次进入也会触发），避免与 onLoad 重复请求
   onShow() {
-    if (this.list.length > 0) {
-      this.onRefresh()
+    // 从首页"库存预警"跳转时带入的筛选条件（TabBar 页面无法通过 URL 传参）
+    const presetStatus = uni.getStorageSync('inventoryListStatus')
+    if (presetStatus !== '' && presetStatus !== null && presetStatus !== undefined) {
+      uni.removeStorageSync('inventoryListStatus')
+      const index = this.statusOptions.findIndex(option => option.value === Number(presetStatus))
+      this.selectedStatusIndex = index >= 0 ? index : 0
     }
+    this.handleSearch()
   }
 }
 </script>

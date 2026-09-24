@@ -4,10 +4,10 @@
 
 -- Role data
 INSERT INTO tb_role (id, role_name, role_code, role_level, description, status, sort, deleted) VALUES
-(1, 'System Admin', 'ADMIN', 0, 'System administrator with all permissions', 0, 1, 0),
-(2, 'Dept Admin', 'DEPT_ADMIN', 1, 'Department administrator', 0, 2, 0),
-(3, 'Warehouse Manager', 'WAREHOUSE', 2, 'Warehouse manager', 0, 3, 0),
-(4, 'Regular User', 'USER', 3, 'Regular employee', 0, 4, 0);
+(1, 'System Admin', 'admin', 0, 'System administrator with all permissions', 0, 1, 0),
+(2, 'Dept Admin', 'dept_admin', 1, 'Department administrator', 0, 2, 0),
+(3, 'Warehouse Manager', 'warehouse', 2, 'Warehouse manager', 0, 3, 0),
+(4, 'Regular User', 'user', 3, 'Regular employee', 0, 4, 0);
 
 -- Department data
 INSERT INTO tb_dept (id, dept_name, dept_code, parent_id, ancestors, leader_id, phone, email, status, sort, deleted) VALUES

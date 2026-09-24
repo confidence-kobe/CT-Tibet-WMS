@@ -87,7 +87,7 @@ export default {
       } catch (err) {
         console.error('修改密码失败', err)
       } finally {
-        this.loading = true
+        this.loading = false
         this.loading = false
       }
     }
