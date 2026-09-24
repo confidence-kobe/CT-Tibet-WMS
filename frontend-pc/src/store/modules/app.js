@@ -157,13 +157,8 @@ export const useAppStore = defineStore('app', {
 
   // 持久化配置
   persist: {
-    enabled: true,
-    strategies: [
-      {
-        key: 'app',
-        storage: localStorage,
-        paths: ['sidebar', 'theme', 'language', 'size'] // 持久化这些字段
-      }
-    ]
+    key: 'app',
+    storage: localStorage,
+    paths: ['sidebar', 'theme', 'language', 'size'] // 持久化这些字段
   }
 })

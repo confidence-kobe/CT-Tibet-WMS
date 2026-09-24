@@ -444,6 +444,7 @@ export const asyncRoutes = [
   // 404页面必须放在最后
   {
     path: '/:pathMatch(.*)*',
+    name: 'CatchAll',
     redirect: '/404',
     meta: { hidden: true }
   }
@@ -459,6 +460,25 @@ const router = createRouter({
 
 // 白名单：不需要登录即可访问的路径
 const whiteList = ['/login', '/404', '/403']
+
+/** 已为哪个登录（token）注册过路由；刷新页面后为空，切换账号后 token 不同，都会重新注册 */
+let routesBuiltForToken = null
+
+/**
+ * 按当前用户角色注册可访问的路由；先移除上一个账号注册的路由，避免切换账号后仍能访问
+ */
+async function addAccessRoutes(userStore) {
+  asyncRoutes.forEach(route => {
+    if (route.name && router.hasRoute(route.name)) {
+      router.removeRoute(route.name)
+    }
+  })
+  const accessRoutes = await userStore.generateRoutes()
+  accessRoutes.forEach(route => {
+    router.addRoute(route)
+  })
+  routesBuiltForToken = getToken()
+}
 
 /**
  * 全局前置守卫
@@ -481,21 +501,10 @@ router.beforeEach(async (to, from, next) => {
       const hasRoles = userStore.roles && userStore.roles.length > 0
 
       if (hasRoles) {
-        // 检查 router 中是否已有动态路由
-        const currentRoutes = router.getRoutes()
-        const hasAsyncRoutes = asyncRoutes.some(asyncRoute => 
-          currentRoutes.some(currentRoute => currentRoute.path === asyncRoute.path)
-        )
-
-        if (!hasAsyncRoutes) {
+        // 本次页面加载尚未为当前登录注册路由（刷新页面或切换账号后）时按角色重新生成
+        if (routesBuiltForToken !== hasToken) {
           try {
-            // 根据角色生成可访问的路由
-            const accessRoutes = await userStore.generateRoutes()
-
-            // 动态添加路由
-            accessRoutes.forEach(route => {
-              router.addRoute(route)
-            })
+            await addAccessRoutes(userStore)
 
             // 使用 replace 确保导航不会留下历史记录
             next({ ...to, replace: true })
@@ -514,12 +523,7 @@ router.beforeEach(async (to, from, next) => {
           await userStore.getUserInfo()
 
           // 根据角色生成可访问的路由
-          const accessRoutes = await userStore.generateRoutes()
-
-          // 动态添加路由
-          accessRoutes.forEach(route => {
-            router.addRoute(route)
-          })
+          await addAccessRoutes(userStore)
 
           // 使用 replace 确保导航不会留下历史记录
           next({ ...to, replace: true })

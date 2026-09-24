@@ -23,6 +23,10 @@ function filterAsyncRoutes(routes, roles) {
     if (hasPermission(roles, tmp)) {
       if (tmp.children) {
         tmp.children = filterAsyncRoutes(tmp.children, roles)
+        // 子菜单全部无权访问时，父菜单也不显示
+        if (tmp.children.length === 0) {
+          return
+        }
       }
       res.push(tmp)
     }
@@ -145,14 +149,10 @@ export const useUserStore = defineStore('user', {
      * @returns {Array} 可访问的路由数组
      */
     async generateRoutes() {
-      // 开发阶段：所有用户都可以访问所有路由
-      // 生产环境请取消注释下面的权限过滤代码
-      const accessedRoutes = asyncRoutes
-
-      // 生产环境权限过滤（暂时注释）
-      // const accessedRoutes = this.isAdmin
-      //   ? asyncRoutes
-      //   : filterAsyncRoutes(asyncRoutes, this.roles)
+      // 按角色过滤菜单和路由（系统管理员可访问全部）
+      const accessedRoutes = this.isAdmin
+        ? asyncRoutes
+        : filterAsyncRoutes(asyncRoutes, this.roles)
 
       // 合并静态路由和动态路由
       this.routes = constantRoutes.concat(accessedRoutes)
@@ -246,13 +246,8 @@ export const useUserStore = defineStore('user', {
 
   // 持久化配置（需要安装 pinia-plugin-persistedstate 插件）
   persist: {
-    enabled: true,
-    strategies: [
-      {
-        key: 'user',
-        storage: localStorage,
-        paths: ['userInfo', 'roles', 'permissions'] // 只持久化这些字段
-      }
-    ]
+    key: 'user',
+    storage: localStorage,
+    paths: ['userInfo', 'roles', 'permissions'] // 只持久化这些字段（token 单独保存，菜单路由每次按角色生成）
   }
 })

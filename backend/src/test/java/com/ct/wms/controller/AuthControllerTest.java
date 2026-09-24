@@ -45,7 +45,8 @@ public class AuthControllerTest {
                         .content(requestBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.token").exists());
+                .andExpect(jsonPath("$.data.token").exists())
+                .andExpect(jsonPath("$.data.user.deptName").value("Headquarters"));
     }
 
     /**
