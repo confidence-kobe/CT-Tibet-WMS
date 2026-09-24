@@ -12,6 +12,7 @@ import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
 import com.ct.wms.security.DataScopeHelper;
 import com.ct.wms.security.UserDetailsImpl;
+import com.ct.wms.service.NotificationService;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
 import com.ct.wms.utils.IdGenerator;
@@ -57,6 +58,7 @@ public class OutboundServiceImpl implements OutboundService {
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
     private final DataScopeHelper dataScopeHelper;
+    private final NotificationService notificationService;
 
     @Override
     public Page<Outbound> listOutbounds(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -439,6 +441,9 @@ public class OutboundServiceImpl implements OutboundService {
         }
 
         log.info("确认出库完成: outboundNo={}", outbound.getOutboundNo());
+
+        // 通知领用人（事务提交后发送）
+        notificationService.notifyOutboundCompleted(outbound);
     }
 
     @Override
@@ -484,6 +489,9 @@ public class OutboundServiceImpl implements OutboundService {
         }
 
         log.info("取消出库单: outboundNo={}, reason={}", outbound.getOutboundNo(), reason);
+
+        // 通知领用人（仓管取消或超时自动取消，事务提交后发送）
+        notificationService.notifyOutboundCancelled(outbound, reason);
     }
 
     /**

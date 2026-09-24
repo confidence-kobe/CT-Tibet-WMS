@@ -67,18 +67,44 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAppStore, useUserStore } from '@/store'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getUnreadCount, UNREAD_CHANGED_EVENT } from '@/api/message'
 
 const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
 const userStore = useUserStore()
 
-// 未读消息数量
+// 未读消息数量：进入页面、切换页面、每分钟以及消息被读/删后刷新
 const unreadCount = ref(0)
+const UNREAD_POLL_INTERVAL = 60 * 1000
+let unreadTimer = null
+
+const refreshUnreadCount = async () => {
+  if (!userStore.token) return
+  try {
+    const res = await getUnreadCount()
+    unreadCount.value = Number(res.data) || 0
+  } catch (error) {
+    // 静默失败，不打扰用户
+  }
+}
+
+onMounted(() => {
+  refreshUnreadCount()
+  unreadTimer = setInterval(refreshUnreadCount, UNREAD_POLL_INTERVAL)
+  window.addEventListener(UNREAD_CHANGED_EVENT, refreshUnreadCount)
+})
+
+onBeforeUnmount(() => {
+  clearInterval(unreadTimer)
+  window.removeEventListener(UNREAD_CHANGED_EVENT, refreshUnreadCount)
+})
+
+watch(() => route.path, refreshUnreadCount)
 
 // 面包屑列表
 const breadcrumbList = computed(() => {

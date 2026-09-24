@@ -7,6 +7,7 @@ import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
 import com.ct.wms.security.DataScopeHelper;
 import com.ct.wms.service.InventoryService;
+import com.ct.wms.service.NotificationService;
 import com.ct.wms.vo.InventorySummaryVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +41,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final MaterialMapper materialMapper;
     private final UserMapper userMapper;
     private final DataScopeHelper dataScopeHelper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -434,6 +436,15 @@ public class InventoryServiceImpl implements InventoryService {
         log.setRemark(remark);
 
         inventoryLogMapper.insert(log);
+
+        // 出库导致库存跌破最低库存时发送预警（只在跨越阈值时发送一次，避免每次出库都提醒）
+        if (changeType == 2 && material != null && material.getMinStock() != null
+                && beforeQuantity != null && afterQuantity != null
+                && beforeQuantity.compareTo(material.getMinStock()) >= 0
+                && afterQuantity.compareTo(material.getMinStock()) < 0) {
+            notificationService.notifyLowStockAlert(warehouseId, materialId, material.getMaterialName(),
+                    afterQuantity, material.getMinStock());
+        }
     }
 
     @Override

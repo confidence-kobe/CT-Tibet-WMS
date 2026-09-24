@@ -11,6 +11,7 @@ import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
 import com.ct.wms.security.DataScopeHelper;
 import com.ct.wms.security.UserDetailsImpl;
+import com.ct.wms.service.NotificationService;
 import com.ct.wms.service.ApplyService;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
@@ -58,6 +59,7 @@ public class ApplyServiceImpl implements ApplyService {
     private final InventoryMapper inventoryMapper;
     private final OutboundMapper outboundMapper;
     private final DataScopeHelper dataScopeHelper;
+    private final NotificationService notificationService;
 
     @Override
     public Page<Apply> listApplies(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -267,6 +269,9 @@ public class ApplyServiceImpl implements ApplyService {
 
         log.info("申请单创建成功: applyNo={}", applyNo);
 
+        // 通知可审批的人（事务提交后发送）
+        notificationService.notifyApplySubmit(apply);
+
         return apply.getId();
     }
 
@@ -376,6 +381,9 @@ public class ApplyServiceImpl implements ApplyService {
             outboundLink.setOutboundId(outboundId);
             applyMapper.updateById(outboundLink);
 
+            // 通知申请人领取（事务提交后发送）
+            notificationService.notifyApplyApproved(apply);
+
         } else if (dto.getApprovalResult() == 2) {
             // 审批拒绝：必须填写原因，申请人才知道为什么被拒绝
             if (!StringUtils.hasText(dto.getApprovalRemark())) {
@@ -387,6 +395,9 @@ public class ApplyServiceImpl implements ApplyService {
 
             log.info("审批拒绝: applyNo={}, approverId={}, reason={}",
                     apply.getApplyNo(), approverId, dto.getApprovalRemark());
+
+            // 通知申请人拒绝原因（事务提交后发送）
+            notificationService.notifyApplyRejected(apply);
 
         } else {
             throw new BusinessException(400, "审批结果无效");
@@ -450,6 +461,9 @@ public class ApplyServiceImpl implements ApplyService {
         if (applies == null || applies.isEmpty()) {
             return;
         }
+
+        // 申请原因不单独存储，与领用用途相同
+        applies.forEach(this::fillApplyReason);
 
         // 收集所有需要的ID
         Set<Long> warehouseIds = applies.stream()
@@ -581,7 +595,14 @@ public class ApplyServiceImpl implements ApplyService {
     /**
      * 填充申请单关联信息
      */
+    private void fillApplyReason(Apply apply) {
+        if (apply.getApplyReason() == null) {
+            apply.setApplyReason(apply.getPurpose());
+        }
+    }
+
     private void fillApplyInfo(Apply apply) {
+        fillApplyReason(apply);
         // 填充关联出库单号及领取时间（审批通过后自动生成出库单）
         if (apply.getOutboundId() != null) {
             Outbound outbound = outboundMapper.selectById(apply.getOutboundId());

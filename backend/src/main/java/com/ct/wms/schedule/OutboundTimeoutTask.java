@@ -1,13 +1,11 @@
 package com.ct.wms.schedule;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.ct.wms.common.enums.MessageType;
+import com.ct.wms.service.NotificationService;
 import com.ct.wms.common.enums.OutboundSource;
 import com.ct.wms.common.enums.OutboundStatus;
-import com.ct.wms.dto.NotificationMessageDTO;
 import com.ct.wms.entity.Outbound;
 import com.ct.wms.mapper.OutboundMapper;
-import com.ct.wms.mq.NotificationProducer;
 import com.ct.wms.service.OutboundService;
 import com.ct.wms.utils.RedisLockUtils;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +24,7 @@ import java.util.List;
 /**
  * 出库超时定时任务
  *
- * 说明：NotificationProducer 为可选依赖，如果 RabbitMQ 未启用，将跳过消息通知
+ * 说明：站内消息通过 NotificationService 直接写入，不依赖 RabbitMQ
  *
  * @author CT Development Team
  * @since 2025-11-11
@@ -36,6 +34,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OutboundTimeoutTask {
 
+    private final NotificationService notificationService;
     private final OutboundMapper outboundMapper;
     private final OutboundService outboundService;
 
@@ -43,9 +42,6 @@ public class OutboundTimeoutTask {
     @Autowired(required = false)
     private RedisLockUtils redisLockUtils;
 
-    // 可选依赖：如果 RabbitMQ 未启用，此字段为 null
-    @Autowired(required = false)
-    private NotificationProducer notificationProducer;
 
     // 分布式锁KEY前缀
     private static final String LOCK_PREFIX = "wms:lock:outbound_timeout_task:";
@@ -97,7 +93,8 @@ public class OutboundTimeoutTask {
             LambdaQueryWrapper<Outbound> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP)
                     .eq(Outbound::getSource, OutboundSource.FROM_APPLY)
-                    .le(Outbound::getOutboundTime, timeoutTime);
+                    // 待领取的出库单 outbound_time 为空（确认领取时才写入），按创建时间计算等待天数
+                    .le(Outbound::getCreateTime, timeoutTime);
 
             List<Outbound> timeoutOutbounds = outboundMapper.selectList(queryWrapper);
 
@@ -116,21 +113,7 @@ public class OutboundTimeoutTask {
                     // 在同一事务中取消出库单（释放锁定库存 + 更新出库单状态 + 更新关联申请单状态）
                     outboundService.cancelOutbound(outbound.getId(), "系统自动取消：超过7天未取货");
 
-                    // 发送通知消息（如果 RabbitMQ 可用）
-                    if (notificationProducer != null) {
-                        NotificationMessageDTO notification = NotificationMessageDTO.builder()
-                                .receiverId(outbound.getReceiverId())
-                                .messageType(MessageType.TIMEOUT_CANCEL.getValue())
-                                .title("出库单超时取消通知")
-                                .content(String.format("您的出库单 %s 因超过7天未取货已被系统自动取消，请及时关注。",
-                                        outbound.getOutboundNo()))
-                                .relatedId(outbound.getId())
-                                .relatedType(2) // 2-出库
-                                .sendWechat(true)
-                                .build();
-
-                        notificationProducer.sendNotification(notification);
-                    }
+                    // 取消通知由 cancelOutbound 统一发送给领用人
 
                     successCount++;
                     log.info("成功取消出库单: id={}, outboundNo={}", outbound.getId(), outbound.getOutboundNo());
@@ -196,8 +179,9 @@ public class OutboundTimeoutTask {
             LambdaQueryWrapper<Outbound> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP)
                     .eq(Outbound::getSource, OutboundSource.FROM_APPLY)
-                    .le(Outbound::getOutboundTime, reminderTime)
-                    .gt(Outbound::getOutboundTime, timeoutTime);
+                    // 待领取的出库单 outbound_time 为空，按创建时间计算等待天数
+                    .le(Outbound::getCreateTime, reminderTime)
+                    .gt(Outbound::getCreateTime, timeoutTime);
 
             List<Outbound> pendingOutbounds = outboundMapper.selectList(queryWrapper);
 
@@ -210,34 +194,17 @@ public class OutboundTimeoutTask {
 
             int successCount = 0;
 
-            // 如果 RabbitMQ 未启用，跳过消息通知
-            if (notificationProducer == null) {
-                log.warn("RabbitMQ 未启用，跳过消息队列通知（降级模式）");
-                return;
-            }
-
             for (Outbound outbound : pendingOutbounds) {
                 try {
                     // 计算剩余天数
                     long daysPassed = java.time.Duration.between(
-                            outbound.getOutboundTime(),
+                            outbound.getCreateTime(),
                             LocalDateTime.now()
                     ).toDays();
                     long daysRemaining = 7 - daysPassed;
 
-                    // 发送提醒消息
-                    NotificationMessageDTO notification = NotificationMessageDTO.builder()
-                            .receiverId(outbound.getReceiverId())
-                            .messageType(MessageType.OUTBOUND_PENDING.getValue())
-                            .title("出库单待取货提醒")
-                            .content(String.format("您的出库单 %s 已审批通过，请在 %d 天内取货，否则将被系统自动取消。",
-                                    outbound.getOutboundNo(), daysRemaining))
-                            .relatedId(outbound.getId())
-                            .relatedType(2) // 2-出库
-                            .sendWechat(true)
-                            .build();
-
-                    notificationProducer.sendNotification(notification);
+                    // 发送领取提醒（站内消息）
+                    notificationService.notifyPickupReminder(outbound, daysRemaining);
 
                     successCount++;
                     log.info("发送出库提醒成功: id={}, outboundNo={}, daysRemaining={}",
