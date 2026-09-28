@@ -66,14 +66,14 @@ start-dev.bat                # Windows
 - 定时任务线程无 SecurityContext，调用业务方法前需注入系统账户（见 `OutboundTimeoutTask`）
 - **库存数量必须为正**：`lockInventory` / `unlockInventory` / `commitInventory` 开头有 `requirePositive`，DTO 也有 `@DecimalMin("0.01")`。负数会让"锁定"变"释放"、"出库"变"入库"（2026-09-29 发现：直接出库传 -100 能凭空加 100 库存）。新增任何改库存的入口都要保留这两层
 - **权限 = 角色 + 归属**：`@PreAuthorize` 只管角色，"是不是我管的仓库/部门"必须在服务层再查。统一用 `security/DataScopeGuard`（`assertCanOperateWarehouse` / `assertCanViewApply`）。**新增对外接口时必须调用它**；内部调用（如取消申请时连带取消出库单）不要加，否则员工取消不了自己的申请。定时任务注入的 system 账户带 ROLE_ADMIN，会被放行
-- **多行加锁按 materialId 排序**：审批和直接出库逐条 `FOR UPDATE` 锁库存，明细顺序相反的两个请求会死锁（评审 #5，待修）
+- **多行加锁按 materialId 排序**：审批、直接出库、确认取货、取消出库逐条 `FOR UPDATE` 锁库存，已统一排序（评审 #5）。**新增多行改库存的逻辑也要先排序**，否则明细顺序相反的并发请求会死锁
 
 ## 评审记录
 - `docs/reviews/`：每次链路级审查的报告（发现、触发场景、状态）
 
 ## Key Directories
 
-- `backend/` — Spring Boot 后端（130+ Java 文件，测试 35 类 251 个）
+- `backend/` — Spring Boot 后端（130+ Java 文件，测试 36 类 252 个）
 - `frontend-pc/src/views/` — PC 页面（apply/approval/inbound/outbound/inventory/statistics/...）
 - `miniprogram/pages/` — 小程序页面
 - `sql/` — 生产库脚本（`schema.sql` 为准）

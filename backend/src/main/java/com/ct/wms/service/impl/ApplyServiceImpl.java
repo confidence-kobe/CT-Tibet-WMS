@@ -30,6 +30,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -360,6 +361,8 @@ public class ApplyServiceImpl implements ApplyService {
             LambdaQueryWrapper<ApplyDetail> detailWrapper = new LambdaQueryWrapper<>();
             detailWrapper.eq(ApplyDetail::getApplyId, apply.getId());
             List<ApplyDetail> applyDetails = applyDetailMapper.selectList(detailWrapper);
+            // 按 materialId 统一加锁顺序：明细顺序相反的两个并发审批会互相等待行锁而死锁（W2 评审 #5）
+            applyDetails.sort(Comparator.comparing(ApplyDetail::getMaterialId));
 
             // 锁定库存（使用乐观锁重试机制）
             // 任一明细库存不足即抛异常，整个事务回滚，状态抢占与已锁定的部分一并撤销

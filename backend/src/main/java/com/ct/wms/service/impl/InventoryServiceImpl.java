@@ -382,7 +382,8 @@ public class InventoryServiceImpl implements InventoryService {
             if (updated > 0) {
                 // 记录库存流水
                 BigDecimal beforeQuantity = inventory.getQuantity();
-                saveInventoryLog(warehouseId, materialId, 3, BigDecimal.ZERO, beforeQuantity, beforeQuantity,
+                // 记录实际锁定数量，锁定量出现偏差时才能对账（W2 评审 #6：原先固定写 0）
+                saveInventoryLog(warehouseId, materialId, 3, quantity, beforeQuantity, beforeQuantity,
                         null, 3, null, null, "锁定库存");
                 log.info("锁定库存成功: warehouseId={}, materialId={}, quantity={}, available={}",
                         warehouseId, materialId, quantity, newAvailableQuantity);
@@ -427,7 +428,7 @@ public class InventoryServiceImpl implements InventoryService {
             if (updated > 0) {
                 // 记录库存流水
                 BigDecimal beforeQuantity = inventory.getQuantity();
-                saveInventoryLog(warehouseId, materialId, 4, BigDecimal.ZERO, beforeQuantity, beforeQuantity,
+                saveInventoryLog(warehouseId, materialId, 4, quantity, beforeQuantity, beforeQuantity,
                         null, 4, null, null, "解锁库存");
                 log.info("解锁库存成功: warehouseId={}, materialId={}, quantity={}, available={}",
                         warehouseId, materialId, quantity, newAvailableQuantity);

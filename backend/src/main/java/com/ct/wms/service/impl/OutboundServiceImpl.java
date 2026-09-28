@@ -32,6 +32,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -166,7 +168,10 @@ public class OutboundServiceImpl implements OutboundService {
 
         // 使用 lockInventory 原子性锁定库存（含行锁+乐观锁重试），消除 checkInventory 与 decreaseInventory 之间的竞态
         // 任一明细库存不足即抛异常，本方法整体在一个事务内，已锁定的部分随事务回滚自动释放
-        for (OutboundDTO.OutboundDetailDTO detailDTO : dto.getDetails()) {
+        // 按 materialId 统一加锁顺序，避免与其他多行加锁的请求死锁（W2 评审 #5）
+        List<OutboundDTO.OutboundDetailDTO> lockOrder = new ArrayList<>(dto.getDetails());
+        lockOrder.sort(Comparator.comparing(OutboundDTO.OutboundDetailDTO::getMaterialId));
+        for (OutboundDTO.OutboundDetailDTO detailDTO : lockOrder) {
             Material material = materialMapper.selectById(detailDTO.getMaterialId());
             if (material == null) {
                 throw new BusinessException(404, "物资不存在: " + detailDTO.getMaterialId());
@@ -393,7 +398,8 @@ public class OutboundServiceImpl implements OutboundService {
         wrapper.eq(OutboundDetail::getOutboundId, id);
         List<OutboundDetail> details = outboundDetailMapper.selectList(wrapper);
 
-        // 将锁定库存转为实际扣减
+        // 将锁定库存转为实际扣减（按 materialId 统一加锁顺序，W2 评审 #5）
+        details.sort(Comparator.comparing(OutboundDetail::getMaterialId));
         Long operatorId = getCurrentUserId();
         for (OutboundDetail detail : details) {
             inventoryService.commitInventory(
@@ -468,6 +474,7 @@ public class OutboundServiceImpl implements OutboundService {
         wrapper.eq(OutboundDetail::getOutboundId, id);
         List<OutboundDetail> details = outboundDetailMapper.selectList(wrapper);
 
+        details.sort(Comparator.comparing(OutboundDetail::getMaterialId));   // 统一加锁顺序（W2 评审 #5）
         for (OutboundDetail detail : details) {
             inventoryService.unlockInventory(
                     outbound.getWarehouseId(),
@@ -563,6 +570,7 @@ public class OutboundServiceImpl implements OutboundService {
         detailWrapper.eq(OutboundDetail::getOutboundId, outbound.getId());
         List<OutboundDetail> details = outboundDetailMapper.selectList(detailWrapper);
 
+        details.sort(Comparator.comparing(OutboundDetail::getMaterialId));   // 统一加锁顺序（W2 评审 #5）
         for (OutboundDetail detail : details) {
             inventoryService.unlockInventory(
                     outbound.getWarehouseId(),
