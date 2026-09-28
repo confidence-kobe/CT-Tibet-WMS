@@ -14,6 +14,7 @@ import com.ct.wms.dto.OutboundDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.event.NotificationEvent;
 import com.ct.wms.mapper.*;
+import com.ct.wms.security.DataScopeGuard;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
@@ -55,6 +56,7 @@ public class OutboundServiceImpl implements OutboundService {
     private final InventoryService inventoryService;
     private final OrderNoGenerator orderNoGenerator;
     private final ApplicationEventPublisher eventPublisher;
+    private final DataScopeGuard dataScopeGuard;
 
     @Override
     public Page<Outbound> listOutbounds(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -114,6 +116,8 @@ public class OutboundServiceImpl implements OutboundService {
         if (outbound == null) {
             throw new BusinessException(404, "出库单不存在");
         }
+        // 权限 = 角色 + 归属：只能操作自己管理的仓库/本部门仓库的出库单（W2 评审 #3）
+        dataScopeGuard.assertCanOperateWarehouse(outbound.getWarehouseId());
 
         // 填充关联数据
         fillOutboundInfo(outbound);
@@ -151,6 +155,8 @@ public class OutboundServiceImpl implements OutboundService {
         if (warehouse == null) {
             throw new BusinessException(404, "仓库不存在");
         }
+        // 只能从自己管理的仓库/本部门仓库直接出库（W2 评审 #3）
+        dataScopeGuard.assertCanOperateWarehouse(warehouse.getId());
 
         // 查询部门信息
         Dept dept = deptMapper.selectById(warehouse.getDeptId());
@@ -365,6 +371,8 @@ public class OutboundServiceImpl implements OutboundService {
         if (outbound == null) {
             throw new BusinessException(404, "出库单不存在");
         }
+        // 权限 = 角色 + 归属：只能操作自己管理的仓库/本部门仓库的出库单（W2 评审 #3）
+        dataScopeGuard.assertCanOperateWarehouse(outbound.getWarehouseId());
 
         // 检查状态
         if (!OutboundStatus.PENDING_PICKUP.equals(outbound.getStatus())) {
@@ -436,6 +444,8 @@ public class OutboundServiceImpl implements OutboundService {
         if (outbound == null) {
             throw new BusinessException(404, "出库单不存在");
         }
+        // 权限 = 角色 + 归属：只能操作自己管理的仓库/本部门仓库的出库单（W2 评审 #3）
+        dataScopeGuard.assertCanOperateWarehouse(outbound.getWarehouseId());
 
         // 检查状态（只有待取货状态才能取消）
         if (!OutboundStatus.PENDING_PICKUP.equals(outbound.getStatus())) {

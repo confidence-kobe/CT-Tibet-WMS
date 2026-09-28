@@ -12,6 +12,7 @@ import com.ct.wms.dto.NotificationMessageDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.event.NotificationEvent;
 import com.ct.wms.mapper.*;
+import com.ct.wms.security.DataScopeGuard;
 import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.service.ApplyService;
 import com.ct.wms.service.InventoryService;
@@ -56,6 +57,7 @@ public class ApplyServiceImpl implements ApplyService {
     private final InventoryService inventoryService;
     private final OrderNoGenerator orderNoGenerator;
     private final ApplicationEventPublisher eventPublisher;
+    private final DataScopeGuard dataScopeGuard;
 
     @Override
     public Page<Apply> listApplies(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -187,6 +189,8 @@ public class ApplyServiceImpl implements ApplyService {
         if (apply == null) {
             throw new BusinessException(404, "申请单不存在");
         }
+        // 只有申请人本人、所属部门管理员、该仓库仓管员、ADMIN 能查看（W2 评审 #2：原先任何登录用户都能按 id 遍历）
+        dataScopeGuard.assertCanViewApply(apply);
 
         // 填充关联数据
         fillApplyInfo(apply);
