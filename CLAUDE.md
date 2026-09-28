@@ -64,10 +64,16 @@ start-dev.bat                # Windows
 - **锁顺序**：涉及申请单+出库单双行更新时，先抢出库单行、后抢申请单行（confirmOutbound / cancelApply 已统一），避免死锁
 - **出库单 outboundTime**：申请类出库单该字段是审批通过时刻（取货 7 天超时的起算点），不是申请时间
 - 定时任务线程无 SecurityContext，调用业务方法前需注入系统账户（见 `OutboundTimeoutTask`）
+- **库存数量必须为正**：`lockInventory` / `unlockInventory` / `commitInventory` 开头有 `requirePositive`，DTO 也有 `@DecimalMin("0.01")`。负数会让"锁定"变"释放"、"出库"变"入库"（2026-09-29 发现：直接出库传 -100 能凭空加 100 库存）。新增任何改库存的入口都要保留这两层
+- **权限 = 角色 + 归属**：`@PreAuthorize` 只管角色，"是不是我管的仓库/部门"必须在服务层再查。审批已查，确认取货/取消出库/直接出库/查详情**尚未查**，见 `docs/reviews/2026-09-29-W2-申请审批出库链路评审.md` #2 #3
+- **多行加锁按 materialId 排序**：审批和直接出库逐条 `FOR UPDATE` 锁库存，明细顺序相反的两个请求会死锁（评审 #5，待修）
+
+## 评审记录
+- `docs/reviews/`：每次链路级审查的报告（发现、触发场景、状态）
 
 ## Key Directories
 
-- `backend/` — Spring Boot 后端（130+ Java 文件，测试 33 类 236 个）
+- `backend/` — Spring Boot 后端（130+ Java 文件，测试 34 类 243 个）
 - `frontend-pc/src/views/` — PC 页面（apply/approval/inbound/outbound/inventory/statistics/...）
 - `miniprogram/pages/` — 小程序页面
 - `sql/` — 生产库脚本（`schema.sql` 为准）

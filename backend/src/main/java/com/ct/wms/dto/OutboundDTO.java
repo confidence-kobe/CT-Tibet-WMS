@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import javax.validation.Valid;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -57,9 +58,11 @@ public class OutboundDTO {
         private Long materialId;
 
         @NotNull(message = "数量不能为空")
+        @DecimalMin(value = "0.01", message = "数量必须大于0")
         @Schema(description = "数量")
         private BigDecimal quantity;
 
+        @DecimalMin(value = "0", message = "单价不能为负")
         @Schema(description = "单价")
         private BigDecimal unitPrice;
 

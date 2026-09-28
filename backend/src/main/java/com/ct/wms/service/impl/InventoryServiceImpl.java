@@ -352,6 +352,7 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean lockInventory(Long warehouseId, Long materialId, BigDecimal quantity) {
+        requirePositive(quantity);
         // 使用乐观锁原子性地锁定库存
         int maxRetries = 3;
         for (int i = 0; i < maxRetries; i++) {
@@ -398,6 +399,7 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean unlockInventory(Long warehouseId, Long materialId, BigDecimal quantity) {
+        requirePositive(quantity);
         int maxRetries = 3;
         for (int i = 0; i < maxRetries; i++) {
             Inventory inventory = getInventoryWithLock(warehouseId, materialId);
@@ -440,6 +442,17 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     /**
+     * 锁定/解锁/提交的数量必须为正。
+     * 负数会让“锁定”变成“释放”、“出库”变成“入库”（2026-09-29 审查发现：直接出库传 -100 能凭空增加 100 库存）。
+     * DTO 层已有 @DecimalMin 校验，这里是纵深防御——任何新入口绕过 DTO 也拦得住。
+     */
+    private static void requirePositive(BigDecimal quantity) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(400, "数量必须大于0");
+        }
+    }
+
+    /**
      * 使用悲观锁查询库存（FOR UPDATE）
      */
     private Inventory getInventoryWithLock(Long warehouseId, Long materialId) {
@@ -454,6 +467,7 @@ public class InventoryServiceImpl implements InventoryService {
     @Transactional(rollbackFor = Exception.class)
     public void commitInventory(Long warehouseId, Long materialId, BigDecimal quantity,
                                 String relatedNo, Long relatedId, Long operatorId) {
+        requirePositive(quantity);
         int maxRetries = 3;
         for (int i = 0; i < maxRetries; i++) {
             Inventory inventory = getInventoryWithLock(warehouseId, materialId);
