@@ -71,7 +71,9 @@ public class DataScopeGuard {
             throw new BusinessException(401, "用户不存在");
         }
         Role role = user.getRoleId() != null ? roleMapper.selectById(user.getRoleId()) : null;
-        String roleCode = role != null ? role.getRoleCode() : null;
+        // 统一转大写：sql/init_data.sql 的角色编码是小写（admin / dept_admin），测试种子是大写（Codex 异源审查发现的回归）
+        String roleCode = role != null && role.getRoleCode() != null
+                ? role.getRoleCode().toUpperCase(java.util.Locale.ROOT) : null;
         return new Actor(userId, user.getDeptId(), roleCode, ADMIN.equals(roleCode) || adminAuthority);
     }
 

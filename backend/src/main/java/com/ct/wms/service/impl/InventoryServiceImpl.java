@@ -37,6 +37,7 @@ public class InventoryServiceImpl implements InventoryService {
     @Transactional(rollbackFor = Exception.class)
     public void increaseInventory(Long warehouseId, Long materialId, BigDecimal quantity,
                                   String relatedNo, Long relatedId, Long operatorId) {
+        requirePositive(quantity);   // 含两位小数精度校验
         // 查询库存记录
         Inventory inventory = getInventory(warehouseId, materialId);
 
@@ -450,6 +451,10 @@ public class InventoryServiceImpl implements InventoryService {
     private static void requirePositive(BigDecimal quantity) {
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(400, "数量必须大于0");
+        }
+        // 库存列是 DECIMAL(10,2)：0.015 锁定时被舍入成 0.02、扣减时按 0.015 算，会留下对不上的残留锁定（Codex 异源审查发现）
+        if (quantity.stripTrailingZeros().scale() > 2) {
+            throw new BusinessException(400, "数量最多两位小数");
         }
     }
 

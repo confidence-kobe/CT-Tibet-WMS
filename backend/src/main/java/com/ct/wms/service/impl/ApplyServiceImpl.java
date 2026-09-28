@@ -73,7 +73,7 @@ public class ApplyServiceImpl implements ApplyService {
         if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl) {
             UserDetailsImpl currentUser = (UserDetailsImpl) auth.getPrincipal();
             Role currentRole = roleMapper.selectById(currentUser.getRoleId());
-            if (currentRole != null && "DEPT_ADMIN".equals(currentRole.getRoleCode())) {
+            if (currentRole != null && "DEPT_ADMIN".equalsIgnoreCase(currentRole.getRoleCode())) {
                 User currentUserEntity = userMapper.selectById(currentUser.getId());
                 if (currentUserEntity != null && currentUserEntity.getDeptId() != null) {
                     wrapper.eq(Apply::getDeptId, currentUserEntity.getDeptId());
@@ -341,7 +341,8 @@ public class ApplyServiceImpl implements ApplyService {
         boolean isDeptAdmin = false;
         if (!isWarehouseManager && approver != null) {
             Role approverRole = roleMapper.selectById(approver.getRoleId());
-            if (approverRole != null && "DEPT_ADMIN".equals(approverRole.getRoleCode())) {
+            // 忽略大小写：生产初始化数据的角色编码是小写 dept_admin（Codex 异源审查发现，原先部门管理员无法审批）
+            if (approverRole != null && "DEPT_ADMIN".equalsIgnoreCase(approverRole.getRoleCode())) {
                 // 部门管理员只能审批本部门的申请
                 if (approver.getDeptId() != null && approver.getDeptId().equals(apply.getDeptId())) {
                     isDeptAdmin = true;
@@ -483,6 +484,7 @@ public class ApplyServiceImpl implements ApplyService {
                 detailWrapper.eq(ApplyDetail::getApplyId, apply.getId());
                 List<ApplyDetail> details = applyDetailMapper.selectList(detailWrapper);
 
+                details.sort(Comparator.comparing(ApplyDetail::getMaterialId));   // 统一加锁顺序
                 for (ApplyDetail detail : details) {
                     inventoryService.unlockInventory(
                             apply.getWarehouseId(),

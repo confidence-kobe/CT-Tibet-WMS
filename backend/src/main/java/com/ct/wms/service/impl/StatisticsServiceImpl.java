@@ -873,7 +873,8 @@ public class StatisticsServiceImpl implements StatisticsService {
         MiniProgramDashboardVO dashboardVO = new MiniProgramDashboardVO();
 
         // 根据角色返回不同的数据
-        if ("WAREHOUSE".equals(roleCode) || "DEPT_ADMIN".equals(roleCode)) {
+        // 角色编码忽略大小写：sql/init_data.sql 里是小写（dept_admin），登录只把权限串转了大写（Codex 异源审查发现）
+        if ("WAREHOUSE".equalsIgnoreCase(roleCode) || "DEPT_ADMIN".equalsIgnoreCase(roleCode)) {
             // 仓管员视图
             dashboardVO.setTodayData(buildTodayStats());
             dashboardVO.setPendingTasks(buildPendingTasks());

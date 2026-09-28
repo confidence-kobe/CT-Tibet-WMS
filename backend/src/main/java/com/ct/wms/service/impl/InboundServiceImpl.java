@@ -21,6 +21,8 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -190,7 +192,14 @@ public class InboundServiceImpl implements InboundService {
 
             inboundDetailMapper.insert(detail);
 
-            // 更新库存（增加）
+            log.info("入库明细: materialId={}, quantity={}", detailDTO.getMaterialId(), detailDTO.getQuantity());
+        }
+
+        // 更新库存（增加）：按 materialId 统一加锁顺序，避免与审批/出库的多行加锁形成死锁（Codex 异源审查发现）
+        // 明细仍按用户提交顺序插入，只有库存更新排序
+        List<InboundDTO.InboundDetailDTO> lockOrder = new ArrayList<>(dto.getDetails());
+        lockOrder.sort(Comparator.comparing(InboundDTO.InboundDetailDTO::getMaterialId));
+        for (InboundDTO.InboundDetailDTO detailDTO : lockOrder) {
             inventoryService.increaseInventory(
                     dto.getWarehouseId(),
                     detailDTO.getMaterialId(),
@@ -199,8 +208,6 @@ public class InboundServiceImpl implements InboundService {
                     inbound.getId(),
                     operatorId
             );
-
-            log.info("入库明细: materialId={}, quantity={}", detailDTO.getMaterialId(), detailDTO.getQuantity());
         }
 
         log.info("入库单创建成功: inboundNo={}, totalAmount={}", inboundNo, totalAmount);

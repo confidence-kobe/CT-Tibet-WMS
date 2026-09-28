@@ -185,7 +185,7 @@ public class WarehouseServiceImpl implements WarehouseService {
         // 普通用户只能看到自己部门的仓库
         // 管理员可以看到所有仓库
         String roleCode = currentUser.getRoleCode();
-        if (!"ADMIN".equals(roleCode)) {
+        if (!"ADMIN".equalsIgnoreCase(roleCode)) {   // 数据库里是小写 admin，见 sql/init_data.sql
             wrapper.eq(Warehouse::getDeptId, currentUser.getDeptId());
         }
 
