@@ -67,6 +67,9 @@ start-dev.bat                # Windows
 - **库存数量必须为正**：`lockInventory` / `unlockInventory` / `commitInventory` 开头有 `requirePositive`，DTO 也有 `@DecimalMin("0.01")`。负数会让"锁定"变"释放"、"出库"变"入库"（2026-09-29 发现：直接出库传 -100 能凭空加 100 库存）。新增任何改库存的入口都要保留这两层
 - **权限 = 角色 + 归属**：`@PreAuthorize` 只管角色，"是不是我管的仓库/部门"必须在服务层再查。统一用 `security/DataScopeGuard`（`assertCanOperateWarehouse` / `assertCanViewApply`）。**新增对外接口时必须调用它**；内部调用（如取消申请时连带取消出库单）不要加，否则员工取消不了自己的申请。定时任务注入的 system 账户带 ROLE_ADMIN，会被放行
 - **多行加锁按 materialId 排序**：审批、直接出库、确认取货、取消出库逐条 `FOR UPDATE` 锁库存，已统一排序（评审 #5）。**新增多行改库存的逻辑也要先排序**，否则明细顺序相反的并发请求会死锁。入库（`createInbound`）和取消申请的兜底解锁同样已排序
+- **所有改库存的方法都先 `getInventoryWithLock`（FOR UPDATE）再更新**，版本号只是第二道保险。`increaseInventory` 原先不加锁，并发入库 10 个失败 8 个（W3）；`decreaseInventory` 目前无调用方，已改为按**可用量**校验
+- **并发测试不能加 `@Transactional`**：测试事务让所有线程共用一个未提交快照，测不出竞争。参照 `concurrency/InventoryConcurrencyTest`：专用物资 + `@AfterEach` 按物资 ID 清理
+- **ADMIN 不能审批申请**：`approveApply` 只认该仓库仓管员或本部门管理员，写测试时审批人用仓管员（用户 3）
 - **角色编码大小写不统一**：`sql/init_data.sql` 是小写（`dept_admin`），测试种子是大写（`DEPT_ADMIN`）。代码里比较角色一律 `equalsIgnoreCase` 或先 `toUpperCase(Locale.ROOT)`，**不要写 `"DEPT_ADMIN".equals(...)`**。测试全绿不代表生产正确——2026-09-29 就因此引入过一次回归，被 Codex 异源审查发现
 - **数量最多两位小数**：库存列是 `DECIMAL(10,2)`。`requirePositive` 会拒绝多余小数位，DTO 有 `@Digits(integer = 8, fraction = 2)`。多余精度会让锁定/解锁对不上，留下永远释放不掉的锁定量
 
@@ -75,7 +78,7 @@ start-dev.bat                # Windows
 
 ## Key Directories
 
-- `backend/` — Spring Boot 后端（130+ Java 文件，测试 37 类 256 个）
+- `backend/` — Spring Boot 后端（130+ Java 文件，测试 38 类 263 个）
 - `frontend-pc/src/views/` — PC 页面（apply/approval/inbound/outbound/inventory/statistics/...）
 - `miniprogram/pages/` — 小程序页面
 - `sql/` — 生产库脚本（`schema.sql` 为准）

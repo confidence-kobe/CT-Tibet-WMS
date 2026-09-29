@@ -8,6 +8,7 @@ import com.ct.wms.mapper.*;
 import com.ct.wms.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -38,97 +39,82 @@ public class InventoryServiceImpl implements InventoryService {
     public void increaseInventory(Long warehouseId, Long materialId, BigDecimal quantity,
                                   String relatedNo, Long relatedId, Long operatorId) {
         requirePositive(quantity);   // 含两位小数精度校验
-        // 查询库存记录
-        Inventory inventory = getInventory(warehouseId, materialId);
-
-        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException(400, "数量必须大于0");
+        // 加行锁读取：与 lockInventory/commitInventory 一样串行化同一行的修改。
+        // 原先不加锁、只靠版本号且不重试，并发入库时大部分请求报"库存更新失败"（W3 并发测试：10 个里失败 8 个）
+        Inventory inventory = getInventoryWithLock(warehouseId, materialId);
+        if (inventory != null) {
+            increaseExisting(inventory, quantity, relatedNo, relatedId, operatorId);
+            return;
         }
 
-        BigDecimal beforeQuantity;
-        BigDecimal afterQuantity;
-
-        if (inventory == null) {
-            // 库存不存在，创建新记录
-            inventory = new Inventory();
-            inventory.setWarehouseId(warehouseId);
-            inventory.setMaterialId(materialId);
-            inventory.setQuantity(quantity);
-            inventory.setLockedQuantity(BigDecimal.ZERO);
-            inventory.setAvailableQuantity(quantity);
-            inventory.setLastInboundTime(LocalDateTime.now());
-            inventory.setVersion(0);
-
+        // 库存不存在，创建新记录
+        inventory = new Inventory();
+        inventory.setWarehouseId(warehouseId);
+        inventory.setMaterialId(materialId);
+        inventory.setQuantity(quantity);
+        inventory.setLockedQuantity(BigDecimal.ZERO);
+        inventory.setAvailableQuantity(quantity);
+        inventory.setLastInboundTime(LocalDateTime.now());
+        inventory.setVersion(0);
+        try {
             inventoryMapper.insert(inventory);
-
-            beforeQuantity = BigDecimal.ZERO;
-            afterQuantity = quantity;
-
-            log.info("创建库存记录: warehouseId={}, materialId={}, quantity={}",
-                    warehouseId, materialId, quantity);
-        } else {
-            // 库存存在，增加数量（使用乐观锁）
-            beforeQuantity = inventory.getQuantity();
-            afterQuantity = beforeQuantity.add(quantity);
-
-            inventory.setQuantity(afterQuantity);
-            inventory.setAvailableQuantity(afterQuantity.subtract(inventory.getLockedQuantity()));
-            inventory.setLastInboundTime(LocalDateTime.now());
-
-            // 交给 MyBatis-Plus 乐观锁插件处理 version 递增和条件校验
-            int updated = inventoryMapper.updateById(inventory);
-            if (updated == 0) {
-                throw new BusinessException(500, "库存更新失败，请重试");
-            }
-
-            log.info("增加库存: warehouseId={}, materialId={}, before={}, after={}",
-                    warehouseId, materialId, beforeQuantity, afterQuantity);
+        } catch (DuplicateKeyException e) {
+            // 两个首次入库同时插入同一 (仓库, 物资)：后到的撞唯一键，改为在对方插入的记录上累加
+            increaseExisting(getInventoryWithLock(warehouseId, materialId), quantity, relatedNo, relatedId, operatorId);
+            return;
         }
-
-        // 记录库存流水
-        saveInventoryLog(warehouseId, materialId, 1, quantity, beforeQuantity, afterQuantity,
+        log.info("创建库存记录: warehouseId={}, materialId={}, quantity={}", warehouseId, materialId, quantity);
+        saveInventoryLog(warehouseId, materialId, 1, quantity, BigDecimal.ZERO, quantity,
                 relatedNo, 1, relatedId, operatorId, "入库");
     }
 
+    /** 在已加行锁的库存记录上增加数量。 */
+    private void increaseExisting(Inventory inventory, BigDecimal quantity,
+                                  String relatedNo, Long relatedId, Long operatorId) {
+        BigDecimal beforeQuantity = inventory.getQuantity();
+        BigDecimal afterQuantity = beforeQuantity.add(quantity);
+        inventory.setQuantity(afterQuantity);
+        inventory.setAvailableQuantity(afterQuantity.subtract(inventory.getLockedQuantity()));
+        inventory.setLastInboundTime(LocalDateTime.now());
+
+        // 已持有行锁，版本号不会被别人改；乐观锁插件的版本校验作为第二道保险
+        if (inventoryMapper.updateById(inventory) == 0) {
+            throw new BusinessException(500, "库存更新失败，请重试");
+        }
+        log.info("增加库存: warehouseId={}, materialId={}, before={}, after={}",
+                inventory.getWarehouseId(), inventory.getMaterialId(), beforeQuantity, afterQuantity);
+        saveInventoryLog(inventory.getWarehouseId(), inventory.getMaterialId(), 1, quantity, beforeQuantity, afterQuantity,
+                relatedNo, 1, relatedId, operatorId, "入库");
+    }
+
+    /**
+     * 直接扣减库存（不经过锁定）。当前业务出库都走 lockInventory → commitInventory，本方法没有调用方；
+     * 保留时必须保证不会扣走已被审批锁定、等待取货的库存（W3 发现：原先只比较总量，能把锁定的库存再卖一次）。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void decreaseInventory(Long warehouseId, Long materialId, BigDecimal quantity,
                                   String relatedNo, Long relatedId, Long operatorId) {
-        // 查询库存记录
-        Inventory inventory = getInventory(warehouseId, materialId);
-
+        requirePositive(quantity);
+        Inventory inventory = getInventoryWithLock(warehouseId, materialId);
         if (inventory == null) {
             throw new BusinessException(1001, "库存不存在");
         }
-
-        // 检查库存是否充足
-        if (inventory.getQuantity().compareTo(quantity) < 0) {
-            throw new BusinessException(1001, "库存不足，当前库存：" + inventory.getQuantity());
-        }
-
-        // 检查数量是否为正数
-        if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException(400, "数量必须大于0");
+        if (inventory.getAvailableQuantity().compareTo(quantity) < 0) {
+            throw new BusinessException(1001, "库存不足，当前可用库存：" + inventory.getAvailableQuantity());
         }
 
         BigDecimal beforeQuantity = inventory.getQuantity();
         BigDecimal afterQuantity = beforeQuantity.subtract(quantity);
-
-        // 减少库存（使用乐观锁）
         inventory.setQuantity(afterQuantity);
         inventory.setAvailableQuantity(afterQuantity.subtract(inventory.getLockedQuantity()));
         inventory.setLastOutboundTime(LocalDateTime.now());
-
-        // 交给 MyBatis-Plus 乐观锁插件处理 version 递增和条件校验
-        int updated = inventoryMapper.updateById(inventory);
-        if (updated == 0) {
+        if (inventoryMapper.updateById(inventory) == 0) {
             throw new BusinessException(500, "库存更新失败，请重试");
         }
 
         log.info("减少库存: warehouseId={}, materialId={}, before={}, after={}",
                 warehouseId, materialId, beforeQuantity, afterQuantity);
-
-        // 记录库存流水
         saveInventoryLog(warehouseId, materialId, 2, quantity.negate(), beforeQuantity, afterQuantity,
                 relatedNo, 2, relatedId, operatorId, "出库");
     }
