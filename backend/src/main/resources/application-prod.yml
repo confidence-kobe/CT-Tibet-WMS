@@ -213,6 +213,14 @@ knife4j:
     swagger-model-name: 实体类列表
   production: true  # Production mode - disable by default in UI
 
+# knife4j.enable=false 只关增强界面，底层 springdoc 的 /v3/api-docs 仍会输出完整接口结构，
+# 而 SecurityConfig 对它匿名放行 → 生产必须在 springdoc 层关掉（W4 OWASP A05 自查）
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 # Spring Boot Actuator (Production)
 # Used for health checks and metrics monitoring
 management:

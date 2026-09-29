@@ -70,15 +70,18 @@ start-dev.bat                # Windows
 - **所有改库存的方法都先 `getInventoryWithLock`（FOR UPDATE）再更新**，版本号只是第二道保险。`increaseInventory` 原先不加锁，并发入库 10 个失败 8 个（W3）；`decreaseInventory` 目前无调用方，已改为按**可用量**校验
 - **并发测试不能加 `@Transactional`**：测试事务让所有线程共用一个未提交快照，测不出竞争。参照 `concurrency/InventoryConcurrencyTest`：专用物资 + `@AfterEach` 按物资 ID 清理
 - **ADMIN 不能审批申请**：`approveApply` 只认该仓库仓管员或本部门管理员，写测试时审批人用仓管员（用户 3）
+- **匿名放行的接口不经过 `loadUserByUsername` 的禁用检查**：`/api/auth/refresh-token` 等在 `SecurityConfig` 里 permitAll，要自己查账号状态（W4 修过刷新接口）。新增匿名接口时同样注意
+- **`knife4j.enable=false` 关不掉 `/v3/api-docs`**：要在 springdoc 层关（`application-prod.yml`），`ProdConfigGuardTest` 锁住了生产配置里的安全项
 - **角色编码大小写不统一**：`sql/init_data.sql` 是小写（`dept_admin`），测试种子是大写（`DEPT_ADMIN`）。代码里比较角色一律 `equalsIgnoreCase` 或先 `toUpperCase(Locale.ROOT)`，**不要写 `"DEPT_ADMIN".equals(...)`**。测试全绿不代表生产正确——2026-09-29 就因此引入过一次回归，被 Codex 异源审查发现
 - **数量最多两位小数**：库存列是 `DECIMAL(10,2)`。`requirePositive` 会拒绝多余小数位，DTO 有 `@Digits(integer = 8, fraction = 2)`。多余精度会让锁定/解锁对不上，留下永远释放不掉的锁定量
 
 ## 评审记录
+- `docs/adr/`：架构决策记录——0001 为什么单体、0002 为什么出库分"审批锁定、取货扣减"两步。**改动这两处设计前先读，改完补一份新 ADR**
 - `docs/reviews/`：每次链路级审查的报告（发现、触发场景、状态）；`docs/reviews/codex/` 是异源审查（Codex）的原始输出。改完关键链路后用 `python H:\ai-dotfiles\bin\xreview.py` 再跑一次异源审查
 
 ## Key Directories
 
-- `backend/` — Spring Boot 后端（130+ Java 文件，测试 38 类 263 个）
+- `backend/` — Spring Boot 后端（130+ Java 文件，测试 40 类 268 个）
 - `frontend-pc/src/views/` — PC 页面（apply/approval/inbound/outbound/inventory/statistics/...）
 - `miniprogram/pages/` — 小程序页面
 - `sql/` — 生产库脚本（`schema.sql` 为准）

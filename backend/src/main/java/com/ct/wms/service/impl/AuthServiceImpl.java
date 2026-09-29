@@ -174,6 +174,12 @@ public class AuthServiceImpl implements AuthService {
                 redisUtils.hasKey(TOKEN_BLACKLIST_PREFIX + oldToken))) {
             throw new BusinessException(401, "Token已失效，请重新登录");
         }
+        // 刷新接口是匿名放行的，不经过 loadUserByUsername 的禁用检查，这里要自己查（W4 OWASP 自查）
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, jwtUtils.getUsernameFromToken(oldToken)));
+        if (user == null || user.getStatus() == com.ct.wms.common.enums.UserStatus.DISABLED) {
+            throw new BusinessException(401, "账号不可用，请重新登录");
+        }
         return jwtUtils.refreshToken(oldToken);
     }
 
