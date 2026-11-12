@@ -136,26 +136,33 @@ public class ApplyServiceImpl implements ApplyService {
             throw new BusinessException(404, "用户不存在");
         }
 
-        // 查询当前用户管理的仓库
-        LambdaQueryWrapper<Warehouse> warehouseWrapper = new LambdaQueryWrapper<>();
-        warehouseWrapper.eq(Warehouse::getManagerId, userId);
-        List<Warehouse> warehouses = warehouseMapper.selectList(warehouseWrapper);
+        // 与 approveApply 的审批权限保持一致：
+        // 1. 仓库管理员可以审批自己管理的仓库的申请
+        // 2. 部门管理员可以审批本部门的申请
+        List<Long> managedWarehouseIds = warehouseMapper.selectList(
+                        new LambdaQueryWrapper<Warehouse>().eq(Warehouse::getManagerId, userId))
+                .stream()
+                .map(Warehouse::getId)
+                .collect(Collectors.toList());
 
-        if (warehouses.isEmpty()) {
-            // 如果不是仓管员，返回空列表
+        Role role = roleMapper.selectById(user.getRoleId());
+        Long adminDeptId = role != null && "DEPT_ADMIN".equals(role.getRoleCode()) ? user.getDeptId() : null;
+
+        if (managedWarehouseIds.isEmpty() && adminDeptId == null) {
+            // 既不管理仓库也不是部门管理员，没有可审批的申请
             return new Page<>(pageNum, pageSize);
         }
 
-        // 查询这些仓库的待审批申请
         Page<Apply> page = new Page<>(pageNum, pageSize);
 
         LambdaQueryWrapper<Apply> wrapper = new LambdaQueryWrapper<>();
-        // 收集仓库ID列表，避免空列表导致的SQL语法错误
-        List<Long> warehouseIds = warehouses.stream()
-                .map(Warehouse::getId)
-                .collect(Collectors.toList());
-        if (!warehouseIds.isEmpty()) {
-            wrapper.in(Apply::getWarehouseId, warehouseIds);
+        if (managedWarehouseIds.isEmpty()) {
+            wrapper.eq(Apply::getDeptId, adminDeptId);
+        } else if (adminDeptId == null) {
+            wrapper.in(Apply::getWarehouseId, managedWarehouseIds);
+        } else {
+            wrapper.and(w -> w.in(Apply::getWarehouseId, managedWarehouseIds)
+                    .or().eq(Apply::getDeptId, adminDeptId));
         }
         wrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
         wrapper.orderByAsc(Apply::getApplyTime);

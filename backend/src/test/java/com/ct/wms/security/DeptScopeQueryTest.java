@@ -226,4 +226,47 @@ class DeptScopeQueryTest {
         asAdmin();
         assertThat(applyService.getApplyById(other).getId()).isEqualTo(other);
     }
+
+    // ========== 待审批列表 ==========
+
+    private List<Long> pendingIds() {
+        return applyService.listPendingApplies(1, 100).getRecords().stream()
+                .map(Apply::getId).collect(Collectors.toList());
+    }
+
+    @Test
+    @DisplayName("待审批列表 - 部门管理员能看到本部门的待审批申请")
+    void pendingApplies_deptAdmin_seesOwnDept() {
+        Long own = createApply(4L, "employee1", WAREHOUSE_DEPT2);
+        Long other = createApply(5L, "employee2", WAREHOUSE_DEPT3);
+
+        // 用户2是部门2的部门管理员，不是任何仓库的管理员
+        TestDataBuilder.mockSecurityContext(2L, "dept_admin", "DEPT_ADMIN");
+        assertThat(pendingIds()).contains(own).doesNotContain(other);
+    }
+
+    @Test
+    @DisplayName("待审批列表 - 仓管员看到自己管理的仓库的待审批申请")
+    void pendingApplies_warehouseManager_seesManagedWarehouses() {
+        Long own = createApply(4L, "employee1", WAREHOUSE_DEPT2);
+        Long other = createApply(5L, "employee2", WAREHOUSE_DEPT3);
+
+        asWarehouseManager();
+        assertThat(pendingIds()).contains(own).doesNotContain(other);
+    }
+
+    @Test
+    @DisplayName("待审批列表 - 没有审批权的用户看到空列表")
+    void pendingApplies_noApprovalRight_empty() {
+        createApply(4L, "employee1", WAREHOUSE_DEPT2);
+        createApply(5L, "employee2", WAREHOUSE_DEPT3);
+
+        // 系统管理员不是仓库管理员也不是部门管理员，审批接口不允许其审批
+        asAdmin();
+        assertThat(pendingIds()).isEmpty();
+
+        // 普通员工
+        TestDataBuilder.mockSecurityContext(4L, "employee1", "USER");
+        assertThat(pendingIds()).isEmpty();
+    }
 }
