@@ -1,5 +1,6 @@
 package com.ct.wms.service.impl;
 
+import com.ct.wms.security.WarehouseDataScope;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ct.wms.common.enums.ApplyStatus;
 import com.ct.wms.common.enums.OutboundSource;
@@ -50,6 +51,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final InventoryService inventoryService;
     private final MessageMapper messageMapper;
     private final UserMapper userMapper;
+    private final WarehouseDataScope warehouseDataScope;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -61,7 +63,9 @@ public class StatisticsServiceImpl implements StatisticsService {
         stats.setTotalMaterials(materialMapper.selectCount(null));
 
         // 2. 总仓库数
-        stats.setTotalWarehouses(warehouseMapper.selectCount(null));
+        LambdaQueryWrapper<Warehouse> warehouseWrapper = new LambdaQueryWrapper<>();
+        warehouseDataScope.restrict(warehouseWrapper, Warehouse::getId);
+        stats.setTotalWarehouses(warehouseMapper.selectCount(warehouseWrapper));
 
         // 3. 低库存预警数
         List<Inventory> lowStockAlerts = inventoryService.listLowStockAlerts(null);
@@ -70,6 +74,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         // 4. 待审批申请数
         LambdaQueryWrapper<Apply> applyWrapper = new LambdaQueryWrapper<>();
         applyWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
+        warehouseDataScope.restrict(applyWrapper, Apply::getWarehouseId);
         stats.setPendingApplies(applyMapper.selectCount(applyWrapper));
 
         // 5. 本月入库统计
@@ -80,6 +85,8 @@ public class StatisticsServiceImpl implements StatisticsService {
         LambdaQueryWrapper<Inbound> inboundWrapper = new LambdaQueryWrapper<>();
         inboundWrapper.ge(Inbound::getInboundTime, monthStart);
         inboundWrapper.le(Inbound::getInboundTime, monthEnd);
+        excludeVoidInbound(inboundWrapper);
+        warehouseDataScope.restrict(inboundWrapper, Inbound::getWarehouseId);
 
         List<Inbound> monthInbounds = inboundMapper.selectList(inboundWrapper);
         stats.setMonthInboundCount((long) monthInbounds.size());
@@ -93,6 +100,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         LambdaQueryWrapper<Outbound> outboundWrapper = new LambdaQueryWrapper<>();
         outboundWrapper.ge(Outbound::getOutboundTime, monthStart);
         outboundWrapper.le(Outbound::getOutboundTime, monthEnd);
+        warehouseDataScope.restrict(outboundWrapper, Outbound::getWarehouseId);
 
         List<Outbound> monthOutbounds = outboundMapper.selectList(outboundWrapper);
         stats.setMonthOutboundCount((long) monthOutbounds.size());
@@ -104,7 +112,9 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         // 7. 库存总价值（简化计算：数量 * 物资单价）
         // 这里需要关联物资表获取价格，实际应该通过SQL优化
-        List<Inventory> allInventories = inventoryMapper.selectList(null);
+        LambdaQueryWrapper<Inventory> inventoryWrapper = new LambdaQueryWrapper<>();
+        warehouseDataScope.restrict(inventoryWrapper, Inventory::getWarehouseId);
+        List<Inventory> allInventories = inventoryMapper.selectList(inventoryWrapper);
         BigDecimal totalValue = BigDecimal.ZERO;
 
         for (Inventory inventory : allInventories) {
@@ -141,6 +151,8 @@ public class StatisticsServiceImpl implements StatisticsService {
         LambdaQueryWrapper<Inbound> wrapper = new LambdaQueryWrapper<>();
         wrapper.ge(Inbound::getInboundTime, startDateTime)
                .le(Inbound::getInboundTime, endDateTime);
+        excludeVoidInbound(wrapper);
+        warehouseDataScope.restrict(wrapper, Inbound::getWarehouseId);
         if (warehouseId != null) {
             wrapper.eq(Inbound::getWarehouseId, warehouseId);
         }
@@ -217,6 +229,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         wrapper.ge(Outbound::getOutboundTime, startDateTime)
                .le(Outbound::getOutboundTime, endDateTime)
                .isNotNull(Outbound::getOutboundTime); // 只统计已出库的
+        warehouseDataScope.restrict(wrapper, Outbound::getWarehouseId);
 
         if (warehouseId != null) {
             wrapper.eq(Outbound::getWarehouseId, warehouseId);
@@ -286,6 +299,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         // 构建查询条件
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
         wrapper.gt(Inventory::getQuantity, BigDecimal.ZERO); // 只统计有库存的
+        warehouseDataScope.restrict(wrapper, Inventory::getWarehouseId);
         if (warehouseId != null) {
             wrapper.eq(Inventory::getWarehouseId, warehouseId);
         }
@@ -713,6 +727,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         outboundWrapper.ge(Outbound::getOutboundTime, startDate.atStartOfDay())
                        .le(Outbound::getOutboundTime, endDate.atTime(23, 59, 59))
                        .isNotNull(Outbound::getOutboundTime);
+        warehouseDataScope.restrict(outboundWrapper, Outbound::getWarehouseId);
         if (warehouseId != null) {
             outboundWrapper.eq(Outbound::getWarehouseId, warehouseId);
         }
@@ -733,6 +748,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         // 计算平均库存
         LambdaQueryWrapper<Inventory> inventoryWrapper = new LambdaQueryWrapper<>();
         inventoryWrapper.gt(Inventory::getQuantity, BigDecimal.ZERO);
+        warehouseDataScope.restrict(inventoryWrapper, Inventory::getWarehouseId);
         if (warehouseId != null) {
             inventoryWrapper.eq(Inventory::getWarehouseId, warehouseId);
         }
@@ -825,6 +841,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         // 查询当前预警数量
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
         wrapper.gt(Inventory::getQuantity, BigDecimal.ZERO);
+        warehouseDataScope.restrict(wrapper, Inventory::getWarehouseId);
         if (warehouseId != null) {
             wrapper.eq(Inventory::getWarehouseId, warehouseId);
         }
@@ -891,7 +908,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         MiniProgramDashboardVO dashboardVO = new MiniProgramDashboardVO();
 
         // 根据角色返回不同的数据
-        if ("WAREHOUSE".equals(roleCode) || "DEPT_ADMIN".equals(roleCode)) {
+        if ("WAREHOUSE".equalsIgnoreCase(roleCode) || "DEPT_ADMIN".equalsIgnoreCase(roleCode)) {
             // 仓管员视图
             dashboardVO.setTodayData(buildTodayStats());
             dashboardVO.setPendingTasks(buildPendingTasks());
@@ -955,20 +972,26 @@ public class StatisticsServiceImpl implements StatisticsService {
         // 今日入库
         LambdaQueryWrapper<Inbound> inboundWrapper = new LambdaQueryWrapper<>();
         inboundWrapper.between(Inbound::getInboundTime, todayStart, todayEnd);
+        excludeVoidInbound(inboundWrapper);
+        warehouseDataScope.restrict(inboundWrapper, Inbound::getWarehouseId);
         stats.setInboundCount(inboundMapper.selectCount(inboundWrapper).intValue());
 
         // 今日出库
         LambdaQueryWrapper<Outbound> outboundWrapper = new LambdaQueryWrapper<>();
         outboundWrapper.between(Outbound::getOutboundTime, todayStart, todayEnd);
+        warehouseDataScope.restrict(outboundWrapper, Outbound::getWarehouseId);
         stats.setOutboundCount(outboundMapper.selectCount(outboundWrapper).intValue());
 
         // 待审批申请
         LambdaQueryWrapper<Apply> applyWrapper = new LambdaQueryWrapper<>();
         applyWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
+        warehouseDataScope.restrict(applyWrapper, Apply::getWarehouseId);
         stats.setPendingApprovalCount(applyMapper.selectCount(applyWrapper).intValue());
 
         // 库存物资种类数
-        stats.setMaterialCount(inventoryMapper.selectCount(null).intValue());
+        LambdaQueryWrapper<Inventory> inventoryWrapper = new LambdaQueryWrapper<>();
+        warehouseDataScope.restrict(inventoryWrapper, Inventory::getWarehouseId);
+        stats.setMaterialCount(inventoryMapper.selectCount(inventoryWrapper).intValue());
 
         return stats;
     }
@@ -979,6 +1002,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         // 待审批
         LambdaQueryWrapper<Apply> applyWrapper = new LambdaQueryWrapper<>();
         applyWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
+        warehouseDataScope.restrict(applyWrapper, Apply::getWarehouseId);
         tasks.setPendingApproval(applyMapper.selectCount(applyWrapper).intValue());
 
         // 待领取（这里简化处理，实际可能需要根据出库状态判断）
@@ -989,5 +1013,12 @@ public class StatisticsServiceImpl implements StatisticsService {
         tasks.setLowStockAlert(lowStockAlerts.size());
 
         return tasks;
+    }
+
+    /**
+     * 统计时排除已作废的入库单
+     */
+    private void excludeVoidInbound(LambdaQueryWrapper<Inbound> wrapper) {
+        wrapper.and(w -> w.ne(Inbound::getStatus, Inbound.STATUS_VOID).or().isNull(Inbound::getStatus));
     }
 }

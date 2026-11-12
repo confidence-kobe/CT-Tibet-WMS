@@ -10,6 +10,10 @@
 
 ## 执行步骤
 
+> ⚠️ 只执行下面这三个脚本。`init-database.sql` 是已废弃的早期原型，`fix_*.sql` 是历史一次性修复脚本，都不要执行。
+> 三个脚本开头都带有 `SET NAMES utf8mb4;`，中文不会乱码；如果用其他工具导入，也请确认连接字符集是 utf8mb4。
+
+
 ### 方式一：命令行执行
 
 ```bash
@@ -171,3 +175,18 @@ mysqldump -u root -p --no-create-info ct_tibet_wms > ct_tibet_wms_data.sql
 
 - [数据库设计文档](../docs/数据库设计文档.md)
 - [PRD产品需求文档](../docs/PRD-产品需求文档.md)
+
+## 升级已有数据库
+
+如果数据库是用 **2026-11-12 之前**的 `schema.sql` 建的（登录时报 `Unknown column 'remark'`、`Unknown column 'deleted'` 等错误），需要执行一次迁移脚本补齐字段：
+
+```bash
+# 1. 先备份
+mysqldump -uroot -p ct_tibet_wms > backup_before_migration.sql
+
+# 2. 执行迁移（只执行一次）
+mysql -uroot -p --default-character-set=utf8mb4 ct_tibet_wms < migrations/2026-11-12_align_schema_with_code.sql
+```
+
+脚本最后会列出无法自动确定所属仓库的申请单（部门下有多个仓库时），需要人工补上 `warehouse_id`。
+

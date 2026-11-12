@@ -4,6 +4,8 @@
 -- 创建日期: 2025-11-11
 -- =============================================
 
+SET NAMES utf8mb4;
+
 -- 创建数据库
 CREATE DATABASE IF NOT EXISTS `ct_tibet_wms`
 DEFAULT CHARACTER SET utf8mb4

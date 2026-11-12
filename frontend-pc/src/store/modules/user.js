@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { login, logout, getUserInfo, changePassword } from '@/api/auth'
+import { updateProfile } from '@/api/user'
 import { getToken, setToken, removeToken, setRefreshToken, clearAuth } from '@/utils/auth'
 import { asyncRoutes, constantRoutes } from '@/router'
 
@@ -211,6 +212,24 @@ export const useUserStore = defineStore('user', {
         console.error('修改密码失败:', error)
         throw error
       }
+    },
+
+    /**
+     * 更新个人信息
+     * 保存成功后同步更新本地用户信息，页面无需刷新即可看到新数据
+     * @param {Object} data - 个人信息
+     * @param {string} data.realName - 真实姓名
+     * @param {string} data.phone - 手机号
+     * @param {string} data.email - 邮箱
+     */
+    async updateProfile(data) {
+      const payload = {
+        realName: data.realName.trim(),
+        phone: data.phone.trim(),
+        email: data.email?.trim() || null
+      }
+      await updateProfile(payload)
+      this.userInfo = { ...this.userInfo, ...payload }
     },
 
     /**

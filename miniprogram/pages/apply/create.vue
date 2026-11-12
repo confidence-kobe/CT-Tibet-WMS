@@ -184,6 +184,7 @@
 
 <script>
 import api from '@/api'
+import { fetchAllPages } from '@/utils/fetchAll'
 
 export default {
   data() {
@@ -222,24 +223,18 @@ export default {
     // 加载物资列表
     async loadMaterials() {
       try {
-        const res = await api.common.getMaterials({
-          status: 0, // 只获取启用的物资
-          pageSize: 1000 // 获取所有物资
+        // 只获取启用的物资；后端每页最多 100 条，按页拉取完整列表
+        this.materials = await fetchAllPages(api.common.getMaterials, { status: 0 })
+        this.filteredMaterials = this.materials
+
+        // 提取类别
+        const categorySet = new Set(['全部'])
+        this.materials.forEach(item => {
+          if (item.category) {
+            categorySet.add(item.category)
+          }
         })
-
-        if (res.code === 200) {
-          this.materials = res.data.list || []
-          this.filteredMaterials = this.materials
-
-          // 提取类别
-          const categorySet = new Set(['全部'])
-          this.materials.forEach(item => {
-            if (item.category) {
-              categorySet.add(item.category)
-            }
-          })
-          this.categories = Array.from(categorySet)
-        }
+        this.categories = Array.from(categorySet)
       } catch (err) {
         console.error('加载物资列表失败', err)
         uni.showToast({

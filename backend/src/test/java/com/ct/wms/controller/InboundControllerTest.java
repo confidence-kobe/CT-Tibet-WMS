@@ -75,4 +75,34 @@ public class InboundControllerTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    public void testVoidInboundEmployeeForbidden() throws Exception {
+        if (userToken == null) return;
+        mockMvc.perform(post("/api/inbounds/1/void")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"录错\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testUpdateInboundEmployeeForbidden() throws Exception {
+        if (userToken == null) return;
+        mockMvc.perform(put("/api/inbounds/1")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"inboundType\":1,\"inboundTime\":\"2026-11-12 10:00:00\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testVoidInboundRequiresReason() throws Exception {
+        if (adminToken == null) return;
+        mockMvc.perform(post("/api/inbounds/1/void")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"  \"}"))
+                .andExpect(status().isBadRequest());
+    }
 }

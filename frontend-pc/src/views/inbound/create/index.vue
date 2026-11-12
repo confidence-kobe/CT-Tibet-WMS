@@ -104,7 +104,7 @@
                     <el-option
                       v-for="material in materials"
                       :key="material.id"
-                      :label="`${material.code} - ${material.name}`"
+                      :label="`${material.materialCode} - ${material.materialName}`"
                       :value="material.id"
                     />
                   </el-select>
@@ -202,6 +202,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createInbound } from '@/api/inbound'
 import { listWarehouses } from '@/api/warehouse'
 import { listMaterials } from '@/api/material'
+import { fetchAllPages } from '@/utils/fetchAll'
 
 const router = useRouter()
 
@@ -237,12 +238,7 @@ const loadWarehouses = async () => {
 // 加载物资列表
 const loadMaterials = async () => {
   try {
-    const res = await listMaterials({
-      pageNum: 1,
-      pageSize: 1000,
-      status: 0
-    })
-    materials.value = res.data || []
+    materials.value = await fetchAllPages(listMaterials, { status: 0 })
   } catch (error) {
     console.error('加载物资列表失败:', error)
   }
@@ -291,8 +287,8 @@ const handleMaterialChange = (index) => {
   const material = materials.value.find(m => m.id === detail.materialId)
 
   if (material) {
-    detail.materialCode = material.code
-    detail.materialName = material.name
+    detail.materialCode = material.materialCode
+    detail.materialName = material.materialName
     detail.spec = material.model || ''
     detail.unit = material.unit
     // 注意：后端物资表可能没有price字段，需要手动输入

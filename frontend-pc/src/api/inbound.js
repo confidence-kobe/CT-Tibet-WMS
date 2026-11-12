@@ -60,3 +60,37 @@ export function createInbound(data) {
     data
   })
 }
+
+/**
+ * 编辑入库单（只能修改入库类型、时间、备注和单价，不影响库存）
+ * @param {number} id - 入库单ID
+ * @param {Object} data - 编辑内容
+ * @param {number} data.inboundType - 入库类型
+ * @param {string} data.inboundTime - 入库时间 (YYYY-MM-DD HH:mm:ss)
+ * @param {string} data.remark - 备注
+ * @param {Array} data.details - 明细修改列表
+ * @param {number} data.details[].id - 明细ID
+ * @param {number} data.details[].unitPrice - 单价
+ * @returns {Promise} 返回编辑结果
+ */
+export function updateInbound(id, data) {
+  return request({
+    url: `/inbounds/${id}`,
+    method: 'put',
+    data
+  })
+}
+
+/**
+ * 作废入库单（同时扣回该单增加的库存）
+ * @param {number} id - 入库单ID
+ * @param {string} reason - 作废原因
+ * @returns {Promise} 返回作废结果
+ */
+export function voidInbound(id, reason) {
+  return request({
+    url: `/inbounds/${id}/void`,
+    method: 'post',
+    data: { reason }
+  })
+}

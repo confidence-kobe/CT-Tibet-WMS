@@ -50,7 +50,10 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./sql:/docker-entrypoint-initdb.d:ro
+      # 首次启动时按顺序初始化数据库（只挂载这三个脚本；sql/ 目录下的其他脚本是一次性修复脚本，不能自动执行）
+      - ./sql/create_database.sql:/docker-entrypoint-initdb.d/01-create_database.sql:ro
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/02-schema.sql:ro
+      - ./sql/init_data.sql:/docker-entrypoint-initdb.d/03-init_data.sql:ro
     # 健康检查
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]

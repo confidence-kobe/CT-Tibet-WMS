@@ -4,6 +4,9 @@
 -- 创建日期: 2025-11-11
 -- =============================================
 
+-- 必须使用 utf8mb4 连接，否则中文会乱码
+SET NAMES utf8mb4;
+
 -- =============================================
 -- 1. 初始化部门数据
 -- =============================================
@@ -206,8 +209,8 @@ INSERT INTO `tb_inbound_detail` (`inbound_id`, `material_id`, `material_name`, `
 (1, 1, '光缆12芯', 'GX001', '12芯单模', '条', 100.00, 1500.00, 150000.00);
 
 -- 示例申请单
-INSERT INTO `tb_apply` (`apply_no`, `applicant_id`, `applicant_name`, `applicant_phone`, `dept_id`, `dept_name`, `purpose`, `apply_time`, `status`) VALUES
-('SQ_WL_20251105_0001', 4, '张强', '13800000003', 2, '网络运维部', 'XX小区光缆施工', '2025-11-05 10:00:00', 0);
+INSERT INTO `tb_apply` (`apply_no`, `warehouse_id`, `applicant_id`, `applicant_name`, `applicant_phone`, `dept_id`, `dept_name`, `purpose`, `apply_time`, `status`) VALUES
+('SQ_WL_20251105_0001', 1, 4, '张强', '13800000003', 2, '网络运维部', 'XX小区光缆施工', '2025-11-05 10:00:00', 0);
 
 -- 示例申请明细
 INSERT INTO `tb_apply_detail` (`apply_id`, `material_id`, `material_name`, `material_code`, `spec`, `unit`, `quantity`) VALUES

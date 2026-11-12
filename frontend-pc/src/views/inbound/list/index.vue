@@ -97,6 +97,12 @@
           </template>
         </el-table-column>
         <el-table-column prop="inboundTime" label="入库时间" width="160" />
+        <el-table-column label="状态" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.status === INBOUND_STATUS_VOID" type="info">已作废</el-tag>
+            <el-tag v-else type="success">已入库</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.remark || '-' }}
@@ -107,8 +113,14 @@
             <el-button link type="primary" size="small" @click="handleView(row)">
               查看详情
             </el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row)">
-              删除
+            <el-button
+              v-if="row.status !== INBOUND_STATUS_VOID"
+              link
+              type="danger"
+              size="small"
+              @click="handleVoid(row)"
+            >
+              作废
             </el-button>
           </template>
         </el-table-column>
@@ -135,8 +147,9 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { listInbounds } from '@/api/inbound'
+import { confirmVoidInbound, INBOUND_STATUS_VOID } from '../voidInbound'
 import { listWarehouses } from '@/api/warehouse'
 
 const router = useRouter()
@@ -222,29 +235,10 @@ const handleView = (row) => {
   router.push(`/inbound/detail/${row.id}`)
 }
 
-// 删除
-const handleDelete = async (row) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除入库单"${row.code}"吗？`,
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-
-    // TODO: 后端暂未提供删除接口，需要后续添加
-    ElMessage.warning('删除功能暂未开放')
-    // 待后端添加接口后实现:
-    // const res = await deleteInbound(row.id)
-    // if (res.code === 200) {
-    //   ElMessage.success('删除成功')
-    //   handleQuery()
-    // }
-  } catch (error) {
-    // 用户取消
+// 作废
+const handleVoid = async (row) => {
+  if (await confirmVoidInbound(row)) {
+    handleQuery()
   }
 }
 

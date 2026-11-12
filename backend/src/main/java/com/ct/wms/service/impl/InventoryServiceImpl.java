@@ -1,5 +1,7 @@
 package com.ct.wms.service.impl;
 
+import com.ct.wms.security.UserDetailsImpl;
+import com.ct.wms.security.WarehouseDataScope;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.exception.BusinessException;
@@ -8,6 +10,8 @@ import com.ct.wms.mapper.*;
 import com.ct.wms.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -32,6 +36,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final WarehouseMapper warehouseMapper;
     private final MaterialMapper materialMapper;
     private final UserMapper userMapper;
+    private final WarehouseDataScope warehouseDataScope;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -133,6 +138,48 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void revertInboundInventory(Long warehouseId, Long materialId, BigDecimal quantity,
+                                       String relatedNo, Long relatedId, Long operatorId) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(400, "数量必须大于0");
+        }
+
+        Inventory inventory = getInventory(warehouseId, materialId);
+        BigDecimal available = inventory == null ? BigDecimal.ZERO
+                : inventory.getQuantity().subtract(inventory.getLockedQuantity());
+
+        // 已被领用或被审批锁定的部分不能扣回
+        if (inventory == null || available.compareTo(quantity) < 0) {
+            Material material = materialMapper.selectById(materialId);
+            String name = material != null ? material.getMaterialName() : String.valueOf(materialId);
+            throw new BusinessException(400, String.format(
+                    "物资【%s】可用库存不足，无法作废：需扣回 %s，当前可用 %s（可能已被领用或被审批锁定）",
+                    name, quantity.stripTrailingZeros().toPlainString(),
+                    available.stripTrailingZeros().toPlainString()));
+        }
+
+        BigDecimal beforeQuantity = inventory.getQuantity();
+        BigDecimal afterQuantity = beforeQuantity.subtract(quantity);
+
+        inventory.setQuantity(afterQuantity);
+        inventory.setAvailableQuantity(afterQuantity.subtract(inventory.getLockedQuantity()));
+
+        // 交给 MyBatis-Plus 乐观锁插件处理 version 递增和条件校验
+        int updated = inventoryMapper.updateById(inventory);
+        if (updated == 0) {
+            throw new BusinessException(500, "库存更新失败，请重试");
+        }
+
+        log.info("作废入库回退库存: warehouseId={}, materialId={}, before={}, after={}",
+                warehouseId, materialId, beforeQuantity, afterQuantity);
+
+        // 记录库存流水（库存减少，关联入库单）
+        saveInventoryLog(warehouseId, materialId, 2, quantity.negate(), beforeQuantity, afterQuantity,
+                relatedNo, 1, relatedId, operatorId, "入库单作废");
+    }
+
+    @Override
     public Inventory getInventory(Long warehouseId, Long materialId) {
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Inventory::getWarehouseId, warehouseId);
@@ -157,6 +204,9 @@ public class InventoryServiceImpl implements InventoryService {
         Page<Inventory> page = new Page<>(pageNum, pageSize);
 
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
+
+        // 数据隔离：非系统管理员只能看本部门仓库的库存
+        warehouseDataScope.restrict(wrapper, Inventory::getWarehouseId);
 
         if (warehouseId != null) {
             wrapper.eq(Inventory::getWarehouseId, warehouseId);
@@ -204,6 +254,9 @@ public class InventoryServiceImpl implements InventoryService {
 
         LambdaQueryWrapper<InventoryLog> wrapper = new LambdaQueryWrapper<>();
 
+        // 数据隔离：非系统管理员只能看本部门仓库的库存流水
+        warehouseDataScope.restrict(wrapper, InventoryLog::getWarehouseId);
+
         if (warehouseId != null) {
             wrapper.eq(InventoryLog::getWarehouseId, warehouseId);
         }
@@ -238,8 +291,9 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public List<Inventory> listLowStockAlerts(Long warehouseId) {
-        // 查询所有库存
+        // 查询所有库存（非系统管理员只看本部门仓库）
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
+        warehouseDataScope.restrict(wrapper, Inventory::getWarehouseId);
 
         if (warehouseId != null) {
             wrapper.eq(Inventory::getWarehouseId, warehouseId);
@@ -332,6 +386,13 @@ public class InventoryServiceImpl implements InventoryService {
         log.setRelatedNo(StringUtils.hasText(relatedNo) ? relatedNo : "");
         log.setRelatedType(relatedType);
         log.setRelatedId(relatedId);
+        // 锁定/解锁等调用方未传操作人时，取当前登录用户；定时任务等系统操作没有操作人，留空
+        if (operatorId == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+                operatorId = ((UserDetailsImpl) authentication.getPrincipal()).getId();
+            }
+        }
         log.setOperatorId(operatorId);
         if (operatorId != null) {
             User operator = userMapper.selectById(operatorId);
@@ -346,7 +407,11 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public Inventory getById(Long id) {
-        return inventoryMapper.selectById(id);
+        Inventory inventory = inventoryMapper.selectById(id);
+        if (inventory != null) {
+            warehouseDataScope.checkAccess(inventory.getWarehouseId(), "无权查看其他部门仓库的库存");
+        }
+        return inventory;
     }
 
     @Override

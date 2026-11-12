@@ -188,8 +188,7 @@ const handleSaveProfile = async () => {
     await editFormRef.value.validate()
     saveLoading.value = true
 
-    // TODO: 调用API保存用户信息
-    // await userStore.updateProfile(editForm)
+    await userStore.updateProfile(editForm)
 
     ElMessage.success('保存成功')
     editDialogVisible.value = false
