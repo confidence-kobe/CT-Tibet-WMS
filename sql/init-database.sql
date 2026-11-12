@@ -1,3 +1,7 @@
+-- ============================================================================
+-- ⚠️ 已废弃，请勿使用：本脚本是早期原型，表结构与后端代码严重不一致（缺表、缺大量字段）。
+-- 请按 sql/README.md 执行 create_database.sql → schema.sql → init_data.sql。
+-- ============================================================================
 -- Production Database Initialization Script for CT-Tibet-WMS
 -- MySQL 8.0 Compatible
 -- Created: 2025-11-24

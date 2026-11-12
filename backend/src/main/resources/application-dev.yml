@@ -35,9 +35,9 @@ mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
-# CORS 开发环境允许本地前端访问
+# CORS 开发环境允许本地前端访问（4444 是 frontend-pc/vite.config.js 中配置的开发端口）
 cors:
-  allowed-origins: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
+  allowed-origins: http://localhost:4444,http://127.0.0.1:4444,http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
 
 # Knife4j
 knife4j:
