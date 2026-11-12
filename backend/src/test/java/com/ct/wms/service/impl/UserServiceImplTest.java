@@ -429,6 +429,25 @@ class UserServiceImplTest {
     }
 
     @Test
+    @DisplayName("测试更新个人信息 - 手机号已被其他用户使用")
+    void testUpdateCurrentUserProfile_PhoneTaken() {
+        // Given
+        UpdateProfileRequest request = new UpdateProfileRequest();
+        request.setRealName("新姓名");
+        request.setPhone("13900139000");
+
+        when(userMapper.selectById(TEST_USER_ID)).thenReturn(testUser);
+        when(userMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
+
+        // When & Then
+        assertThatThrownBy(() -> userService.updateCurrentUserProfile(request))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("手机号已被其他用户使用");
+
+        verify(userMapper, never()).updateById(any(User.class));
+    }
+
+    @Test
     @DisplayName("测试修改当前用户密码 - 成功")
     void testChangeCurrentUserPassword_Success() {
         // Given

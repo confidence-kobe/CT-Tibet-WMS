@@ -296,6 +296,17 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(404, "用户不存在");
         }
 
+        // 手机号有唯一约束，修改时先检查是否被其他用户占用
+        String phone = request.getPhone();
+        if (StringUtils.hasText(phone) && !phone.equals(user.getPhone())) {
+            Long count = userMapper.selectCount(new LambdaQueryWrapper<User>()
+                    .eq(User::getPhone, phone)
+                    .ne(User::getId, userId));
+            if (count != null && count > 0) {
+                throw new BusinessException(400, "该手机号已被其他用户使用");
+            }
+        }
+
         // 更新个人信息
         user.setRealName(request.getRealName());
         user.setPhone(request.getPhone());
