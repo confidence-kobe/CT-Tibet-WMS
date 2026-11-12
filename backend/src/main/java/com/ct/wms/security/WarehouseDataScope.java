@@ -1,6 +1,7 @@
 package com.ct.wms.security;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.entity.User;
 import com.ct.wms.entity.Warehouse;
@@ -80,6 +81,25 @@ public class WarehouseDataScope {
                 .stream()
                 .map(Warehouse::getId)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 给查询条件加上仓库范围限制
+     *
+     * @param wrapper 查询条件
+     * @param column  仓库ID字段
+     */
+    public <T> void restrict(LambdaQueryWrapper<T> wrapper, SFunction<T, ?> column) {
+        List<Long> warehouseIds = getAccessibleWarehouseIds();
+        if (warehouseIds == null) {
+            return;
+        }
+        if (warehouseIds.isEmpty()) {
+            // 没有任何可访问的仓库：查询结果为空
+            wrapper.apply("1 = 0");
+        } else {
+            wrapper.in(column, warehouseIds);
+        }
     }
 
     /**

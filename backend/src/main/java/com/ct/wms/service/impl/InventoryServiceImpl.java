@@ -1,5 +1,6 @@
 package com.ct.wms.service.impl;
 
+import com.ct.wms.security.WarehouseDataScope;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.exception.BusinessException;
@@ -32,6 +33,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final WarehouseMapper warehouseMapper;
     private final MaterialMapper materialMapper;
     private final UserMapper userMapper;
+    private final WarehouseDataScope warehouseDataScope;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -200,6 +202,9 @@ public class InventoryServiceImpl implements InventoryService {
 
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
 
+        // 数据隔离：非系统管理员只能看本部门仓库的库存
+        warehouseDataScope.restrict(wrapper, Inventory::getWarehouseId);
+
         if (warehouseId != null) {
             wrapper.eq(Inventory::getWarehouseId, warehouseId);
         }
@@ -246,6 +251,9 @@ public class InventoryServiceImpl implements InventoryService {
 
         LambdaQueryWrapper<InventoryLog> wrapper = new LambdaQueryWrapper<>();
 
+        // 数据隔离：非系统管理员只能看本部门仓库的库存流水
+        warehouseDataScope.restrict(wrapper, InventoryLog::getWarehouseId);
+
         if (warehouseId != null) {
             wrapper.eq(InventoryLog::getWarehouseId, warehouseId);
         }
@@ -280,8 +288,9 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public List<Inventory> listLowStockAlerts(Long warehouseId) {
-        // 查询所有库存
+        // 查询所有库存（非系统管理员只看本部门仓库）
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
+        warehouseDataScope.restrict(wrapper, Inventory::getWarehouseId);
 
         if (warehouseId != null) {
             wrapper.eq(Inventory::getWarehouseId, warehouseId);
@@ -388,7 +397,11 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public Inventory getById(Long id) {
-        return inventoryMapper.selectById(id);
+        Inventory inventory = inventoryMapper.selectById(id);
+        if (inventory != null) {
+            warehouseDataScope.checkAccess(inventory.getWarehouseId(), "无权查看其他部门仓库的库存");
+        }
+        return inventory;
     }
 
     @Override

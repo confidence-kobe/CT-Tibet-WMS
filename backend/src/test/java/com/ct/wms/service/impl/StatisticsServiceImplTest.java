@@ -7,6 +7,7 @@ import com.ct.wms.dto.InventoryStatisticsDTO;
 import com.ct.wms.dto.OutboundStatisticsDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
+import com.ct.wms.security.WarehouseDataScope;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.util.TestDataBuilder;
 import com.ct.wms.vo.DashboardStatsVO;
@@ -66,6 +67,10 @@ class StatisticsServiceImplTest {
     @Mock
     private InventoryService inventoryService;
 
+    // 部门数据权限：mock 默认不加任何限制（相当于系统管理员）
+    @Mock
+    private WarehouseDataScope warehouseDataScope;
+
     @InjectMocks
     private StatisticsServiceImpl statisticsService;
 
@@ -91,7 +96,7 @@ class StatisticsServiceImplTest {
     void testGetDashboardStats() {
         // Given
         when(materialMapper.selectCount(null)).thenReturn(100L);
-        when(warehouseMapper.selectCount(null)).thenReturn(14L);
+        when(warehouseMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(14L);
         when(inventoryService.listLowStockAlerts(null)).thenReturn(Collections.emptyList());
         when(applyMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(5L);
 
@@ -112,7 +117,7 @@ class StatisticsServiceImplTest {
         List<Inventory> mockInventories = Arrays.asList(
             TestDataBuilder.createInventory(1L, 1L, 1L, BigDecimal.valueOf(100))
         );
-        when(inventoryMapper.selectList(null)).thenReturn(mockInventories);
+        when(inventoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(mockInventories);
         when(materialMapper.selectById(1L)).thenReturn(testMaterial1);
 
         // When
@@ -130,7 +135,7 @@ class StatisticsServiceImplTest {
         assertThat(stats.getMonthOutboundAmount()).isEqualByComparingTo(BigDecimal.valueOf(20000));
 
         verify(materialMapper, times(1)).selectCount(null);
-        verify(warehouseMapper, times(1)).selectCount(null);
+        verify(warehouseMapper, times(1)).selectCount(any(LambdaQueryWrapper.class));
     }
 
     @Test

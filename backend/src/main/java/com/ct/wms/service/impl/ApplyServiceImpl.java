@@ -9,6 +9,7 @@ import com.ct.wms.dto.ApprovalDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
 import com.ct.wms.security.UserDetailsImpl;
+import com.ct.wms.security.WarehouseDataScope;
 import com.ct.wms.service.ApplyService;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
@@ -16,6 +17,7 @@ import com.ct.wms.utils.IdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +52,7 @@ public class ApplyServiceImpl implements ApplyService {
     private final OutboundService outboundService;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
+    private final WarehouseDataScope warehouseDataScope;
 
     @Override
     public Page<Apply> listApplies(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -59,18 +62,8 @@ public class ApplyServiceImpl implements ApplyService {
 
         LambdaQueryWrapper<Apply> wrapper = new LambdaQueryWrapper<>();
 
-        // 部门管理员只能查看本部门的申请（数据隔离）
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl) {
-            UserDetailsImpl currentUser = (UserDetailsImpl) auth.getPrincipal();
-            Role currentRole = roleMapper.selectById(currentUser.getRoleId());
-            if (currentRole != null && "DEPT_ADMIN".equals(currentRole.getRoleCode())) {
-                User currentUserEntity = userMapper.selectById(currentUser.getId());
-                if (currentUserEntity != null && currentUserEntity.getDeptId() != null) {
-                    wrapper.eq(Apply::getDeptId, currentUserEntity.getDeptId());
-                }
-            }
-        }
+        // 数据隔离：非系统管理员只能查看本部门仓库的申请
+        warehouseDataScope.restrict(wrapper, Apply::getWarehouseId);
 
         if (warehouseId != null) {
             wrapper.eq(Apply::getWarehouseId, warehouseId);
@@ -181,6 +174,7 @@ public class ApplyServiceImpl implements ApplyService {
         if (apply == null) {
             throw new BusinessException(404, "申请单不存在");
         }
+        checkApplyViewPermission(apply);
 
         // 填充关联数据
         fillApplyInfo(apply);
@@ -559,5 +553,22 @@ public class ApplyServiceImpl implements ApplyService {
             return userDetails.getId();
         }
         throw new BusinessException(401, "未登录");
+    }
+
+    /**
+     * 申请单查看权限：申请人本人可以查看；
+     * 系统管理员、部门管理员、仓管员可以查看本部门仓库的申请；普通员工不能查看他人的申请
+     */
+    private void checkApplyViewPermission(Apply apply) {
+        if (getCurrentUserId().equals(apply.getApplicantId())) {
+            return;
+        }
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isManager = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(a -> "ROLE_ADMIN".equals(a) || "ROLE_DEPT_ADMIN".equals(a) || "ROLE_WAREHOUSE".equals(a));
+        if (!isManager || !warehouseDataScope.canAccess(apply.getWarehouseId())) {
+            throw new BusinessException(403, "无权查看此申请单");
+        }
     }
 }
