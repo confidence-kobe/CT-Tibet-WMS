@@ -26,6 +26,12 @@ public class Inbound extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
 
+    /** 状态：已入库 */
+    public static final int STATUS_NORMAL = 1;
+
+    /** 状态：已作废（库存已回退） */
+    public static final int STATUS_VOID = 2;
+
     /**
      * 入库单号（格式：RK_部门编码_YYYYMMDD_流水号）
      */
@@ -74,6 +80,12 @@ public class Inbound extends BaseEntity {
      */
     @Schema(description = "备注")
     private String remark;
+
+    /**
+     * 状态（1-已入库 2-已作废）
+     */
+    @Schema(description = "状态(1-已入库 2-已作废)")
+    private Integer status;
 
     // 非数据库字段
     /**

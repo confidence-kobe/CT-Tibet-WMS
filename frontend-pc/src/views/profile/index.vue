@@ -189,11 +189,7 @@ const handleSaveProfile = async () => {
     await editFormRef.value.validate()
     saveLoading.value = true
 
-    await updateProfile(editForm)
-    // 同步本地 store
-    userStore.realName = editForm.realName
-    userStore.phone = editForm.phone
-    userStore.email = editForm.email
+    await userStore.updateProfile(editForm)
 
     ElMessage.success('保存成功')
     editDialogVisible.value = false

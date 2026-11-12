@@ -26,8 +26,11 @@ services:
     volumes:
       # Database data persistence
       - mysql_data:/var/lib/mysql
-      # Initialize database from SQL script
-      - ./sql/init-database.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      # Initialize database on first start (in order). init-database.sql is an outdated prototype and must not be used.
+      # NOTE: init_data.sql creates default accounts with password 123456 — change them right after the first deployment.
+      - ./sql/create_database.sql:/docker-entrypoint-initdb.d/01-create_database.sql:ro
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/02-schema.sql:ro
+      - ./sql/init_data.sql:/docker-entrypoint-initdb.d/03-init_data.sql:ro
       # MySQL configuration for production
       - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
       # Logs

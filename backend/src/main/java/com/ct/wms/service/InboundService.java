@@ -2,6 +2,7 @@ package com.ct.wms.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.dto.InboundDTO;
+import com.ct.wms.dto.InboundUpdateDTO;
 import com.ct.wms.entity.Inbound;
 
 /**
@@ -44,4 +45,20 @@ public interface InboundService {
      * @return 入库单ID
      */
     Long createInbound(InboundDTO dto);
+
+    /**
+     * 编辑入库单（只改不影响库存的信息：类型、时间、备注、单价）
+     *
+     * @param id  入库单ID
+     * @param dto 编辑内容
+     */
+    void updateInbound(Long id, InboundUpdateDTO dto);
+
+    /**
+     * 作废入库单，并回退其增加的库存
+     *
+     * @param id     入库单ID
+     * @param reason 作废原因
+     */
+    void voidInbound(Long id, String reason);
 }

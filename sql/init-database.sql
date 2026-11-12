@@ -1,3 +1,7 @@
+-- ============================================================================
+-- ⚠️ 已废弃，请勿使用：本脚本是早期原型，表结构与后端代码严重不一致（缺表、缺大量字段）。
+-- 请按 sql/README.md 执行 create_database.sql → schema.sql → init_data.sql。
+-- ============================================================================
 -- Production Database Initialization Script for CT-Tibet-WMS
 -- MySQL 8.0 Compatible
 -- Created: 2025-11-24
@@ -143,7 +147,7 @@ CREATE TABLE IF NOT EXISTS tb_inbound (
     inbound_code VARCHAR(64) NOT NULL UNIQUE COMMENT '入库单编号',
     warehouse_id INT NOT NULL COMMENT '仓库ID',
     creator_id INT NOT NULL COMMENT '创建人ID',
-    status INT DEFAULT 0 COMMENT '入库状态(0:待审核,1:已完成,2:已取消)',
+    status INT DEFAULT 0 COMMENT '入库状态(0/1:已入库,2:已作废)',
     remark VARCHAR(255) COMMENT '备注',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',

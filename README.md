@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Status](https://img.shields.io/badge/status-production--ready-brightgreen)
+![Status](https://img.shields.io/badge/status-beta-yellow)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Backend](https://img.shields.io/badge/Spring%20Boot-2.7.18-green)
 ![Frontend](https://img.shields.io/badge/Vue-3.x-brightgreen)
@@ -30,11 +30,11 @@ CT-Tibet-WMS是一个为西藏电信公司开发的现代化仓库管理系统�
 
 ### 项目状态
 
-- ✅ **开发完成**: PC前端29页面 + 小程序17页面，后端68接口
-- ✅ **测试完成**: 150个测试用例，100%通过率，26个测试类覆盖全链路
-- ✅ **文档完成**: 47份文档，1000KB+，100% API覆盖
-- ✅ **工具齐全**: 8个便捷启动脚本，一键启动
-- ✅ **生产就绪**: 配置完整，Docker容器化，可立即部署
+- ✅ **PC 端核心业务可用**：入库（含编辑、作废）、直接出库、申请 → 审批 → 出库、库存查询、按部门数据隔离，已在真实 MySQL 上跑通
+- ✅ **后端测试**：280 个测试用例全部通过（`cd backend && mvn test`）
+- ⚠️ **小程序**：部分列表页、库存页与后端接口不匹配，需要修复后再使用
+- ⚠️ **PC 端待完善**：首页统计卡片、库存页数量列等部分页面显示不完整；微信模板消息尚未接通
+- ⚠️ **一键启动脚本和 Docker 部署**：尚未按当前代码验证，见下方"快速开始"
 
 ---
 
@@ -132,137 +132,122 @@ graph LR
 
 ---
 
-## 🚀 快速开始
+## 🚀 快速开始（本地运行）
 
-### 环境要求
+以下步骤已在 MySQL 8.0 + Redis 环境中实际跑通。
 
-- **Java**: 11+
-- **Node.js**: 16+
-- **MySQL**: 8.0+
-- **Maven**: 3.6+
-- **Docker**: 20.10+ (可选,推荐)
+### 1. 安装软件（一次性）
 
-### ⚡ 一键启动 (推荐)
+| 软件 | 版本 | 用途 |
+|------|------|------|
+| JDK | 11 及以上（已用 21 验证） | 运行后端 |
+| Maven | 3.6 及以上 | 编译后端 |
+| Node.js | 18 及以上 | 运行 PC 前端 |
+| MySQL | 8.0 | 数据库 |
+| Redis | 任意较新版本 | 缓存 |
+| Git | — | 下载代码 |
 
-我们提供了便捷的启动脚本,只需一行命令即可启动整个系统!
+RabbitMQ 在开发环境中已关闭，**不需要安装**。
 
-#### 方式一: 开发模式 (推荐开发使用)
-
-**Linux/Mac**:
-```bash
-git clone https://github.com/confidence-kobe/CT-Tibet-WMS.git
-cd CT-Tibet-WMS
-
-# 赋予执行权限(首次运行)
-chmod +x start-dev.sh
-
-# 一键启动
-./start-dev.sh
-```
-
-**Windows**:
-```cmd
-git clone https://github.com/confidence-kobe/CT-Tibet-WMS.git
-cd CT-Tibet-WMS
-
-# 一键启动
-start-dev.bat
-```
-
-脚本会自动:
-- ✅ 检查环境(Java, Maven, Node.js)
-- ✅ 构建并启动后端服务
-- ✅ 安装依赖并启动前端服务
-
-访问地址:
-- 前端: http://localhost:5173
-- 后端: http://localhost:8888
-- API文档: http://localhost:8888/swagger-ui.html
-
-#### 方式二: Docker模式 (推荐生产使用)
-
-```bash
-git clone https://github.com/confidence-kobe/CT-Tibet-WMS.git
-cd CT-Tibet-WMS
-
-# 赋予执行权限(首次运行)
-chmod +x docker-start.sh
-
-# 一键启动(选择环境: 1-开发, 2-生产)
-./docker-start.sh
-```
-
-Docker会自动启动:
-- MySQL 8.0
-- Redis 7.x (可选)
-- Backend (Spring Boot)
-- Frontend (Nginx + Vue)
-
-访问地址:
-- 开发环境: http://localhost:8080
-- 生产环境: http://localhost:80
-
-📖 **详细说明**: 查看 [SCRIPTS_GUIDE.md](SCRIPTS_GUIDE.md)
-
----
-
-### 🔧 手动启动 (可选)
-
-如果您需要更多控制,可以手动启动各个服务:
-
-<details>
-<summary>点击展开手动启动步骤</summary>
-
-#### 1. 克隆项目
+### 2. 下载代码
 
 ```bash
 git clone https://github.com/confidence-kobe/CT-Tibet-WMS.git
 cd CT-Tibet-WMS
 ```
 
-#### 2. 启动后端
+### 3. 初始化数据库
 
+开发配置默认使用 MySQL 账号 `root`、密码 `root`（见 `backend/src/main/resources/application-dev.yml`）。按顺序执行三个脚本：
+
+```bash
+cd sql
+mysql -uroot -proot < create_database.sql
+mysql -uroot -proot ct_tibet_wms < schema.sql
+mysql -uroot -proot ct_tibet_wms < init_data.sql
+cd ..
+```
+
+> ⚠️ 只执行这三个脚本。`init-database.sql` 已废弃，`fix_*.sql` 是历史修复脚本，都不要执行。
+> 如果数据库是用旧版脚本建的（启动后登录报 `Unknown column ...`），请按 [sql/README.md](sql/README.md) 中"升级已有数据库"执行迁移脚本。
+
+### 4. 启动 Redis
+
+```bash
+redis-server
+```
+
+### 5. 启动后端（新开一个终端）
+
+后端必须设置环境变量 `JWT_SECRET`（登录令牌签名密钥，至少 32 个字符，可用 `openssl rand -hex 32` 生成）：
+
+**Linux / Mac**
 ```bash
 cd backend
-
-# 配置数据库（修改 application-dev.yml）
-# 创建数据库
-mysql -u root -p
-CREATE DATABASE ct_wms CHARACTER SET utf8mb4;
-
-# 启动后端服务
-mvn spring-boot:run
+mvn -DskipTests package
+JWT_SECRET=替换成你的随机密钥 java -jar target/ct-tibet-wms.jar
 ```
 
-后端访问地址: http://localhost:8888
-API文档: http://localhost:8888/swagger-ui.html
+**Windows**
+```cmd
+cd backend
+mvn -DskipTests package
+set JWT_SECRET=替换成你的随机密钥
+java -jar target\ct-tibet-wms.jar
+```
 
-#### 3. 启动前端
+看到 `Started WmsApplication` 即启动成功。
+
+### 6. 启动前端（再开一个终端）
 
 ```bash
 cd frontend-pc
-
-# 安装依赖
 npm install
-
-# 启动开发服务器
 npm run dev
 ```
 
-前端访问地址: http://localhost:5173
+### 7. 打开系统
 
-</details>
+| 地址 | 说明 |
+|------|------|
+| http://localhost:4444/wms/ | PC 端系统 |
+| http://localhost:48888/doc.html | 后端 API 文档 |
 
 ### 默认账号
 
-| 角色 | 用户名 | 密码 | 说明 |
-|------|--------|------|------|
-| 系统管理员 | admin | 123456 | 全局管理权限 |
-| 部门管理员 | dept_admin | 123456 | 部门管理权限 |
-| 仓库管理员 | warehouse_manager | 123456 | 仓库管理权限 |
-| 普通员工 | employee | 123456 | 基本申请权限 |
+`init_data.sql` 创建的测试账号，密码均为 `123456`：
 
-⚠️ **生产环境请立即修改默认密码！**
+| 用户名 | 角色 | 所属部门 |
+|--------|------|----------|
+| admin | 系统管理员 | 西藏电信 |
+| wl_admin | 部门管理员 | 网络运维部 |
+| wl_warehouse | 仓库管理员 | 网络运维部 |
+| wl_user1 | 普通员工 | 网络运维部 |
+| wl_user2 | 普通员工 | 网络运维部 |
+
+⚠️ **正式部署后请立即修改所有默认账号的密码！**
+
+### 常见启动问题
+
+| 现象 | 原因与解决 |
+|------|-----------|
+| 后端启动报 `Could not resolve placeholder 'JWT_SECRET'` | 没有设置环境变量 `JWT_SECRET`，见第 5 步 |
+| 后端启动报 `JWT密钥长度不足` | `JWT_SECRET` 少于 32 个字符 |
+| 登录报 500，日志里有 `Unknown column` | 数据库是旧版脚本建的，执行 [sql/README.md](sql/README.md) 中的迁移脚本 |
+| 登录失败，后端日志 `Invalid CORS request` | 前端不是从 4444 端口访问的；请用 `npm run dev` 启动并访问 http://localhost:4444/wms/ |
+| 页面上中文显示为乱码 | 导入 SQL 时字符集不对；用本仓库的三个脚本重新建库（脚本已自带 `SET NAMES utf8mb4`） |
+
+### 小程序
+
+小程序不能在浏览器中运行，需要用 [微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html) 导入 `miniprogram` 目录。
+
+### 其他启动方式（尚未验证）
+
+仓库中的 `start-dev.sh` / `start-dev.bat`（一键启动）和 `docker-start.sh`、`docker-compose*.yml`（Docker 方式）**尚未按当前代码验证**：
+- 一键启动脚本没有设置 `JWT_SECRET`、不会初始化数据库，打印的端口也已过时，按原样使用后端会启动失败；
+- Docker 配置的数据库初始化已修正为执行上面三个脚本，但整体流程未实际运行过。
+
+建议优先使用上面的手动步骤。
 
 ---
 
@@ -353,7 +338,10 @@ PC前端代码:  ~15,000行 (29个页面)
 | 手动部署 | 45-90分钟 | ⭐⭐⭐⭐ | 传统环境、定制需求 | ⭐⭐⭐ |
 | CI/CD自动化 | 5-15分钟 | ⭐⭐⭐ | 持续交付、团队协作 | ⭐⭐⭐⭐ |
 
-### Docker Compose 快速部署（推荐）
+### Docker Compose 快速部署
+
+> ⚠️ Docker 部署流程尚未按当前代码实际验证；数据库初始化已修正为执行 `create_database.sql → schema.sql → init_data.sql`。
+> 后端端口为 **48888**，并且必须设置环境变量 `JWT_SECRET`。首次部署后请立即修改默认账号密码。
 
 ```bash
 # 1. 克隆项目
@@ -372,8 +360,8 @@ docker-compose ps
 
 # 5. 访问系统
 # 前端: http://localhost
-# 后端: http://localhost:8888
-# API文档: http://localhost:8888/doc.html
+# 后端: http://localhost:48888
+# API文档: http://localhost:48888/doc.html
 ```
 
 详细部署文档请查看: [docs/DEPLOYMENT_DOCKER.md](docs/DEPLOYMENT_DOCKER.md)
