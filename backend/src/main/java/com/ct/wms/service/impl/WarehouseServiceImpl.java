@@ -11,12 +11,11 @@ import com.ct.wms.mapper.DeptMapper;
 import com.ct.wms.mapper.InventoryMapper;
 import com.ct.wms.mapper.UserMapper;
 import com.ct.wms.mapper.WarehouseMapper;
+import com.ct.wms.security.WarehouseDataScope;
 import com.ct.wms.service.WarehouseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -36,10 +35,17 @@ public class WarehouseServiceImpl implements WarehouseService {
     private final DeptMapper deptMapper;
     private final UserMapper userMapper;
     private final InventoryMapper inventoryMapper;
+    private final WarehouseDataScope warehouseDataScope;
 
     @Override
     public List<Warehouse> listWarehouses(Long deptId, Integer status) {
         LambdaQueryWrapper<Warehouse> wrapper = new LambdaQueryWrapper<>();
+
+        // 数据隔离：非系统管理员只能看本部门的仓库
+        Long restrictedDeptId = warehouseDataScope.getRestrictedDeptId();
+        if (restrictedDeptId != null) {
+            wrapper.eq(Warehouse::getDeptId, restrictedDeptId);
+        }
 
         if (deptId != null) {
             wrapper.eq(Warehouse::getDeptId, deptId);
@@ -75,6 +81,7 @@ public class WarehouseServiceImpl implements WarehouseService {
         if (warehouse == null) {
             throw new BusinessException(404, "仓库不存在");
         }
+        warehouseDataScope.checkAccess(id, "无权查看其他部门的仓库");
 
         // 填充部门名称和管理员名称
         Dept dept = deptMapper.selectById(warehouse.getDeptId());
@@ -98,6 +105,8 @@ public class WarehouseServiceImpl implements WarehouseService {
         if (warehouseMapper.selectCount(wrapper) > 0) {
             throw new BusinessException(409, "仓库编码已存在");
         }
+
+        checkDeptAllowed(dto.getDeptId());
 
         // 检查部门是否存在
         Dept dept = deptMapper.selectById(dto.getDeptId());
@@ -124,6 +133,8 @@ public class WarehouseServiceImpl implements WarehouseService {
     @Override
     public void updateWarehouse(Long id, WarehouseDTO dto) {
         Warehouse warehouse = getWarehouseById(id);
+        // 部门管理员不能把仓库改到其他部门
+        checkDeptAllowed(dto.getDeptId());
 
         // 检查仓库编码是否重复（排除自己）
         if (!warehouse.getWarehouseCode().equals(dto.getWarehouseCode())) {
@@ -172,21 +183,13 @@ public class WarehouseServiceImpl implements WarehouseService {
 
     @Override
     public List<Warehouse> getMyWarehouses() {
-        Long currentUserId = getCurrentUserId();
-        User currentUser = userMapper.selectById(currentUserId);
-
-        if (currentUser == null) {
-            throw new BusinessException(401, "用户未登录");
-        }
-
         LambdaQueryWrapper<Warehouse> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Warehouse::getStatus, 0); // 只查询启用的仓库
 
-        // 普通用户只能看到自己部门的仓库
-        // 管理员可以看到所有仓库
-        String roleCode = currentUser.getRoleCode();
-        if (!"ADMIN".equals(roleCode)) {
-            wrapper.eq(Warehouse::getDeptId, currentUser.getDeptId());
+        // 系统管理员可以看到所有仓库，其他用户只能看到自己部门的仓库
+        Long restrictedDeptId = warehouseDataScope.getRestrictedDeptId();
+        if (restrictedDeptId != null) {
+            wrapper.eq(Warehouse::getDeptId, restrictedDeptId);
         }
 
         wrapper.orderByAsc(Warehouse::getWarehouseName);
@@ -204,13 +207,13 @@ public class WarehouseServiceImpl implements WarehouseService {
         return warehouses;
     }
 
-    private Long getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof com.ct.wms.security.UserDetailsImpl) {
-            com.ct.wms.security.UserDetailsImpl userDetails =
-                    (com.ct.wms.security.UserDetailsImpl) authentication.getPrincipal();
-            return userDetails.getId();
+    /**
+     * 非系统管理员只能把仓库建在/改到自己部门
+     */
+    private void checkDeptAllowed(Long deptId) {
+        Long restrictedDeptId = warehouseDataScope.getRestrictedDeptId();
+        if (restrictedDeptId != null && !restrictedDeptId.equals(deptId)) {
+            throw new BusinessException(403, "只能管理本部门的仓库");
         }
-        throw new BusinessException(401, "用户未登录");
     }
 }

@@ -40,8 +40,8 @@ public class WarehouseServiceTest {
         userWrapper.last("LIMIT 1");
         User user = userMapper.selectOne(userWrapper);
         if (user != null) {
-            String role = user.getRoleId() != null ? user.getRoleId().toString() : "USER";
-            TestDataBuilder.mockSecurityContext(user.getId(), user.getUsername(), role);
+            // 第一个用户是系统管理员；角色需传角色编码（如 ADMIN），而不是角色ID
+            TestDataBuilder.mockSecurityContext(user.getId(), user.getUsername(), "ADMIN");
         }
     }
 

@@ -11,6 +11,7 @@ import com.ct.wms.dto.OutboundDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
 import com.ct.wms.security.UserDetailsImpl;
+import com.ct.wms.security.WarehouseDataScope;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.service.OutboundService;
 import com.ct.wms.utils.IdGenerator;
@@ -49,6 +50,7 @@ public class OutboundServiceImpl implements OutboundService {
     private final ApplyDetailMapper applyDetailMapper;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
+    private final WarehouseDataScope warehouseDataScope;
 
     @Override
     public Page<Outbound> listOutbounds(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -57,6 +59,15 @@ public class OutboundServiceImpl implements OutboundService {
         Page<Outbound> page = new Page<>(pageNum, pageSize);
 
         LambdaQueryWrapper<Outbound> wrapper = new LambdaQueryWrapper<>();
+
+        // 数据隔离：非系统管理员只能看本部门仓库的出库单
+        List<Long> accessibleWarehouseIds = warehouseDataScope.getAccessibleWarehouseIds();
+        if (accessibleWarehouseIds != null) {
+            if (accessibleWarehouseIds.isEmpty()) {
+                return page;
+            }
+            wrapper.in(Outbound::getWarehouseId, accessibleWarehouseIds);
+        }
 
         if (warehouseId != null) {
             wrapper.eq(Outbound::getWarehouseId, warehouseId);
@@ -108,6 +119,7 @@ public class OutboundServiceImpl implements OutboundService {
         if (outbound == null) {
             throw new BusinessException(404, "出库单不存在");
         }
+        warehouseDataScope.checkAccess(outbound.getWarehouseId(), "无权查看其他部门仓库的出库单");
 
         // 填充关联数据
         fillOutboundInfo(outbound);
@@ -145,6 +157,7 @@ public class OutboundServiceImpl implements OutboundService {
         if (warehouse == null) {
             throw new BusinessException(404, "仓库不存在");
         }
+        warehouseDataScope.checkAccess(dto.getWarehouseId(), "无权从其他部门的仓库出库");
 
         // 查询部门信息
         Dept dept = deptMapper.selectById(warehouse.getDeptId());
@@ -370,6 +383,7 @@ public class OutboundServiceImpl implements OutboundService {
         if (outbound == null) {
             throw new BusinessException(404, "出库单不存在");
         }
+        warehouseDataScope.checkAccess(outbound.getWarehouseId(), "无权操作其他部门仓库的出库单");
 
         // 检查状态
         if (!OutboundStatus.PENDING_PICKUP.equals(outbound.getStatus())) {
@@ -420,6 +434,8 @@ public class OutboundServiceImpl implements OutboundService {
         if (outbound == null) {
             throw new BusinessException(404, "出库单不存在");
         }
+        // 定时任务自动取消时没有登录上下文，不受限制
+        warehouseDataScope.checkAccess(outbound.getWarehouseId(), "无权操作其他部门仓库的出库单");
 
         // 检查状态（只有待取货状态才能取消）
         if (!OutboundStatus.PENDING_PICKUP.equals(outbound.getStatus())) {

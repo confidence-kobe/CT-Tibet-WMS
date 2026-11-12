@@ -9,13 +9,13 @@ import com.ct.wms.dto.InboundUpdateDTO;
 import com.ct.wms.entity.*;
 import com.ct.wms.mapper.*;
 import com.ct.wms.security.UserDetailsImpl;
+import com.ct.wms.security.WarehouseDataScope;
 import com.ct.wms.service.InboundService;
 import com.ct.wms.service.InventoryService;
 import com.ct.wms.utils.IdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +24,6 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -49,6 +48,7 @@ public class InboundServiceImpl implements InboundService {
     private final UserMapper userMapper;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
+    private final WarehouseDataScope warehouseDataScope;
 
     @Override
     public Page<Inbound> listInbounds(Integer pageNum, Integer pageSize, Long warehouseId,
@@ -59,7 +59,7 @@ public class InboundServiceImpl implements InboundService {
         LambdaQueryWrapper<Inbound> wrapper = new LambdaQueryWrapper<>();
 
         // 数据隔离：非系统管理员只能看本部门仓库的入库单
-        List<Long> accessibleWarehouseIds = getAccessibleWarehouseIds();
+        List<Long> accessibleWarehouseIds = warehouseDataScope.getAccessibleWarehouseIds();
         if (accessibleWarehouseIds != null) {
             if (accessibleWarehouseIds.isEmpty()) {
                 return page;
@@ -109,9 +109,7 @@ public class InboundServiceImpl implements InboundService {
         if (inbound == null) {
             throw new BusinessException(404, "入库单不存在");
         }
-        if (!canAccessWarehouse(inbound.getWarehouseId())) {
-            throw new BusinessException(403, "无权查看其他部门仓库的入库单");
-        }
+        warehouseDataScope.checkAccess(inbound.getWarehouseId(), "无权查看其他部门仓库的入库单");
 
         // 填充关联数据
         fillInboundInfo(inbound);
@@ -149,6 +147,7 @@ public class InboundServiceImpl implements InboundService {
         if (warehouse == null) {
             throw new BusinessException(404, "仓库不存在");
         }
+        warehouseDataScope.checkAccess(dto.getWarehouseId(), "无权向其他部门的仓库入库");
 
         // 查询部门信息
         Dept dept = deptMapper.selectById(warehouse.getDeptId());
@@ -313,43 +312,8 @@ public class InboundServiceImpl implements InboundService {
         if (Integer.valueOf(Inbound.STATUS_VOID).equals(inbound.getStatus())) {
             throw new BusinessException(400, "入库单已作废，不能再修改");
         }
-        if (!canAccessWarehouse(inbound.getWarehouseId())) {
-            throw new BusinessException(403, "无权操作其他部门仓库的入库单");
-        }
+        warehouseDataScope.checkAccess(inbound.getWarehouseId(), "无权操作其他部门仓库的入库单");
         return inbound;
-    }
-
-    /**
-     * 当前用户能否访问该仓库的入库单
-     */
-    private boolean canAccessWarehouse(Long warehouseId) {
-        List<Long> accessibleWarehouseIds = getAccessibleWarehouseIds();
-        return accessibleWarehouseIds == null || accessibleWarehouseIds.contains(warehouseId);
-    }
-
-    /**
-     * 当前用户可访问的仓库ID：系统管理员返回 null（不限制）；
-     * 部门管理员和仓管员只能访问本部门仓库，没有部门时返回空列表
-     */
-    private List<Long> getAccessibleWarehouseIds() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch("ROLE_ADMIN"::equals);
-        if (isAdmin) {
-            return null;
-        }
-
-        User currentUser = userMapper.selectById(getCurrentUserId());
-        if (currentUser == null || currentUser.getDeptId() == null) {
-            return Collections.emptyList();
-        }
-        return warehouseMapper.selectList(new LambdaQueryWrapper<Warehouse>()
-                        .select(Warehouse::getId)
-                        .eq(Warehouse::getDeptId, currentUser.getDeptId()))
-                .stream()
-                .map(Warehouse::getId)
-                .collect(Collectors.toList());
     }
 
     /**
