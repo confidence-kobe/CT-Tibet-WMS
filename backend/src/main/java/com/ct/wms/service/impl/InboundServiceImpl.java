@@ -24,6 +24,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -56,6 +57,15 @@ public class InboundServiceImpl implements InboundService {
         Page<Inbound> page = new Page<>(pageNum, pageSize);
 
         LambdaQueryWrapper<Inbound> wrapper = new LambdaQueryWrapper<>();
+
+        // 数据隔离：非系统管理员只能看本部门仓库的入库单
+        List<Long> accessibleWarehouseIds = getAccessibleWarehouseIds();
+        if (accessibleWarehouseIds != null) {
+            if (accessibleWarehouseIds.isEmpty()) {
+                return page;
+            }
+            wrapper.in(Inbound::getWarehouseId, accessibleWarehouseIds);
+        }
 
         if (warehouseId != null) {
             wrapper.eq(Inbound::getWarehouseId, warehouseId);
@@ -98,6 +108,9 @@ public class InboundServiceImpl implements InboundService {
         Inbound inbound = inboundMapper.selectById(id);
         if (inbound == null) {
             throw new BusinessException(404, "入库单不存在");
+        }
+        if (!canAccessWarehouse(inbound.getWarehouseId())) {
+            throw new BusinessException(403, "无权查看其他部门仓库的入库单");
         }
 
         // 填充关联数据
@@ -300,28 +313,43 @@ public class InboundServiceImpl implements InboundService {
         if (Integer.valueOf(Inbound.STATUS_VOID).equals(inbound.getStatus())) {
             throw new BusinessException(400, "入库单已作废，不能再修改");
         }
-        checkWarehousePermission(inbound.getWarehouseId());
+        if (!canAccessWarehouse(inbound.getWarehouseId())) {
+            throw new BusinessException(403, "无权操作其他部门仓库的入库单");
+        }
         return inbound;
     }
 
     /**
-     * 系统管理员可操作所有仓库；部门管理员和仓管员只能操作本部门仓库
+     * 当前用户能否访问该仓库的入库单
      */
-    private void checkWarehousePermission(Long warehouseId) {
+    private boolean canAccessWarehouse(Long warehouseId) {
+        List<Long> accessibleWarehouseIds = getAccessibleWarehouseIds();
+        return accessibleWarehouseIds == null || accessibleWarehouseIds.contains(warehouseId);
+    }
+
+    /**
+     * 当前用户可访问的仓库ID：系统管理员返回 null（不限制）；
+     * 部门管理员和仓管员只能访问本部门仓库，没有部门时返回空列表
+     */
+    private List<Long> getAccessibleWarehouseIds() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .anyMatch("ROLE_ADMIN"::equals);
         if (isAdmin) {
-            return;
+            return null;
         }
 
         User currentUser = userMapper.selectById(getCurrentUserId());
-        Warehouse warehouse = warehouseMapper.selectById(warehouseId);
-        if (currentUser == null || warehouse == null || currentUser.getDeptId() == null
-                || !currentUser.getDeptId().equals(warehouse.getDeptId())) {
-            throw new BusinessException(403, "无权操作其他部门仓库的入库单");
+        if (currentUser == null || currentUser.getDeptId() == null) {
+            return Collections.emptyList();
         }
+        return warehouseMapper.selectList(new LambdaQueryWrapper<Warehouse>()
+                        .select(Warehouse::getId)
+                        .eq(Warehouse::getDeptId, currentUser.getDeptId()))
+                .stream()
+                .map(Warehouse::getId)
+                .collect(Collectors.toList());
     }
 
     /**

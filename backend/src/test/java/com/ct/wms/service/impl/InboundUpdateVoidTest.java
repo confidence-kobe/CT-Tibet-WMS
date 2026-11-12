@@ -241,4 +241,55 @@ class InboundUpdateVoidTest {
         assertThat(statisticsService.getInboundStatistics(today, today, WAREHOUSE_DEPT2).getTotalCount())
                 .isEqualTo(before);
     }
+
+    private java.util.List<Long> listIds() {
+        return inboundService.listInbounds(1, 100, null, null, null, null, null, null)
+                .getRecords().stream().map(Inbound::getId).collect(java.util.stream.Collectors.toList());
+    }
+
+    @Test
+    @DisplayName("数据隔离 - 仓管员列表只能看到本部门仓库的入库单")
+    void listInbounds_warehouseManager_onlyOwnDept() {
+        Long own = createInbound(WAREHOUSE_DEPT2, "5", "10");
+        Long other = createInbound(WAREHOUSE_DEPT3, "5", "10");
+        TestDataBuilder.mockSecurityContext(3L, "warehouse", "WAREHOUSE");
+
+        java.util.List<Long> ids = listIds();
+        assertThat(ids).contains(own).doesNotContain(other);
+        // 指定其他部门的仓库也查不到
+        assertThat(inboundService.listInbounds(1, 100, WAREHOUSE_DEPT3, null, null, null, null, null)
+                .getRecords()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("数据隔离 - 系统管理员能看到所有部门的入库单")
+    void listInbounds_admin_seesAll() {
+        Long own = createInbound(WAREHOUSE_DEPT2, "5", "10");
+        Long other = createInbound(WAREHOUSE_DEPT3, "5", "10");
+
+        assertThat(listIds()).contains(own, other);
+    }
+
+    @Test
+    @DisplayName("数据隔离 - 所在部门没有仓库时列表为空")
+    void listInbounds_deptWithoutWarehouse_empty() {
+        createInbound(WAREHOUSE_DEPT2, "5", "10");
+        // 用户1属于总部（部门1），总部名下没有仓库
+        TestDataBuilder.mockSecurityContext(1L, "admin", "DEPT_ADMIN");
+
+        assertThat(listIds()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("数据隔离 - 不能查看其他部门仓库的入库单详情")
+    void getInboundById_otherDept_forbidden() {
+        Long own = createInbound(WAREHOUSE_DEPT2, "5", "10");
+        Long other = createInbound(WAREHOUSE_DEPT3, "5", "10");
+        TestDataBuilder.mockSecurityContext(3L, "warehouse", "WAREHOUSE");
+
+        assertThat(inboundService.getInboundById(own).getId()).isEqualTo(own);
+        assertThatThrownBy(() -> inboundService.getInboundById(other))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("无权查看");
+    }
 }
