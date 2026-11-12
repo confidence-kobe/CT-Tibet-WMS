@@ -908,7 +908,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         MiniProgramDashboardVO dashboardVO = new MiniProgramDashboardVO();
 
         // 根据角色返回不同的数据
-        if ("WAREHOUSE".equals(roleCode) || "DEPT_ADMIN".equals(roleCode)) {
+        if ("WAREHOUSE".equalsIgnoreCase(roleCode) || "DEPT_ADMIN".equalsIgnoreCase(roleCode)) {
             // 仓管员视图
             dashboardVO.setTodayData(buildTodayStats());
             dashboardVO.setPendingTasks(buildPendingTasks());

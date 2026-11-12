@@ -2,11 +2,16 @@ package com.ct.wms.security;
 
 import com.ct.wms.common.enums.InboundType;
 import com.ct.wms.common.exception.BusinessException;
+import com.ct.wms.common.enums.ApplyStatus;
 import com.ct.wms.dto.ApplyDTO;
+import com.ct.wms.dto.ApprovalDTO;
 import com.ct.wms.dto.InboundDTO;
 import com.ct.wms.entity.Apply;
 import com.ct.wms.entity.Inventory;
 import com.ct.wms.entity.InventoryLog;
+import com.ct.wms.entity.Role;
+import com.ct.wms.mapper.ApplyMapper;
+import com.ct.wms.mapper.RoleMapper;
 import com.ct.wms.service.ApplyService;
 import com.ct.wms.service.InboundService;
 import com.ct.wms.service.InventoryService;
@@ -61,6 +66,12 @@ class DeptScopeQueryTest {
 
     @Autowired
     private StatisticsService statisticsService;
+
+    @Autowired
+    private RoleMapper roleMapper;
+
+    @Autowired
+    private ApplyMapper applyMapper;
 
     @BeforeEach
     void setUp() {
@@ -268,5 +279,38 @@ class DeptScopeQueryTest {
         // 普通员工
         TestDataBuilder.mockSecurityContext(4L, "employee1", "USER");
         assertThat(pendingIds()).isEmpty();
+    }
+
+    /** 正式初始数据（sql/init_data.sql）中的角色编码是小写，这里把测试库改成一致 */
+    private void useLowercaseDeptAdminRoleCode() {
+        Role role = roleMapper.selectById(2L);
+        role.setRoleCode("dept_admin");
+        roleMapper.updateById(role);
+    }
+
+    @Test
+    @DisplayName("小写角色编码 - 部门管理员仍能看到本部门待审批")
+    void pendingApplies_lowercaseRoleCode() {
+        Long own = createApply(4L, "employee1", WAREHOUSE_DEPT2);
+        useLowercaseDeptAdminRoleCode();
+
+        TestDataBuilder.mockSecurityContext(2L, "dept_admin", "DEPT_ADMIN");
+        assertThat(pendingIds()).contains(own);
+    }
+
+    @Test
+    @DisplayName("小写角色编码 - 部门管理员可以审批本部门申请")
+    void approveApply_lowercaseRoleCode() {
+        Long own = createApply(4L, "employee1", WAREHOUSE_DEPT2);
+        useLowercaseDeptAdminRoleCode();
+
+        TestDataBuilder.mockSecurityContext(2L, "dept_admin", "DEPT_ADMIN");
+        ApprovalDTO dto = new ApprovalDTO();
+        dto.setApplyId(own);
+        dto.setApprovalResult(ApplyStatus.APPROVED.getValue());
+        dto.setApprovalRemark("同意");
+        applyService.approveApply(dto);
+
+        assertThat(applyMapper.selectById(own).getStatus()).isEqualTo(ApplyStatus.APPROVED);
     }
 }

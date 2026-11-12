@@ -138,7 +138,7 @@ public class ApplyServiceImpl implements ApplyService {
 
         // 与 approveApply 的审批权限保持一致：
         // 1. 仓库管理员可以审批自己管理的仓库的申请
-        // 2. 部门管理员可以审批本部门的申请
+        // 2. 部门管理员可以审批本部门的申请（角色编码在初始数据中为小写，比较时忽略大小写）
         List<Long> managedWarehouseIds = warehouseMapper.selectList(
                         new LambdaQueryWrapper<Warehouse>().eq(Warehouse::getManagerId, userId))
                 .stream()
@@ -146,7 +146,7 @@ public class ApplyServiceImpl implements ApplyService {
                 .collect(Collectors.toList());
 
         Role role = roleMapper.selectById(user.getRoleId());
-        Long adminDeptId = role != null && "DEPT_ADMIN".equals(role.getRoleCode()) ? user.getDeptId() : null;
+        Long adminDeptId = role != null && "DEPT_ADMIN".equalsIgnoreCase(role.getRoleCode()) ? user.getDeptId() : null;
 
         if (managedWarehouseIds.isEmpty() && adminDeptId == null) {
             // 既不管理仓库也不是部门管理员，没有可审批的申请
@@ -317,7 +317,7 @@ public class ApplyServiceImpl implements ApplyService {
         boolean isDeptAdmin = false;
         if (!isWarehouseManager && approver != null) {
             Role approverRole = roleMapper.selectById(approver.getRoleId());
-            if (approverRole != null && "DEPT_ADMIN".equals(approverRole.getRoleCode())) {
+            if (approverRole != null && "DEPT_ADMIN".equalsIgnoreCase(approverRole.getRoleCode())) {
                 // 部门管理员只能审批本部门的申请
                 if (approver.getDeptId() != null && approver.getDeptId().equals(apply.getDeptId())) {
                     isDeptAdmin = true;
