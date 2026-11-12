@@ -184,7 +184,7 @@ CREATE TABLE `tb_inbound` (
   `inbound_time` DATETIME NOT NULL COMMENT '入库时间',
   `total_amount` DECIMAL(10,2) DEFAULT 0.00 COMMENT '入库总金额',
   `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
-  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:1已入库',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:1已入库 2已作废',
   `create_by` BIGINT DEFAULT NULL COMMENT '创建人ID',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_by` BIGINT DEFAULT NULL COMMENT '更新人ID',

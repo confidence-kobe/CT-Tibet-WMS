@@ -80,6 +80,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         LambdaQueryWrapper<Inbound> inboundWrapper = new LambdaQueryWrapper<>();
         inboundWrapper.ge(Inbound::getInboundTime, monthStart);
         inboundWrapper.le(Inbound::getInboundTime, monthEnd);
+        excludeVoidInbound(inboundWrapper);
 
         List<Inbound> monthInbounds = inboundMapper.selectList(inboundWrapper);
         stats.setMonthInboundCount((long) monthInbounds.size());
@@ -141,6 +142,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         LambdaQueryWrapper<Inbound> wrapper = new LambdaQueryWrapper<>();
         wrapper.ge(Inbound::getInboundTime, startDateTime)
                .le(Inbound::getInboundTime, endDateTime);
+        excludeVoidInbound(wrapper);
         if (warehouseId != null) {
             wrapper.eq(Inbound::getWarehouseId, warehouseId);
         }
@@ -955,6 +957,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         // 今日入库
         LambdaQueryWrapper<Inbound> inboundWrapper = new LambdaQueryWrapper<>();
         inboundWrapper.between(Inbound::getInboundTime, todayStart, todayEnd);
+        excludeVoidInbound(inboundWrapper);
         stats.setInboundCount(inboundMapper.selectCount(inboundWrapper).intValue());
 
         // 今日出库
@@ -989,5 +992,12 @@ public class StatisticsServiceImpl implements StatisticsService {
         tasks.setLowStockAlert(lowStockAlerts.size());
 
         return tasks;
+    }
+
+    /**
+     * 统计时排除已作废的入库单
+     */
+    private void excludeVoidInbound(LambdaQueryWrapper<Inbound> wrapper) {
+        wrapper.and(w -> w.ne(Inbound::getStatus, Inbound.STATUS_VOID).or().isNull(Inbound::getStatus));
     }
 }

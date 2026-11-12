@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS tb_inbound (
     inbound_time TIMESTAMP COMMENT '入库时间',
     total_amount DECIMAL(10, 2) DEFAULT 0 COMMENT '入库总金额',
     remark VARCHAR(500) COMMENT '备注',
+    status INT DEFAULT 1 COMMENT '状态（1-已入库 2-已作废）',
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     create_by BIGINT COMMENT '创建人ID',

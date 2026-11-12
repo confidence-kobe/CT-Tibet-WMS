@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS tb_inbound (
     inbound_code VARCHAR(64) NOT NULL UNIQUE COMMENT '入库单编号',
     warehouse_id INT NOT NULL COMMENT '仓库ID',
     creator_id INT NOT NULL COMMENT '创建人ID',
-    status INT DEFAULT 0 COMMENT '入库状态(0:待审核,1:已完成,2:已取消)',
+    status INT DEFAULT 0 COMMENT '入库状态(0/1:已入库,2:已作废)',
     remark VARCHAR(255) COMMENT '备注',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',

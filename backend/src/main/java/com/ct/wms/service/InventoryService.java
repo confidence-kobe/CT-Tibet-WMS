@@ -42,6 +42,20 @@ public interface InventoryService {
                            String relatedNo, Long relatedId, Long operatorId);
 
     /**
+     * 回退入库库存（作废入库单时调用）
+     * 只能扣回可用库存（已被审批锁定的部分不能扣），不足时抛出异常
+     *
+     * @param warehouseId 仓库ID
+     * @param materialId  物资ID
+     * @param quantity    数量
+     * @param relatedNo   入库单号
+     * @param relatedId   入库单ID
+     * @param operatorId  操作人ID
+     */
+    void revertInboundInventory(Long warehouseId, Long materialId, BigDecimal quantity,
+                                String relatedNo, Long relatedId, Long operatorId);
+
+    /**
      * 获取库存
      *
      * @param warehouseId 仓库ID

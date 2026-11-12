@@ -133,6 +133,48 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void revertInboundInventory(Long warehouseId, Long materialId, BigDecimal quantity,
+                                       String relatedNo, Long relatedId, Long operatorId) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(400, "数量必须大于0");
+        }
+
+        Inventory inventory = getInventory(warehouseId, materialId);
+        BigDecimal available = inventory == null ? BigDecimal.ZERO
+                : inventory.getQuantity().subtract(inventory.getLockedQuantity());
+
+        // 已被领用或被审批锁定的部分不能扣回
+        if (inventory == null || available.compareTo(quantity) < 0) {
+            Material material = materialMapper.selectById(materialId);
+            String name = material != null ? material.getMaterialName() : String.valueOf(materialId);
+            throw new BusinessException(400, String.format(
+                    "物资【%s】可用库存不足，无法作废：需扣回 %s，当前可用 %s（可能已被领用或被审批锁定）",
+                    name, quantity.stripTrailingZeros().toPlainString(),
+                    available.stripTrailingZeros().toPlainString()));
+        }
+
+        BigDecimal beforeQuantity = inventory.getQuantity();
+        BigDecimal afterQuantity = beforeQuantity.subtract(quantity);
+
+        inventory.setQuantity(afterQuantity);
+        inventory.setAvailableQuantity(afterQuantity.subtract(inventory.getLockedQuantity()));
+
+        // 交给 MyBatis-Plus 乐观锁插件处理 version 递增和条件校验
+        int updated = inventoryMapper.updateById(inventory);
+        if (updated == 0) {
+            throw new BusinessException(500, "库存更新失败，请重试");
+        }
+
+        log.info("作废入库回退库存: warehouseId={}, materialId={}, before={}, after={}",
+                warehouseId, materialId, beforeQuantity, afterQuantity);
+
+        // 记录库存流水（库存减少，关联入库单）
+        saveInventoryLog(warehouseId, materialId, 2, quantity.negate(), beforeQuantity, afterQuantity,
+                relatedNo, 1, relatedId, operatorId, "入库单作废");
+    }
+
+    @Override
     public Inventory getInventory(Long warehouseId, Long materialId) {
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Inventory::getWarehouseId, warehouseId);
