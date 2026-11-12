@@ -221,11 +221,19 @@ public class OutboundServiceImpl implements OutboundService {
         outbound.setOperatorId(operatorId);
         outbound.setOperatorName(operator != null ? operator.getRealName() : null);
 
-        // 获取领用人信息
-        if (dto.getReceiverId() != null) {
-            User receiver = userMapper.selectById(dto.getReceiverId());
-            outbound.setReceiverId(dto.getReceiverId());
-            outbound.setReceiverName(receiver != null ? receiver.getRealName() : null);
+        // 领取人：优先用选择的系统用户；否则用手工填写的姓名电话；都没有则视为仓管员本人领用
+        User receiver = dto.getReceiverId() != null ? userMapper.selectById(dto.getReceiverId()) : null;
+        if (receiver != null) {
+            outbound.setReceiverId(receiver.getId());
+            outbound.setReceiverName(receiver.getRealName());
+            outbound.setReceiverPhone(receiver.getPhone());
+        } else if (StringUtils.hasText(dto.getReceiverName())) {
+            outbound.setReceiverName(dto.getReceiverName().trim());
+            outbound.setReceiverPhone(StringUtils.hasText(dto.getReceiverPhone()) ? dto.getReceiverPhone().trim() : null);
+        } else {
+            outbound.setReceiverId(operatorId);
+            outbound.setReceiverName(operator != null ? operator.getRealName() : "");
+            outbound.setReceiverPhone(operator != null ? operator.getPhone() : null);
         }
 
         outbound.setOutboundTime(dto.getOutboundTime());

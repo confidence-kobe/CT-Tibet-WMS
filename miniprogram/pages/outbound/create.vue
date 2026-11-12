@@ -197,6 +197,7 @@
 
 <script>
 import api from '@/api'
+import { fetchAllPages } from '@/utils/fetchAll'
 import { mapState } from 'vuex'
 
 export default {
@@ -299,15 +300,9 @@ export default {
       }
 
       try {
-        const res = await api.inventory.getList({
-          warehouseId: this.form.warehouseId,
-          pageSize: 1000
-        })
-
-        if (res.code === 200) {
-          this.materials = res.data.list || []
-          this.filteredMaterials = this.materials
-        }
+        // 后端每页最多 100 条，按页拉取该仓库的完整库存列表
+        this.materials = await fetchAllPages(api.inventory.getInventoryList, { warehouseId: this.form.warehouseId })
+        this.filteredMaterials = this.materials
       } catch (err) {
         console.error('加载库存失败', err)
       }
@@ -395,16 +390,12 @@ export default {
 
     async loadUsers() {
       try {
-        const res = await api.common.getUsers({
+        // 后端每页最多 100 条，按页拉取完整用户列表
+        this.users = await fetchAllPages(api.user.getUserList, {
           deptId: this.userInfo ? this.userInfo.deptId : null,
-          status: 0,
-          pageSize: 1000
+          status: 0
         })
-
-        if (res.code === 200) {
-          this.users = res.data.list || []
-          this.filteredUsers = this.users
-        }
+        this.filteredUsers = this.users
       } catch (err) {
         console.error('加载用户列表失败', err)
       }

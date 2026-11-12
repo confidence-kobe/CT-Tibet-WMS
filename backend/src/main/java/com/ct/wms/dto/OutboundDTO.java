@@ -36,6 +36,14 @@ public class OutboundDTO {
     @Schema(description = "领用人ID（仅领用时需要）")
     private Long receiverId;
 
+    @Size(max = 50, message = "领取人姓名不能超过50字")
+    @Schema(description = "领取人姓名（未选择系统用户时手工填写）")
+    private String receiverName;
+
+    @Size(max = 20, message = "联系电话不能超过20字")
+    @Schema(description = "领取人联系电话")
+    private String receiverPhone;
+
     @Size(max = 500, message = "备注不能超过500字")
     @Schema(description = "备注")
     private String remark;

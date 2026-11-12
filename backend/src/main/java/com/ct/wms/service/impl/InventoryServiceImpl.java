@@ -1,5 +1,6 @@
 package com.ct.wms.service.impl;
 
+import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.security.WarehouseDataScope;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -9,6 +10,8 @@ import com.ct.wms.mapper.*;
 import com.ct.wms.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -383,6 +386,13 @@ public class InventoryServiceImpl implements InventoryService {
         log.setRelatedNo(StringUtils.hasText(relatedNo) ? relatedNo : "");
         log.setRelatedType(relatedType);
         log.setRelatedId(relatedId);
+        // 锁定/解锁等调用方未传操作人时，取当前登录用户；定时任务等系统操作没有操作人，留空
+        if (operatorId == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+                operatorId = ((UserDetailsImpl) authentication.getPrincipal()).getId();
+            }
+        }
         log.setOperatorId(operatorId);
         if (operatorId != null) {
             User operator = userMapper.selectById(operatorId);

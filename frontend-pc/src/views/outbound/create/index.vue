@@ -107,7 +107,7 @@
                     <el-option
                       v-for="material in materialList"
                       :key="material.id"
-                      :label="material.name"
+                      :label="material.materialName"
                       :value="material.id"
                     />
                   </el-select>
@@ -135,7 +135,7 @@
                   <el-input-number
                     v-model="row.quantity"
                     :min="0.01"
-                    :max="row.stock"
+                    :max="row.stock >= 0.01 ? row.stock : Infinity"
                     :precision="2"
                     @change="handleQuantityChange($index)"
                     style="width: 100%"
@@ -219,6 +219,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createOutboundDirect } from '@/api/outbound'
 import { listWarehouses } from '@/api/warehouse'
 import { listMaterials } from '@/api/material'
+import { fetchAllPages } from '@/utils/fetchAll'
 import { listInventories } from '@/api/inventory'
 
 const router = useRouter()
@@ -267,7 +268,8 @@ const totalAmount = computed(() => {
 
 // 检查是否有库存警告
 const hasStockWarning = computed(() => {
-  return form.details.some(item => item.quantity > item.stock)
+  // 只对已选择物资的行判断（新加的空行库存为 0，不应提示）
+  return form.details.some(item => item.materialId && item.quantity > item.stock)
 })
 
 // 加载仓库列表
@@ -283,8 +285,7 @@ const loadWarehouses = async () => {
 // 加载物资列表
 const loadMaterials = async () => {
   try {
-    const res = await listMaterials({ pageNum: 1, pageSize: 1000, status: 0 })
-    materialList.value = res.data || []
+    materialList.value = await fetchAllPages(listMaterials, { status: 0 })
   } catch (error) {
     console.error('加载物资列表失败:', error)
   }
@@ -346,8 +347,8 @@ const handleMaterialChange = async (index) => {
   const material = materialList.value.find(m => m.id === detail.materialId)
 
   if (material) {
-    detail.materialCode = material.code
-    detail.materialName = material.name
+    detail.materialCode = material.materialCode
+    detail.materialName = material.materialName
     detail.spec = material.model || '-'
     detail.unit = material.unit
     detail.unitPrice = 0 // 单价需要从库存中获取
@@ -357,7 +358,7 @@ const handleMaterialChange = async (index) => {
     detail.stock = stock
 
     if (stock === 0) {
-      ElMessage.warning(`物资"${material.name}"库存不足`)
+      ElMessage.warning(`物资"${material.materialName}"库存不足`)
       detail.quantity = 0
     } else if (detail.quantity > stock) {
       detail.quantity = stock

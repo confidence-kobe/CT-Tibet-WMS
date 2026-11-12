@@ -132,6 +132,8 @@ class WarehouseDataScopeTest {
         outbound.setOutboundType(OutboundType.RECEIVE);
         outbound.setSource(OutboundSource.FROM_APPLY);
         outbound.setOperatorId(1L);
+        outbound.setOperatorName("Admin");
+        outbound.setReceiverName("测试领取人");
         outbound.setOutboundTime(LocalDateTime.now());
         outbound.setStatus(OutboundStatus.PENDING_PICKUP);
         outboundMapper.insert(outbound);
