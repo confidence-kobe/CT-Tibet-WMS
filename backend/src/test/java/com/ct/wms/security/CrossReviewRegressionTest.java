@@ -88,6 +88,7 @@ class CrossReviewRegressionTest {
         d.setQuantity(new BigDecimal("2"));
         ApplyDTO dto = new ApplyDTO();
         dto.setWarehouseId(WH);
+        dto.setApplyReason("测试用途");
         dto.setDetails(List.of(d));
         Long applyId = applyService.createApply(dto);
 
@@ -112,6 +113,9 @@ class CrossReviewRegressionTest {
         a.setWarehouseId(2L);
         a.setStatus(ApplyStatus.PENDING);
         a.setApplyTime(LocalDateTime.now());
+        a.setPurpose("测试用途");
+        a.setApplicantName("测试申请人");
+        a.setDeptName("测试部门");
         applyMapper.insert(a);
         TestDataBuilder.mockSecurityContext(2L, "dept_admin", "DEPT_ADMIN");
         assertThatThrownBy(() -> applyService.getApplyById(a.getId())).isInstanceOf(BusinessException.class);

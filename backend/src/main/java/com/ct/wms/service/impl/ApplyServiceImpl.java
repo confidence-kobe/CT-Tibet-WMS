@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.ct.wms.utils.IdGenerator;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -59,7 +60,9 @@ public class ApplyServiceImpl implements ApplyService {
     private final OutboundService outboundService;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
+    private final OrderNoGenerator orderNoGenerator;
     private final WarehouseDataScope warehouseDataScope;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public Page<Apply> listApplies(Integer pageNum, Integer pageSize, Long warehouseId,

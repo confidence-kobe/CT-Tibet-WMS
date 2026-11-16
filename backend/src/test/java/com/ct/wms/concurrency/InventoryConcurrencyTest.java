@@ -74,7 +74,7 @@ class InventoryConcurrencyTest {
     @BeforeEach
     void newMaterial() {
         String code = "CC" + System.nanoTime();
-        jdbc.update("INSERT INTO tb_material (material_name, material_code, unit, status, deleted) VALUES (?, ?, 'pc', 0, 0)",
+        jdbc.update("INSERT INTO tb_material (material_name, material_code, category, unit, status, deleted) VALUES (?, ?, '测试类别', 'pc', 0, 0)",
                 "并发测试物资", code);
         materialId = jdbc.queryForObject("SELECT id FROM tb_material WHERE material_code = ?", Long.class, code);
     }

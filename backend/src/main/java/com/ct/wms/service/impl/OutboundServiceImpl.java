@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.ct.wms.utils.IdGenerator;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -58,7 +59,9 @@ public class OutboundServiceImpl implements OutboundService {
     private final ApplyDetailMapper applyDetailMapper;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
+    private final OrderNoGenerator orderNoGenerator;
     private final WarehouseDataScope warehouseDataScope;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public Page<Outbound> listOutbounds(Integer pageNum, Integer pageSize, Long warehouseId,

@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.ct.wms.utils.IdGenerator;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -50,6 +51,7 @@ public class InboundServiceImpl implements InboundService {
     private final UserMapper userMapper;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
+    private final OrderNoGenerator orderNoGenerator;
     private final WarehouseDataScope warehouseDataScope;
 
     @Override

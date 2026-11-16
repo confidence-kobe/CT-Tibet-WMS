@@ -81,11 +81,21 @@ public class AuthServiceImpl implements AuthService {
         String username = request.getUsername();
 
         // 检查登录失败次数（防暴力破解）
-        // 生产环境 Redis 不可用时 fail-closed，防止防护静默失效；测试环境 redisUtils 为 null 时跳过
+        // 生产环境 Redis 不可用时 fail-closed，防止防护静默失效；测试/开发环境降级跳过
         if (redisUtils != null) {
-            Object failCount = redisUtils.get(LOGIN_FAIL_PREFIX + username);
-            if (failCount != null && ((Integer) failCount) >= MAX_LOGIN_FAIL) {
-                throw new BadCredentialsException("登录失败次数过多，账号已被锁定15分钟，请稍后重试");
+            try {
+                Object failCount = redisUtils.get(LOGIN_FAIL_PREFIX + username);
+                if (failCount != null && ((Integer) failCount) >= MAX_LOGIN_FAIL) {
+                    throw new BadCredentialsException("登录失败次数过多，账号已被锁定15分钟，请稍后重试");
+                }
+            } catch (BadCredentialsException e) {
+                throw e;
+            } catch (Exception e) {
+                if (isProductionProfile()) {
+                    log.error("Redis 不可用，拒绝登录请求以保障安全");
+                    throw new BadCredentialsException("服务暂时不可用，请联系管理员");
+                }
+                log.warn("Redis 不可用，跳过登录失败次数检查（仅开发环境）");
             }
         } else if (isProductionProfile()) {
             log.error("Redis 不可用，拒绝登录请求以保障安全");
@@ -309,20 +319,28 @@ public class AuthServiceImpl implements AuthService {
         if (redisUtils == null) {
             return;
         }
-        String key = LOGIN_FAIL_PREFIX + username;
-        Object current = redisUtils.get(key);
-        if (current == null) {
-            redisUtils.set(key, 1, LOGIN_LOCK_SECONDS);
-        } else {
-            redisUtils.incr(key, 1);
-            // 重置TTL
-            redisUtils.expire(key, LOGIN_LOCK_SECONDS);
+        try {
+            String key = LOGIN_FAIL_PREFIX + username;
+            Object current = redisUtils.get(key);
+            if (current == null) {
+                redisUtils.set(key, 1, LOGIN_LOCK_SECONDS);
+            } else {
+                redisUtils.incr(key, 1);
+                redisUtils.expire(key, LOGIN_LOCK_SECONDS);
+            }
+        } catch (Exception e) {
+            log.warn("Redis 不可用，跳过登录失败次数记录");
         }
     }
 
     private void clearLoginFail(String username) {
-        if (redisUtils != null) {
+        if (redisUtils == null) {
+            return;
+        }
+        try {
             redisUtils.delete(LOGIN_FAIL_PREFIX + username);
+        } catch (Exception e) {
+            log.warn("Redis 不可用，跳过登录失败次数清除");
         }
     }
 

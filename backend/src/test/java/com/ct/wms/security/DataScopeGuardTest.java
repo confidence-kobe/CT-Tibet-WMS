@@ -74,6 +74,9 @@ class DataScopeGuardTest {
         a.setWarehouseId(warehouseId);
         a.setStatus(ApplyStatus.PENDING);
         a.setApplyTime(LocalDateTime.now());
+        a.setPurpose("测试用途");
+        a.setApplicantName("测试申请人");
+        a.setDeptName("测试部门");
         applyMapper.insert(a);
         return a.getId();
     }
@@ -86,6 +89,8 @@ class DataScopeGuardTest {
         o.setSource(OutboundSource.FROM_APPLY);
         o.setStatus(OutboundStatus.PENDING_PICKUP);
         o.setOperatorId(1L);
+        o.setOperatorName("测试操作人");
+        o.setReceiverName("测试领用人");
         o.setOutboundTime(LocalDateTime.now());
         outboundMapper.insert(o);
         return o.getId();
@@ -105,8 +110,10 @@ class DataScopeGuardTest {
     @DisplayName("#2 本人、同部门管理员、仓库仓管员、ADMIN 可以查看")
     void allowedViewers() {
         Long apply = newApply(4L, 2L, WH_NETWORK);
-        for (long[] who : new long[][]{{4}, {2}, {3}, {1}}) {
-            loginAs(who[0], "X");
+        // 种子数据：4=USER(dept2 员工/申请人)，2=DEPT_ADMIN(dept2)，3=WAREHOUSE(仓库1)，1=ADMIN
+        for (long[] who : new long[][]{{4, 0}, {2, 1}, {3, 2}, {1, 3}}) {
+            String role = new String[]{"USER", "DEPT_ADMIN", "WAREHOUSE", "ADMIN"}[(int) who[1]];
+            loginAs(who[0], role);
             assertThatCode(() -> applyService.getApplyById(apply)).as("user " + who[0]).doesNotThrowAnyException();
         }
     }
