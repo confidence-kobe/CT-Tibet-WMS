@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.LoginRequest;
+import com.ct.wms.dto.WechatLoginRequest;
 import com.ct.wms.entity.Role;
 import com.ct.wms.entity.User;
 import com.ct.wms.mapper.RoleMapper;
@@ -16,7 +17,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -33,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 认证Service实现类
@@ -59,6 +63,15 @@ public class AuthServiceImpl implements AuthService {
     @Value("${jwt.expiration}")
     private Long jwtExpiration;
 
+    @Value("${wechat.miniprogram.appid}")
+    private String wechatAppid;
+
+    @Value("${wechat.miniprogram.secret}")
+    private String wechatSecret;
+
+    @Value("${wechat.miniprogram.code2session-url}")
+    private String code2sessionUrl;
+
     // 测试环境通过 autoconfigure.exclude 禁用 Redis，生产环境 Redis 必须可用
     @Autowired(required = false)
     private RedisUtils redisUtils;
@@ -68,11 +81,21 @@ public class AuthServiceImpl implements AuthService {
         String username = request.getUsername();
 
         // 检查登录失败次数（防暴力破解）
-        // 生产环境 Redis 不可用时 fail-closed，防止防护静默失效；测试环境 redisUtils 为 null 时跳过
+        // 生产环境 Redis 不可用时 fail-closed，防止防护静默失效；测试/开发环境降级跳过
         if (redisUtils != null) {
-            Object failCount = redisUtils.get(LOGIN_FAIL_PREFIX + username);
-            if (failCount != null && ((Integer) failCount) >= MAX_LOGIN_FAIL) {
-                throw new BadCredentialsException("登录失败次数过多，账号已被锁定15分钟，请稍后重试");
+            try {
+                Object failCount = redisUtils.get(LOGIN_FAIL_PREFIX + username);
+                if (failCount != null && ((Integer) failCount) >= MAX_LOGIN_FAIL) {
+                    throw new BadCredentialsException("登录失败次数过多，账号已被锁定15分钟，请稍后重试");
+                }
+            } catch (BadCredentialsException e) {
+                throw e;
+            } catch (Exception e) {
+                if (isProductionProfile()) {
+                    log.error("Redis 不可用，拒绝登录请求以保障安全");
+                    throw new BadCredentialsException("服务暂时不可用，请联系管理员");
+                }
+                log.warn("Redis 不可用，跳过登录失败次数检查（仅开发环境）");
             }
         } else if (isProductionProfile()) {
             log.error("Redis 不可用，拒绝登录请求以保障安全");
@@ -161,6 +184,12 @@ public class AuthServiceImpl implements AuthService {
                 redisUtils.hasKey(TOKEN_BLACKLIST_PREFIX + oldToken))) {
             throw new BusinessException(401, "Token已失效，请重新登录");
         }
+        // 刷新接口是匿名放行的，不经过 loadUserByUsername 的禁用检查，这里要自己查（W4 OWASP 自查）
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, jwtUtils.getUsernameFromToken(oldToken)));
+        if (user == null || user.getStatus() == com.ct.wms.common.enums.UserStatus.DISABLED) {
+            throw new BusinessException(401, "账号不可用，请重新登录");
+        }
         return jwtUtils.refreshToken(oldToken);
     }
 
@@ -207,6 +236,79 @@ public class AuthServiceImpl implements AuthService {
         return result;
     }
 
+    @Override
+    public LoginVO wechatLogin(WechatLoginRequest request) {
+        // 调用微信 code2Session 接口换取 openid
+        String url = String.format("%s?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
+                code2sessionUrl, wechatAppid, wechatSecret, request.getCode());
+
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<Map> response;
+        try {
+            response = restTemplate.getForEntity(url, Map.class);
+        } catch (Exception e) {
+            log.error("调用微信code2Session接口失败", e);
+            throw new BusinessException(500, "微信登录服务暂时不可用");
+        }
+
+        Map<?, ?> body = response.getBody();
+        if (body == null || body.containsKey("errcode")) {
+            Object errcode = body != null ? body.get("errcode") : "null";
+            Object errmsg = body != null ? body.get("errmsg") : "";
+            log.error("微信code2Session返回错误: errcode={}, errmsg={}", errcode, errmsg);
+            throw new BusinessException(400, "微信登录失败：" + errmsg);
+        }
+
+        String openid = (String) body.get("openid");
+        if (openid == null || openid.isEmpty()) {
+            throw new BusinessException(400, "微信登录失败：无法获取openid");
+        }
+
+        // 根据 openid 查找用户
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>().eq(User::getWechatOpenid, openid)
+        );
+
+        if (user == null) {
+            // openid 未绑定任何系统用户，返回特殊提示
+            throw new BusinessException(404, "该微信账号未绑定系统用户，请联系管理员");
+        }
+
+        if (user.getStatus() != null && user.getStatus().getCode() == 1) {
+            throw new BusinessException(403, "账号已被禁用，请联系管理员");
+        }
+
+        // 查询角色
+        Role role = roleMapper.selectById(user.getRoleId());
+        if (role == null) {
+            throw new BusinessException(401, "用户角色不存在");
+        }
+
+        // 生成 JWT
+        String token = jwtUtils.generateToken(user.getId(), user.getUsername());
+        updateLoginInfo(user.getId());
+
+        LoginVO.UserInfo userInfo = LoginVO.UserInfo.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .realName(user.getRealName())
+                .phone(user.getPhone())
+                .deptId(user.getDeptId())
+                .deptName(user.getDeptName())
+                .roleId(user.getRoleId())
+                .roleName(role.getRoleName())
+                .roleCode(role.getRoleCode())
+                .avatar(user.getAvatar())
+                .build();
+
+        return LoginVO.builder()
+                .token(token)
+                .tokenType("Bearer")
+                .expiresIn(jwtExpiration)
+                .user(userInfo)
+                .build();
+    }
+
     // ==================== 私有方法 ====================
 
     private boolean isProductionProfile() {
@@ -217,20 +319,28 @@ public class AuthServiceImpl implements AuthService {
         if (redisUtils == null) {
             return;
         }
-        String key = LOGIN_FAIL_PREFIX + username;
-        Object current = redisUtils.get(key);
-        if (current == null) {
-            redisUtils.set(key, 1, LOGIN_LOCK_SECONDS);
-        } else {
-            redisUtils.incr(key, 1);
-            // 重置TTL
-            redisUtils.expire(key, LOGIN_LOCK_SECONDS);
+        try {
+            String key = LOGIN_FAIL_PREFIX + username;
+            Object current = redisUtils.get(key);
+            if (current == null) {
+                redisUtils.set(key, 1, LOGIN_LOCK_SECONDS);
+            } else {
+                redisUtils.incr(key, 1);
+                redisUtils.expire(key, LOGIN_LOCK_SECONDS);
+            }
+        } catch (Exception e) {
+            log.warn("Redis 不可用，跳过登录失败次数记录");
         }
     }
 
     private void clearLoginFail(String username) {
-        if (redisUtils != null) {
+        if (redisUtils == null) {
+            return;
+        }
+        try {
             redisUtils.delete(LOGIN_FAIL_PREFIX + username);
+        } catch (Exception e) {
+            log.warn("Redis 不可用，跳过登录失败次数清除");
         }
     }
 

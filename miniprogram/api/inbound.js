@@ -66,21 +66,9 @@ export function getInboundDetail(id) {
  */
 export function getInboundStats(params) {
   return $uRequest({
-    url: '/api/inbounds/stats',
+    url: '/api/statistics/inbound',
     method: 'GET',
     data: params
-  })
-}
-
-/**
- * 删除入库单
- * @param {number} id - 入库单ID
- * @returns {Promise} 返回删除结果
- */
-export function deleteInbound(id) {
-  return $uRequest({
-    url: `/api/inbounds/${id}`,
-    method: 'DELETE'
   })
 }
 
@@ -90,11 +78,9 @@ export default {
   getInboundList,
   getInboundDetail,
   getInboundStats,
-  deleteInbound,
   // 别名（匹配页面调用）
   create: createInbound,
   getList: getInboundList,
   getDetail: getInboundDetail,
-  getStats: getInboundStats,
-  delete: deleteInbound
+  getStats: getInboundStats
 }

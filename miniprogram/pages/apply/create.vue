@@ -304,13 +304,18 @@ export default {
 
       // 获取库存信息
       try {
-        const res = await api.common.getMaterialById(material.id)
+        const [matRes, invRes] = await Promise.all([
+          api.common.getMaterialById(material.id),
+          api.inventory.getInventoryList({ materialId: material.id, pageSize: 100 })
+        ])
 
-        if (res.code === 200) {
+        if (matRes.code === 200) {
+          const invList = invRes.code === 200 ? (invRes.data || []) : []
+          const totalStock = invList.reduce((sum, i) => sum + (parseFloat(i.quantity) || 0), 0)
           this.selectedMaterial = {
             ...material,
-            ...res.data,
-            stock: res.data.totalStock || 0
+            ...matRes.data,
+            stock: totalStock
           }
           this.editingIndex = -1
           this.tempQuantity = ''

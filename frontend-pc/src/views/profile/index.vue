@@ -102,6 +102,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
+import { updateProfile } from '@/api/user'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -194,6 +195,7 @@ const handleSaveProfile = async () => {
     editDialogVisible.value = false
   } catch (error) {
     console.error('保存失败:', error)
+    ElMessage.error('保存失败，请稍后重试')
   } finally {
     saveLoading.value = false
   }

@@ -1,6 +1,7 @@
 package com.ct.wms.service;
 
 import com.ct.wms.dto.LoginRequest;
+import com.ct.wms.dto.WechatLoginRequest;
 import com.ct.wms.vo.LoginVO;
 
 /**
@@ -33,6 +34,14 @@ public interface AuthService {
      * @return 新Token
      */
     String refreshToken(String oldToken);
+
+    /**
+     * 微信小程序登录
+     *
+     * @param request 包含wx.login()返回的code
+     * @return 登录响应（token + 用户信息）
+     */
+    LoginVO wechatLogin(WechatLoginRequest request);
 
     /**
      * 获取当前登录用户信息

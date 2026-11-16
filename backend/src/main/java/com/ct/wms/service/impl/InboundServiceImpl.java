@@ -12,7 +12,7 @@ import com.ct.wms.security.UserDetailsImpl;
 import com.ct.wms.security.WarehouseDataScope;
 import com.ct.wms.service.InboundService;
 import com.ct.wms.service.InventoryService;
-import com.ct.wms.utils.IdGenerator;
+import com.ct.wms.utils.OrderNoGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -21,9 +21,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.ct.wms.utils.IdGenerator;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -48,6 +51,7 @@ public class InboundServiceImpl implements InboundService {
     private final UserMapper userMapper;
     private final InventoryService inventoryService;
     private final IdGenerator idGenerator;
+    private final OrderNoGenerator orderNoGenerator;
     private final WarehouseDataScope warehouseDataScope;
 
     @Override
@@ -208,7 +212,14 @@ public class InboundServiceImpl implements InboundService {
 
             inboundDetailMapper.insert(detail);
 
-            // 更新库存（增加）
+            log.info("入库明细: materialId={}, quantity={}", detailDTO.getMaterialId(), detailDTO.getQuantity());
+        }
+
+        // 更新库存（增加）：按 materialId 统一加锁顺序，避免与审批/出库的多行加锁形成死锁（Codex 异源审查发现）
+        // 明细仍按用户提交顺序插入，只有库存更新排序
+        List<InboundDTO.InboundDetailDTO> lockOrder = new ArrayList<>(dto.getDetails());
+        lockOrder.sort(Comparator.comparing(InboundDTO.InboundDetailDTO::getMaterialId));
+        for (InboundDTO.InboundDetailDTO detailDTO : lockOrder) {
             inventoryService.increaseInventory(
                     dto.getWarehouseId(),
                     detailDTO.getMaterialId(),
@@ -217,8 +228,6 @@ public class InboundServiceImpl implements InboundService {
                     inbound.getId(),
                     operatorId
             );
-
-            log.info("入库明细: materialId={}, quantity={}", detailDTO.getMaterialId(), detailDTO.getQuantity());
         }
 
         log.info("入库单创建成功: inboundNo={}, totalAmount={}", inboundNo, totalAmount);
@@ -334,15 +343,10 @@ public class InboundServiceImpl implements InboundService {
     }
 
     /**
-     * 生成入库单号（线程安全）
-     * 注意：实际生产环境建议使用分布式ID生成器或数据库序列
+     * 生成入库单号（Redis INCR 流水号，无碰撞；Redis 不可用时降级雪花取模）
      */
     private String generateInboundNo(String deptCode) {
-        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "RK_" + deptCode + "_" + today + "_";
-        // 使用雪花算法生成的ID作为流水号
-        long sequence = idGenerator.nextId() % 100000;
-        return prefix + String.format("%05d", sequence);
+        return orderNoGenerator.generate("RK", deptCode);
     }
 
     /**

@@ -194,6 +194,7 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh, Download, Box, Money, TrendCharts, Warning } from '@element-plus/icons-vue'
 import EChart from '@/components/Chart/EChart.vue'
 import dayjs from 'dayjs'
+import { getMaterialStatistics } from '@/api/statistics'
 
 // 搜索表单
 const searchForm = ref({
@@ -533,9 +534,24 @@ const pagination = ref({
 })
 
 // 查询
-const handleSearch = () => {
-  ElMessage.success('查询成功')
-  // TODO: 调用API
+const handleSearch = async () => {
+  try {
+    const params = {}
+    if (searchForm.value.dateRange && searchForm.value.dateRange.length === 2) {
+      params.startDate = dayjs(searchForm.value.dateRange[0]).format('YYYY-MM-DD')
+      params.endDate = dayjs(searchForm.value.dateRange[1]).format('YYYY-MM-DD')
+    }
+    if (searchForm.value.categoryId) params.categoryId = searchForm.value.categoryId
+    const res = await getMaterialStatistics(params)
+    const data = res.data || {}
+    tableData.value = data.items || []
+    summary.value.totalCategories = data.totalMaterials || 0
+    summary.value.hotMaterials = data.activeMaterials || 0
+    summary.value.slowMoving = data.slowMaterials || 0
+  } catch (error) {
+    console.error('查询物资统计失败:', error)
+    ElMessage.error('查询失败')
+  }
 }
 
 // 重置
@@ -552,7 +568,17 @@ const handleReset = () => {
 
 // 导出
 const handleExport = () => {
-  ElMessage.info('导出功能开发中...')
+  import('xlsx').then(XLSX => {
+    const headers = ['物资名称', '类别', '规格', '入库次数', '出库次数', '当前库存', '周转率', '库存价值(元)']
+    const rows = tableData.value.map(r => [
+      r.materialName, r.categoryName, r.specification,
+      r.inboundCount, r.outboundCount, r.currentStock, r.turnoverRate, r.totalValue
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), '物资统计')
+    XLSX.writeFile(wb, `物资统计_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 排行类型变化

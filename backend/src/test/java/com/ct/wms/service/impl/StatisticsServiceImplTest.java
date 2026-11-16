@@ -65,6 +65,9 @@ class StatisticsServiceImplTest {
     private InventoryMapper inventoryMapper;
 
     @Mock
+    private InventoryLogMapper inventoryLogMapper;
+
+    @Mock
     private InventoryService inventoryService;
 
     // 部门数据权限：mock 默认不加任何限制（相当于系统管理员）

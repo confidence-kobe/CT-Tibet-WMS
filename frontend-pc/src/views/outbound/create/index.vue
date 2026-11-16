@@ -279,6 +279,7 @@ const loadWarehouses = async () => {
     warehouseList.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
+    ElMessage.error('加载仓库列表失败')
   }
 }
 
@@ -288,6 +289,7 @@ const loadMaterials = async () => {
     materialList.value = await fetchAllPages(listMaterials, { status: 0 })
   } catch (error) {
     console.error('加载物资列表失败:', error)
+    ElMessage.error('加载物资列表失败')
   }
 }
 
@@ -454,6 +456,7 @@ const handleSubmit = async () => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('提交失败:', error)
+      ElMessage.error('提交失败，请稍后重试')
     }
   } finally {
     saveLoading.value = false

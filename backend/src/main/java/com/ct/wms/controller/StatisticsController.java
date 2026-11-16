@@ -3,6 +3,7 @@ package com.ct.wms.controller;
 import com.ct.wms.common.api.Result;
 import com.ct.wms.dto.InboundStatisticsDTO;
 import com.ct.wms.dto.InventoryStatisticsDTO;
+import com.ct.wms.dto.MaterialStatisticsDTO;
 import com.ct.wms.dto.OutboundStatisticsDTO;
 import com.ct.wms.service.StatisticsService;
 import com.ct.wms.vo.DashboardStatsVO;
@@ -108,6 +109,17 @@ public class StatisticsController {
         log.info("获取库存统计数据: warehouseId={}", warehouseId);
         InventoryStatisticsDTO statistics = statisticsService.getInventoryStatistics(warehouseId);
         return Result.success(statistics);
+    }
+
+    @GetMapping("/material")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
+    @Operation(summary = "获取物资统计数据", description = "获取指定时间范围和类别的物资统计数据")
+    public Result<MaterialStatisticsDTO> getMaterialStatistics(
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate,
+            @RequestParam(required = false) Integer categoryId) {
+        log.info("获取物资统计数据: startDate={}, endDate={}, categoryId={}", startDate, endDate, categoryId);
+        return Result.success(statisticsService.getMaterialStatistics(startDate, endDate, categoryId));
     }
 
     @GetMapping("/miniprogram")

@@ -70,6 +70,29 @@ public class ApplyController {
         return PageResult.of(page);
     }
 
+    @GetMapping("/approved")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
+    @Operation(summary = "查询已审批列表", description = "管理员/仓管员查看已审批（通过或拒绝）的申请单")
+    public PageResult<Apply> listApprovedApplies(
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
+            @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
+            @Parameter(description = "审批状态(1-通过 2-拒绝)") @RequestParam(required = false) Integer approvalStatus,
+            @Parameter(description = "开始日期") @RequestParam(required = false) String startDate,
+            @Parameter(description = "结束日期") @RequestParam(required = false) String endDate,
+            @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
+
+        log.info("查询已审批列表: pageNum={}, pageSize={}, warehouseId={}, approvalStatus={}",
+                pageNum, pageSize, warehouseId, approvalStatus);
+
+        // approvalStatus: 1=已通过(status=1), 2=已拒绝(status=2), null=全部已审批
+        Integer status = approvalStatus;
+        Page<Apply> page = applyService.listApplies(pageNum, pageSize, warehouseId,
+                status, startDate, endDate, null, null, keyword);
+
+        return PageResult.of(page);
+    }
+
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
     @Operation(summary = "查询待审批列表", description = "仓管员查看待审批的申请")

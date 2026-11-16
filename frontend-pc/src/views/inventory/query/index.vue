@@ -155,8 +155,11 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { listInventories } from '@/api/inventory'
+
+const router = useRouter()
 import { listWarehouses } from '@/api/warehouse'
 
 // 查询表单
@@ -194,6 +197,7 @@ const loadWarehouses = async () => {
     warehouseList.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
+    ElMessage.error('加载仓库列表失败')
   }
 }
 
@@ -234,12 +238,11 @@ const handleQuery = async () => {
     tableData.value = res.data || []
     pagination.total = res.total || 0
 
-    // 更新统计数据
-    if (res.data.stats) {
-      statistics.totalItems = res.data.stats.totalItems || 0
-      statistics.totalValue = res.data.stats.totalValue || 0
-      statistics.warningCount = res.data.stats.warningCount || 0
-    }
+    // 从当前页数据计算统计（total反映全局总数）
+    statistics.totalItems = res.total || 0
+    const items = res.data || []
+    statistics.totalValue = items.reduce((sum, r) => sum + (r.totalValue || 0), 0)
+    statistics.warningCount = items.filter(r => r.stock != null && r.minStock != null && r.stock <= r.minStock).length
   } catch (error) {
     console.error('查询失败:', error)
     ElMessage.error('查询失败')
@@ -259,13 +262,22 @@ const handleReset = () => {
 
 // 导出
 const handleExport = () => {
-  ElMessage.info('导出功能开发中')
+  import('xlsx').then(XLSX => {
+    const headers = ['物资编码', '物资名称', '类别', '规格型号', '单位', '仓库', '当前库存', '最低库存', '单价(元)', '库存金额(元)', '更新时间']
+    const rows = tableData.value.map(r => [
+      r.materialCode, r.materialName, r.category, r.spec, r.unit,
+      r.warehouseName, r.stock, r.minStock, r.price, r.totalValue, r.updateTime
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), '库存列表')
+    XLSX.writeFile(wb, `库存列表_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 查看流水记录
 const handleViewLog = (row) => {
-  ElMessage.info(`查看"${row.materialName}"的库存流水记录`)
-  // TODO: 跳转到库存流水页面或打开对话框
+  router.push({ path: '/inventory/log', query: { materialId: row.materialId, warehouseId: row.warehouseId } })
 }
 
 // 初始化

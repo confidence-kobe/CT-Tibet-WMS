@@ -71,14 +71,17 @@ export function deleteMessage(id) {
  * @param {Array} ids - 消息ID数组
  * @returns {Promise} 返回批量删除结果
  */
-export function batchDeleteMessages(ids) {
-  return $uRequest({
-    url: '/api/messages/batch-delete',
-    method: 'POST',
-    data: {
-      ids
+export async function batchDeleteMessages(ids) {
+  const results = []
+  for (const id of ids) {
+    try {
+      await $uRequest({ url: `/api/messages/${id}`, method: 'DELETE' })
+      results.push({ id, success: true })
+    } catch (err) {
+      results.push({ id, success: false })
     }
-  })
+  }
+  return { code: 200, data: results }
 }
 
 /**

@@ -354,7 +354,40 @@ const handleReset = () => {
 
 // 导出报表
 const handleExport = () => {
-  ElMessage.info('导出功能开发中')
+  import('xlsx').then(XLSX => {
+    const dateRange = queryForm.dateRange?.length === 2
+      ? `${queryForm.dateRange[0]}至${queryForm.dateRange[1]}`
+      : '全部'
+
+    // 汇总sheet
+    const summaryData = [
+      ['入库统计报表'],
+      ['查询时间范围', dateRange],
+      [],
+      ['指标', '数值'],
+      ['入库总次数', stats.totalCount],
+      ['入库总数量', stats.totalQuantity],
+      ['入库总金额(元)', stats.totalAmount],
+      ['日均入库', stats.avgDaily]
+    ]
+
+    // 明细sheet
+    const detailHeaders = ['日期', '入库次数', '入库数量', '入库金额(元)']
+    const detailRows = tableData.value.map(row => [
+      row.date, row.count, row.quantity, row.amount
+    ])
+    const detailData = [detailHeaders, ...detailRows]
+
+    const wb = XLSX.utils.book_new()
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData)
+    const wsDetail = XLSX.utils.aoa_to_sheet(detailData)
+    XLSX.utils.book_append_sheet(wb, wsSummary, '汇总')
+    XLSX.utils.book_append_sheet(wb, wsDetail, '每日明细')
+
+    const filename = `入库统计_${new Date().toISOString().slice(0, 10)}.xlsx`
+    XLSX.writeFile(wb, filename)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 初始化

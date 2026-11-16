@@ -129,7 +129,8 @@ export default {
         })
 
         if (res.code === 200) {
-          const newMessages = res.data.records || []
+          const vo = res.data || {}
+          const newMessages = vo.list || []
 
           if (isRefresh) {
             this.messages = newMessages
@@ -137,8 +138,8 @@ export default {
             this.messages = [...this.messages, ...newMessages]
           }
 
-          this.unreadCount = res.data.unreadCount || 0
-          this.totalCount = res.data.total || 0
+          this.unreadCount = (vo.stats && vo.stats.unread) || 0
+          this.totalCount = vo.total || 0
           this.hasMore = newMessages.length === this.pageSize
 
           // 更新 Vuex 中的未读数

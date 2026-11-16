@@ -286,6 +286,7 @@ const loadWarehouses = async () => {
     warehouseList.value = res.data || []
   } catch (error) {
     console.error('加载仓库列表失败:', error)
+    ElMessage.error('加载仓库列表失败')
   }
 }
 
@@ -353,6 +354,7 @@ const handleCancel = async (row) => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('取消失败:', error)
+      ElMessage.error('取消申请失败')
     }
   }
 }

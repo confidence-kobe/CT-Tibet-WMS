@@ -2,6 +2,7 @@ package com.ct.wms.controller;
 
 import com.ct.wms.common.api.Result;
 import com.ct.wms.dto.LoginRequest;
+import com.ct.wms.dto.WechatLoginRequest;
 import com.ct.wms.service.AuthService;
 import com.ct.wms.vo.LoginVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +35,15 @@ public class AuthController {
     public Result<LoginVO> login(@Validated @RequestBody LoginRequest request) {
         log.info("用户登录: username={}, loginType={}", request.getUsername(), request.getLoginType());
         LoginVO loginVO = authService.login(request);
+        return Result.success(loginVO, "登录成功");
+    }
+
+    @PostMapping("/wechat-login")
+    @Operation(summary = "微信小程序登录", description = "使用wx.login()获取的code换取系统JWT token")
+    @PermitAll
+    public Result<LoginVO> wechatLogin(@Validated @RequestBody WechatLoginRequest request) {
+        log.info("微信小程序登录: code={}", request.getCode().substring(0, Math.min(6, request.getCode().length())) + "...");
+        LoginVO loginVO = authService.wechatLogin(request);
         return Result.success(loginVO, "登录成功");
     }
 

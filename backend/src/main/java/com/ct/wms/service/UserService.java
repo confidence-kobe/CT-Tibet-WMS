@@ -105,4 +105,19 @@ public interface UserService {
      * @param request 修改密码请求
      */
     void changeCurrentUserPassword(ChangePasswordRequest request);
+
+    /**
+     * 绑定微信openid
+     *
+     * @param userId       用户ID
+     * @param wechatOpenid 微信openid
+     */
+    void bindWechat(Long userId, String wechatOpenid);
+
+    /**
+     * 解绑微信openid
+     *
+     * @param userId 用户ID
+     */
+    void unbindWechat(Long userId);
 }

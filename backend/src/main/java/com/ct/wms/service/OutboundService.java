@@ -77,11 +77,12 @@ public interface OutboundService {
     void cancelOutbound(Long id, String reason);
 
     /**
-     * 根据申请单ID取消关联的出库单
+     * 根据申请单ID取消关联的出库单（同时释放其锁定的库存）
      * 仅取消状态为待取货的出库单
      *
      * @param applyId 申请单ID
      * @param reason  取消原因
+     * @return true-已取消关联出库单并释放锁定库存；false-不存在待取货的关联出库单
      */
-    void cancelOutboundByApplyId(Long applyId, String reason);
+    boolean cancelOutboundByApplyId(Long applyId, String reason);
 }

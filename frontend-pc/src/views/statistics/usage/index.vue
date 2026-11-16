@@ -249,10 +249,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import EChart from '@/components/Chart/EChart.vue'
 import dayjs from 'dayjs'
+import { listInventoryLogs } from '@/api/inventory'
 
 // 日期快捷选项
 const dateShortcuts = [
@@ -858,9 +859,36 @@ const formatAmount = (amount) => {
 }
 
 // 搜索
-const handleSearch = () => {
-  ElMessage.success('查询成功')
-  // 实际应调用API获取数据
+const handleSearch = async () => {
+  try {
+    const params = {
+      pageNum: pagination.value.pageNum,
+      pageSize: pagination.value.size
+    }
+    if (searchForm.value.dateRange && searchForm.value.dateRange.length === 2) {
+      params.startDate = dayjs(searchForm.value.dateRange[0]).format('YYYY-MM-DD')
+      params.endDate = dayjs(searchForm.value.dateRange[1]).format('YYYY-MM-DD')
+    }
+    if (searchForm.value.materialId) params.materialId = searchForm.value.materialId
+    const res = await listInventoryLogs(params)
+    const changeTypeMap = { 1: '入库', 2: '出库', 3: '调拨', 4: '盘点', 5: '申请出库' }
+    tableData.value = (res.data || []).map(log => ({
+      operationTime: log.createTime,
+      operationType: changeTypeMap[log.changeType] || log.changeType,
+      userName: log.operatorName,
+      deptName: log.warehouseName,
+      materialName: log.materialName,
+      quantity: Math.abs(log.changeQuantity),
+      unit: log.unit || '',
+      amount: log.price ? Math.abs(log.changeQuantity) * log.price : 0,
+      orderNo: log.relatedNo || '',
+      remark: log.remark || ''
+    }))
+    pagination.value.total = res.total || 0
+  } catch (error) {
+    console.error('查询使用统计失败:', error)
+    ElMessage.error('查询失败')
+  }
 }
 
 // 重置
@@ -879,19 +907,34 @@ const handleReset = () => {
 
 // 导出
 const handleExport = () => {
-  ElMessage.info('导出功能开发中...')
+  import('xlsx').then(XLSX => {
+    const typeMap = { 1: '入库', 2: '出库' }
+    const headers = ['操作时间', '操作类型', '操作人', '所属部门', '物资名称', '数量', '单位', '金额(元)', '单据号']
+    const rows = tableData.value.map(r => [
+      r.operationTime, typeMap[r.operationType] || r.operationType,
+      r.userName, r.deptName, r.materialName, r.quantity, r.unit, r.amount, r.orderNo
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), '使用明细')
+    XLSX.writeFile(wb, `使用统计_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 分页
 const handleSizeChange = (size) => {
   pagination.value.size = size
-  // 实际应调用API获取数据
+  handleSearch()
 }
 
 const handleCurrentChange = (page) => {
-  pagination.value.current = page
-  // 实际应调用API获取数据
+  pagination.value.pageNum = page
+  handleSearch()
 }
+
+onMounted(() => {
+  handleSearch()
+})
 </script>
 
 <style lang="scss" scoped>

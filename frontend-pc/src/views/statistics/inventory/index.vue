@@ -308,7 +308,14 @@ const handleReset = () => {
 
 // 导出报表
 const handleExport = () => {
-  ElMessage.info('导出功能开发中')
+  import('xlsx').then(XLSX => {
+    const headers = ['物资名称', '库存数量', '库存金额(元)']
+    const rows = tableData.value.map(r => [r.materialName, r.stock, r.value])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), 'Top库存')
+    XLSX.writeFile(wb, `库存统计_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    ElMessage.success('导出成功')
+  })
 }
 
 // 初始化

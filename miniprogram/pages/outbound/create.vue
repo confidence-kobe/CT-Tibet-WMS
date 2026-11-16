@@ -273,6 +273,7 @@ export default {
         }
       } catch (err) {
         console.error('加载仓库列表失败', err)
+        uni.showToast({ title: '加载仓库失败', icon: 'none' })
       }
     },
 
@@ -305,6 +306,7 @@ export default {
         this.filteredMaterials = this.materials
       } catch (err) {
         console.error('加载库存失败', err)
+        uni.showToast({ title: '加载库存失败', icon: 'none' })
       }
     },
 
@@ -398,6 +400,7 @@ export default {
         this.filteredUsers = this.users
       } catch (err) {
         console.error('加载用户列表失败', err)
+        uni.showToast({ title: '加载用户失败', icon: 'none' })
       }
     },
 
@@ -503,6 +506,7 @@ export default {
         }
       } catch (err) {
         console.error('出库失败', err)
+        uni.showToast({ title: '出库失败，请重试', icon: 'none' })
       } finally {
         this.submitting = false
       }

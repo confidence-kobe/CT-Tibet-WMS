@@ -61,7 +61,7 @@ export default {
       const { oldPassword, newPassword, confirmPassword } = this.formData
       
       if (!oldPassword) return uni.showToast({ title: '请输入原密码', icon: 'none' })
-      if (!newPassword || newPassword.length < 6) return uni.showToast({ title: '新密码至少6位', icon: 'none' })
+      if (!newPassword || newPassword.length < 6 || newPassword.length > 20) return uni.showToast({ title: '新密码长度为6-20位', icon: 'none' })
       if (newPassword !== confirmPassword) return uni.showToast({ title: '两次输入的密码不一致', icon: 'none' })
       if (oldPassword === newPassword) return uni.showToast({ title: '新密码不能与原密码相同', icon: 'none' })
 
@@ -86,8 +86,8 @@ export default {
         }
       } catch (err) {
         console.error('修改密码失败', err)
+        uni.showToast({ title: '修改失败，请稍后重试', icon: 'none' })
       } finally {
-        this.loading = true
         this.loading = false
       }
     }

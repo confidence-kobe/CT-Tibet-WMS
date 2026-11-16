@@ -35,15 +35,10 @@ export function getPendingApproval(params) {
  * @returns {Promise} 返回已审批申请列表
  */
 export function getApprovedList(params) {
-  // 使用申请列表接口，通过status筛选已审批的（1=已通过, 2=已拒绝）
   return $uRequest({
-    url: '/api/applies',
+    url: '/api/applies/approved',
     method: 'GET',
-    data: {
-      ...params,
-      // 如果指定了approvalStatus，转换为status
-      status: params.approvalStatus || undefined
-    }
+    data: params
   })
 }
 

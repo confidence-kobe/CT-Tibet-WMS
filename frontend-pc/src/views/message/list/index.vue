@@ -251,14 +251,15 @@ const handleQuery = async () => {
     }
 
     const res = await listMessages(params)
-    tableData.value = res.data || []
-    pagination.total = res.total || 0
+    const vo = res.data || {}
+    tableData.value = vo.list || []
+    pagination.total = vo.total || 0
 
     // 更新统计数据
-    if (res.data.stats) {
-      statistics.total = res.data.stats.total || 0
-      statistics.unread = res.data.stats.unread || 0
-      statistics.read = res.data.stats.read || 0
+    if (vo.stats) {
+      statistics.total = vo.stats.total || 0
+      statistics.unread = vo.stats.unread || 0
+      statistics.read = vo.stats.read || 0
     }
   } catch (error) {
     console.error('查询失败:', error)

@@ -146,7 +146,8 @@ export default {
         })
 
         if (res.code === 200) {
-          const { list, total } = res.data
+          const list = res.data || []
+          const total = res.total || 0
 
           // 添加物资摘要
           list.forEach(item => {
@@ -261,10 +262,9 @@ export default {
         const res = await api.apply.getApplyStats()
 
         if (res.code === 200) {
-          const { pendingCount, approvedCount, rejectedCount } = res.data
-          this.tabs[0].count = pendingCount || 0
-          this.tabs[1].count = approvedCount || 0
-          this.tabs[2].count = rejectedCount || 0
+          const myApplies = (res.data && res.data.myApplies) || {}
+          this.tabs[0].count = myApplies.pendingCount || 0
+          this.tabs[1].count = myApplies.approvedCount || 0
         }
       } catch (err) {
         console.error('加载统计失败', err)
@@ -272,7 +272,12 @@ export default {
     }
   },
 
-  onLoad() {
+  onLoad(options) {
+    if (options && options.status !== undefined) {
+      const statusVal = parseInt(options.status)
+      const tabIndex = this.tabs.findIndex(t => t.status === statusVal)
+      if (tabIndex >= 0) this.activeTab = tabIndex
+    }
     this.loadData()
     this.loadStats()
   },

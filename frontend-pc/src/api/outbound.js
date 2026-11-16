@@ -84,6 +84,6 @@ export function cancelOutbound(id, reason) {
   return request({
     url: `/outbounds/${id}/cancel`,
     method: 'post',
-    params: { reason }
+    data: { reason }
   })
 }

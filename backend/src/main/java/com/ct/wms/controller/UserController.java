@@ -3,6 +3,7 @@ package com.ct.wms.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.common.api.PageResult;
 import com.ct.wms.common.api.Result;
+import com.ct.wms.dto.BindWechatRequest;
 import com.ct.wms.dto.ChangePasswordRequest;
 import com.ct.wms.dto.ResetPasswordRequest;
 import com.ct.wms.dto.UpdateProfileRequest;
@@ -115,6 +116,29 @@ public class UserController {
         log.info("重置用户密码: id={}", id);
         userService.resetPassword(id, request.getNewPassword());
         return Result.success(null, "重置成功");
+    }
+
+    // ========== 微信绑定管理 ==========
+
+    @PutMapping("/{id}/bind-wechat")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "绑定微信openid", description = "管理员为用户绑定微信openid（用于小程序登录）")
+    public Result<Void> bindWechat(
+            @Parameter(description = "用户ID") @PathVariable Long id,
+            @Validated @RequestBody BindWechatRequest request) {
+        log.info("绑定微信: userId={}", id);
+        userService.bindWechat(id, request.getWechatOpenid());
+        return Result.success(null, "绑定成功");
+    }
+
+    @DeleteMapping("/{id}/bind-wechat")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "解绑微信openid", description = "管理员为用户解绑微信openid")
+    public Result<Void> unbindWechat(
+            @Parameter(description = "用户ID") @PathVariable Long id) {
+        log.info("解绑微信: userId={}", id);
+        userService.unbindWechat(id);
+        return Result.success(null, "解绑成功");
     }
 
     // ========== 个人中心相关接口 ==========

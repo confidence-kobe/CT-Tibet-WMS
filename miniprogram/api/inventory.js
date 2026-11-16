@@ -86,7 +86,9 @@ export function getInventoryStats(warehouseId) {
 /**
  * 查询库存变动记录
  * @param {Object} params - 查询参数
- * @param {number} params.inventoryId - 库存ID
+ * @param {number} params.materialId - 物资ID（可选）
+ * @param {number} params.warehouseId - 仓库ID（可选）
+ * @param {number} params.changeType - 变动类型（可选）
  * @param {number} params.pageNum - 页码，默认1
  * @param {number} params.pageSize - 每页条数，默认10
  * @returns {Promise} 返回变动记录列表

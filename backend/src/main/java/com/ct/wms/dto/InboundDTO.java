@@ -6,6 +6,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import javax.validation.Valid;
+import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Digits;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -54,6 +56,8 @@ public class InboundDTO {
         private Long materialId;
 
         @NotNull(message = "数量不能为空")
+        @DecimalMin(value = "0.01", message = "数量必须大于0")
+        @Digits(integer = 8, fraction = 2, message = "数量最多两位小数")
         @Schema(description = "入库数量", required = true)
         private BigDecimal quantity;
 

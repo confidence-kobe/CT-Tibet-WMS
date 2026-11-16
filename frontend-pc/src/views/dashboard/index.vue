@@ -129,6 +129,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store'
 import dayjs from 'dayjs'
 import EChart from '@/components/Chart/EChart.vue'
@@ -346,6 +347,7 @@ const loadStats = async () => {
     stats.value = res.data
   } catch (error) {
     console.error('加载统计数据失败:', error)
+    ElMessage.error('加载统计数据失败')
   }
 }
 

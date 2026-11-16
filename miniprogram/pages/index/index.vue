@@ -112,7 +112,7 @@
               <text class="stat-label">待审批</text>
             </view>
             <view class="stat-item">
-              <text class="stat-value info">{{ todayData.materialCount || 20 }}</text>
+              <text class="stat-value info">{{ todayData.materialCount || 0 }}</text>
               <text class="stat-label">库存种类</text>
             </view>
           </view>
@@ -269,6 +269,7 @@ export default {
         await this.loadUnreadCount()
       } catch (err) {
         console.error('加载数据失败', err)
+        uni.showToast({ title: '数据加载失败', icon: 'none' })
       }
     },
 
@@ -293,8 +294,9 @@ export default {
 
     // 跳转到申请列表（员工）
     goToApplyList(status) {
-      uni.switchTab({
-        url: '/pages/apply/list'
+      const query = status !== undefined ? `?status=${status}` : ''
+      uni.navigateTo({
+        url: `/pages/apply/list${query}`
       })
     },
 

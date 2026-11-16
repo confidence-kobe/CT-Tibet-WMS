@@ -54,3 +54,11 @@ export function getInventoryStatistics(params) {
     params
   })
 }
+
+export function getMaterialStatistics(params) {
+  return request({
+    url: '/statistics/material',
+    method: 'get',
+    params
+  })
+}
