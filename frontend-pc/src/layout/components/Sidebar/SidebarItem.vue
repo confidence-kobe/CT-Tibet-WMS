@@ -1,8 +1,15 @@
 <template>
   <div v-if="!item.meta || !item.meta.hidden">
+    <!-- 没有标题、只有一个子菜单的分组（如首页）：直接显示子菜单，不显示空的分组 -->
+    <sidebar-item
+      v-if="onlyChild"
+      :item="onlyChild"
+      :base-path="resolvePath(item.path)"
+    />
+
     <!-- 有子菜单 -->
     <el-sub-menu
-      v-if="hasChildren"
+      v-else-if="hasChildren"
       :index="resolvePath(item.path)"
       :popper-append-to-body="true"
     >
@@ -55,16 +62,18 @@ const props = defineProps({
 
 const router = useRouter()
 
+// 可显示的子菜单（过滤掉隐藏的）
+const showingChildren = computed(() => {
+  return (props.item.children || []).filter(child => !child.meta?.hidden)
+})
+
 // 是否有可显示的子菜单
-const hasChildren = computed(() => {
-  if (!props.item.children) return false
+const hasChildren = computed(() => showingChildren.value.length > 0)
 
-  // 过滤掉隐藏的子菜单
-  const showingChildren = props.item.children.filter(child => {
-    return !child.meta?.hidden
-  })
-
-  return showingChildren.length > 0
+// 分组本身没有标题且只有一个子菜单时，直接显示该子菜单
+const onlyChild = computed(() => {
+  if (props.item.meta?.title) return null
+  return showingChildren.value.length === 1 ? showingChildren.value[0] : null
 })
 
 // 解析完整路径
