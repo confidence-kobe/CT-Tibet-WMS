@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.ct.wms.common.exception.BusinessException;
 import com.ct.wms.dto.LoginRequest;
+import com.ct.wms.entity.Dept;
 import com.ct.wms.entity.Role;
 import com.ct.wms.entity.User;
+import com.ct.wms.mapper.DeptMapper;
 import com.ct.wms.mapper.RoleMapper;
 import com.ct.wms.mapper.UserMapper;
 import com.ct.wms.service.AuthService;
@@ -53,6 +55,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
+    private final DeptMapper deptMapper;
     private final JwtUtils jwtUtils;
     private final Environment environment;
 
@@ -117,18 +120,7 @@ public class AuthServiceImpl implements AuthService {
         updateLoginInfo(user.getId());
 
         // 构建响应
-        LoginVO.UserInfo userInfo = LoginVO.UserInfo.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .realName(user.getRealName())
-                .phone(user.getPhone())
-                .deptId(user.getDeptId())
-                .deptName(user.getDeptName())
-                .roleId(user.getRoleId())
-                .roleName(role.getRoleName())
-                .roleCode(role.getRoleCode())
-                .avatar(user.getAvatar())
-                .build();
+        LoginVO.UserInfo userInfo = buildUserInfo(user, role);
 
         return LoginVO.builder()
                 .token(token)
@@ -186,18 +178,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(401, "用户角色不存在");
         }
 
-        LoginVO.UserInfo userInfo = LoginVO.UserInfo.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .realName(user.getRealName())
-                .phone(user.getPhone())
-                .deptId(user.getDeptId())
-                .deptName(user.getDeptName())
-                .roleId(user.getRoleId())
-                .roleName(role.getRoleName())
-                .roleCode(role.getRoleCode())
-                .avatar(user.getAvatar())
-                .build();
+        LoginVO.UserInfo userInfo = buildUserInfo(user, role);
 
         Map<String, Object> result = new HashMap<>();
         result.put("user", userInfo);
@@ -208,6 +189,28 @@ public class AuthServiceImpl implements AuthService {
     }
 
     // ==================== 私有方法 ====================
+
+    /**
+     * 构建返回给前端的用户信息（登录和获取当前用户共用）
+     */
+    private LoginVO.UserInfo buildUserInfo(User user, Role role) {
+        Dept dept = user.getDeptId() != null ? deptMapper.selectById(user.getDeptId()) : null;
+        return LoginVO.UserInfo.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .realName(user.getRealName())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .deptId(user.getDeptId())
+                .deptName(dept != null ? dept.getDeptName() : null)
+                .roleId(user.getRoleId())
+                .roleName(role.getRoleName())
+                .roleCode(role.getRoleCode())
+                .avatar(user.getAvatar())
+                .lastLoginTime(user.getLastLoginTime())
+                .lastLoginIp(user.getLastLoginIp())
+                .build();
+    }
 
     private boolean isProductionProfile() {
         return Arrays.asList(environment.getActiveProfiles()).contains("prod");

@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -191,18 +192,22 @@ public class ApplyServiceImpl implements ApplyService {
         wrapper.eq(ApplyDetail::getApplyId, id);
         List<ApplyDetail> details = applyDetailMapper.selectList(wrapper);
 
-        // 填充明细物资信息
+        // 填充明细物资信息、单价和金额
+        Map<Long, Material> materialMap = loadMaterials(details);
         details.forEach(detail -> {
-            Material material = materialMapper.selectById(detail.getMaterialId());
+            Material material = materialMap.get(detail.getMaterialId());
             if (material != null) {
                 detail.setMaterialName(material.getMaterialName());
                 detail.setMaterialCode(material.getMaterialCode());
                 detail.setSpec(material.getSpec());
                 detail.setUnit(material.getUnit());
             }
+            fillDetailAmount(detail, material);
         });
 
         apply.setDetails(details);
+        apply.setApplyReason(apply.getPurpose());
+        fillTotals(apply, details);
 
         return apply;
     }
@@ -511,7 +516,59 @@ public class ApplyServiceImpl implements ApplyService {
                     apply.setApproverName(approver.getRealName());
                 }
             }
+
+            // 申请原因保存在 purpose 字段
+            apply.setApplyReason(apply.getPurpose());
         }
+
+        fillAmountsBatch(applies);
+    }
+
+    /**
+     * 批量填充物资种类数和申请金额（申请明细不存单价，按物资当前单价估算）
+     */
+    private void fillAmountsBatch(List<Apply> applies) {
+        List<Long> applyIds = applies.stream().map(Apply::getId).collect(Collectors.toList());
+        List<ApplyDetail> allDetails = applyDetailMapper.selectList(
+                new LambdaQueryWrapper<ApplyDetail>().in(ApplyDetail::getApplyId, applyIds));
+        Map<Long, Material> materialMap = loadMaterials(allDetails);
+
+        Map<Long, List<ApplyDetail>> detailsByApply = allDetails.stream()
+                .collect(Collectors.groupingBy(ApplyDetail::getApplyId));
+        for (Apply apply : applies) {
+            List<ApplyDetail> details = detailsByApply.getOrDefault(apply.getId(), List.of());
+            details.forEach(detail -> fillDetailAmount(detail, materialMap.get(detail.getMaterialId())));
+            fillTotals(apply, details);
+        }
+    }
+
+    private Map<Long, Material> loadMaterials(List<ApplyDetail> details) {
+        Set<Long> materialIds = details.stream()
+                .map(ApplyDetail::getMaterialId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        if (materialIds.isEmpty()) {
+            return Map.of();
+        }
+        return materialMapper.selectBatchIds(materialIds).stream()
+                .collect(Collectors.toMap(Material::getId, m -> m));
+    }
+
+    /**
+     * 明细单价取物资单价，金额 = 单价 × 数量
+     */
+    private void fillDetailAmount(ApplyDetail detail, Material material) {
+        BigDecimal price = material != null && material.getPrice() != null ? material.getPrice() : BigDecimal.ZERO;
+        BigDecimal quantity = detail.getQuantity() != null ? detail.getQuantity() : BigDecimal.ZERO;
+        detail.setPrice(price);
+        detail.setAmount(price.multiply(quantity));
+    }
+
+    private void fillTotals(Apply apply, List<ApplyDetail> details) {
+        apply.setItemCount(details.size());
+        apply.setTotalAmount(details.stream()
+                .map(d -> d.getAmount() != null ? d.getAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
     }
 
     /**

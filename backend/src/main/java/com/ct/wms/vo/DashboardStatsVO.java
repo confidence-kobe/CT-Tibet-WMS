@@ -27,6 +27,12 @@ public class DashboardStatsVO {
     @Schema(description = "待审批申请数")
     private Long pendingApplies;
 
+    @Schema(description = "今日入库单数（不含已作废）")
+    private Long todayInboundCount;
+
+    @Schema(description = "今日出库单数（仅已完成）")
+    private Long todayOutboundCount;
+
     @Schema(description = "本月入库单数")
     private Long monthInboundCount;
 

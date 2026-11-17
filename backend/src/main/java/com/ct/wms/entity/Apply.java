@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -177,4 +178,18 @@ public class Apply extends BaseEntity {
     @TableField(exist = false)
     @Schema(description = "申请明细列表")
     private List<ApplyDetail> details;
+
+    /**
+     * 物资种类数（非数据库字段）
+     */
+    @TableField(exist = false)
+    @Schema(description = "物资种类数")
+    private Integer itemCount;
+
+    /**
+     * 申请金额（非数据库字段，按物资单价估算）
+     */
+    @TableField(exist = false)
+    @Schema(description = "申请金额（按物资单价估算）")
+    private BigDecimal totalAmount;
 }

@@ -97,4 +97,12 @@ public class AuthServiceImplTest {
         Object info = authService.getCurrentUserInfo();
         assertNotNull(info);
     }
+
+    @Test
+    public void testLoginReturnsDeptNameEmailAndLastLogin() {
+        // warehouse 属于部门2（Network Dept），邮箱 warehouse@ct-tibet.com
+        LoginVO vo = authService.login(buildRequest("warehouse", "123456"));
+        assertEquals("Network Dept", vo.getUser().getDeptName());
+        assertEquals("warehouse@ct-tibet.com", vo.getUser().getEmail());
+    }
 }

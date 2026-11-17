@@ -22,7 +22,7 @@
     </el-card>
 
     <!-- 数据统计卡片 -->
-    <el-row :gutter="16" class="stats-row">
+    <el-row v-if="isManager" :gutter="16" class="stats-row">
       <el-col :xs="12" :sm="6" :md="6" :lg="6">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-content">
@@ -100,12 +100,12 @@
     </el-card>
 
     <!-- 数据图表 -->
-    <el-row :gutter="16" class="charts-row">
+    <el-row v-if="isManager" :gutter="16" class="charts-row">
       <el-col :xs="24" :sm="24" :md="12" :lg="12">
         <el-card shadow="hover" class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>出入库趋势</span>
+              <span>近7天出入库单数</span>
             </div>
           </template>
           <EChart :option="trendChartOption" height="350px" />
@@ -132,7 +132,8 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store'
 import dayjs from 'dayjs'
 import EChart from '@/components/Chart/EChart.vue'
-import { getDashboardStats } from '@/api/statistics'
+import { getDashboardStats, getInboundStatistics, getOutboundStatistics } from '@/api/statistics'
+import { listInventories } from '@/api/inventory'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -148,28 +149,38 @@ const stats = ref({
   stockWarning: 0
 })
 
-// 快捷操作列表（根据角色显示不同的操作）
-const quickActions = computed(() => {
-  const baseActions = [
-    { name: '库存查询', icon: 'Search', path: '/inventory/query' },
-    { name: '库存预警', icon: 'Warning', path: '/inventory/warning' }
-  ]
+// 是否为管理类角色（可查看统计数据；普通员工没有统计、库存接口权限）
+const isManager = computed(() => ['admin', 'dept_admin', 'warehouse'].includes(userStore.roleCode))
 
-  if (['admin', 'dept_admin', 'warehouse'].includes(userStore.roleCode)) {
-    return [
-      { name: '新建入库', icon: 'Download', path: '/inbound/create' },
-      { name: '新建出库', icon: 'Upload', path: '/outbound/create' },
-      { name: '审批管理', icon: 'CircleCheck', path: '/approval/pending' },
-      ...baseActions
-    ]
-  } else {
+// 快捷操作列表（根据角色显示不同的操作，与菜单权限一致）
+const quickActions = computed(() => {
+  if (!isManager.value) {
     return [
       { name: '新建申请', icon: 'Document', path: '/apply/create' },
-      { name: '我的申请', icon: 'List', path: '/apply/list' },
-      ...baseActions
+      { name: '我的申请', icon: 'List', path: '/apply/list' }
     ]
   }
+
+  const actions = [
+    { name: '新建入库', icon: 'Download', path: '/inbound/create' },
+    { name: '新建出库', icon: 'Upload', path: '/outbound/create' }
+  ]
+  // 系统管理员不参与审批
+  if (userStore.roleCode !== 'admin') {
+    actions.push({ name: '审批管理', icon: 'CircleCheck', path: '/approval/pending' })
+  }
+  actions.push(
+    { name: '库存查询', icon: 'Search', path: '/inventory/query' },
+    { name: '库存预警', icon: 'Warning', path: '/inventory/warning' }
+  )
+  return actions
 })
+
+// 近7天出入库单数（真实数据）
+const trend = ref({ dates: [], inbound: [], outbound: [] })
+
+// 库存状态分布（真实数据，规则与库存查询页一致）
+const stockDistribution = ref({ normal: 0, low: 0, out: 0 })
 
 // 获取角色名称
 const getRoleName = (roleCode) => {
@@ -223,11 +234,12 @@ const trendChartOption = computed(() => ({
   xAxis: {
     type: 'category',
     boundaryGap: false,
-    data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+    data: trend.value.dates
   },
   yAxis: {
     type: 'value',
-    name: '数量',
+    name: '单数',
+    minInterval: 1,
     nameTextStyle: {
       fontSize: 12
     }
@@ -237,7 +249,7 @@ const trendChartOption = computed(() => ({
       name: '入库',
       type: 'line',
       smooth: true,
-      data: [12, 15, 8, 20, 18, 11, 15],
+      data: trend.value.inbound,
       itemStyle: {
         color: '#409EFF'
       },
@@ -260,7 +272,7 @@ const trendChartOption = computed(() => ({
       name: '出库',
       type: 'line',
       smooth: true,
-      data: [10, 12, 18, 15, 22, 13, 16],
+      data: trend.value.outbound,
       itemStyle: {
         color: '#67C23A'
       },
@@ -330,11 +342,15 @@ const stockChartOption = computed(() => ({
         }
       },
       data: [
-        { value: 245, name: '充足', itemStyle: { color: '#67C23A' } },
-        { value: 89, name: '正常', itemStyle: { color: '#409EFF' } },
-        { value: 34, name: '预警', itemStyle: { color: '#E6A23C' } },
-        { value: 12, name: '紧急', itemStyle: { color: '#F56C6C' } }
-      ]
+        { value: stockDistribution.value.normal, name: '正常', itemStyle: { color: '#67C23A' } },
+        { value: stockDistribution.value.low, name: '低库存', itemStyle: { color: '#E6A23C' } },
+        { value: stockDistribution.value.out, name: '缺货', itemStyle: { color: '#F56C6C' } }
+      ].map(item => ({
+        ...item,
+        // 数量为 0 的分类只保留图例，不显示标签和引导线
+        label: { show: item.value > 0 },
+        labelLine: { show: item.value > 0 }
+      }))
     }
   ]
 }))
@@ -343,17 +359,65 @@ const stockChartOption = computed(() => ({
 const loadStats = async () => {
   try {
     const res = await getDashboardStats()
-    stats.value = res.data
+    const data = res.data || {}
+    // 后端字段名与卡片字段不同，这里做映射
+    stats.value = {
+      todayInbound: data.todayInboundCount ?? 0,
+      todayOutbound: data.todayOutboundCount ?? 0,
+      pendingApproval: data.pendingApplies ?? 0,
+      stockWarning: data.lowStockAlerts ?? 0
+    }
   } catch (error) {
     console.error('加载统计数据失败:', error)
+  }
+}
+
+// 加载近7天出入库单数
+const loadTrend = async () => {
+  try {
+    const endDate = dayjs().format('YYYY-MM-DD')
+    const startDate = dayjs().subtract(6, 'day').format('YYYY-MM-DD')
+    const [inboundRes, outboundRes] = await Promise.all([
+      getInboundStatistics({ startDate, endDate }),
+      getOutboundStatistics({ startDate, endDate })
+    ])
+    const inboundDaily = inboundRes.data?.dailyData || []
+    const outboundDaily = outboundRes.data?.dailyData || []
+    trend.value = {
+      dates: inboundDaily.map(item => dayjs(item.date).format('MM-DD')),
+      inbound: inboundDaily.map(item => item.count || 0),
+      outbound: outboundDaily.map(item => item.count || 0)
+    }
+  } catch (error) {
+    console.error('加载出入库趋势失败:', error)
+  }
+}
+
+// 加载库存状态分布（按库存查询页的状态筛选取各状态总数）
+const loadStockDistribution = async () => {
+  try {
+    const [normal, low, out] = await Promise.all(
+      [0, 1, 2].map(status => listInventories({ pageNum: 1, pageSize: 1, status }))
+    )
+    stockDistribution.value = {
+      normal: normal.total || 0,
+      low: low.total || 0,
+      out: out.total || 0
+    }
+  } catch (error) {
+    console.error('加载库存状态分布失败:', error)
   }
 }
 
 onMounted(() => {
   // 每秒更新时间
   timer = setInterval(updateTime, 1000)
-  // 加载统计数据
-  loadStats()
+  // 普通员工没有统计和库存接口权限，不加载
+  if (isManager.value) {
+    loadStats()
+    loadTrend()
+    loadStockDistribution()
+  }
 })
 
 onUnmounted(() => {

@@ -72,6 +72,20 @@ public class ApplyDetail extends BaseEntity {
 
     // 非数据库字段
     /**
+     * 单价（非数据库字段，取物资单价）
+     */
+    @TableField(exist = false)
+    @Schema(description = "单价（取物资单价）")
+    private BigDecimal price;
+
+    /**
+     * 金额（非数据库字段，单价 × 数量）
+     */
+    @TableField(exist = false)
+    @Schema(description = "金额")
+    private BigDecimal amount;
+
+    /**
      * 当前库存
      */
     @TableField(exist = false)

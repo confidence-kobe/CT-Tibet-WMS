@@ -24,12 +24,25 @@ function filterAsyncRoutes(routes, roles) {
     if (hasPermission(roles, tmp)) {
       if (tmp.children) {
         tmp.children = filterAsyncRoutes(tmp.children, roles)
+        // 原本有可见子菜单、过滤后一个都不剩的分组不显示（避免出现空分组）
+        if (countVisible(route.children) > 0 && countVisible(tmp.children) === 0) {
+          return
+        }
       }
       res.push(tmp)
     }
   })
 
   return res
+}
+
+/**
+ * 统计未隐藏的子路由数量
+ * @param {Array} routes - 路由数组
+ * @returns {number}
+ */
+function countVisible(routes) {
+  return (routes || []).filter(route => !route.meta?.hidden).length
 }
 
 /**
@@ -129,8 +142,9 @@ export const useUserStore = defineStore('user', {
         }
 
         // 保存用户信息
-        this.userInfo = user
-        this.roles = roles
+        // 角色编码统一转小写：路由配置使用小写，后端返回的大小写取决于数据库数据
+        this.userInfo = { ...user, roleCode: user.roleCode?.toLowerCase() }
+        this.roles = roles.map(role => String(role).toLowerCase())
         this.permissions = permissions || []
 
         return response.data
@@ -146,14 +160,9 @@ export const useUserStore = defineStore('user', {
      * @returns {Array} 可访问的路由数组
      */
     async generateRoutes() {
-      // 开发阶段：所有用户都可以访问所有路由
-      // 生产环境请取消注释下面的权限过滤代码
-      const accessedRoutes = asyncRoutes
-
-      // 生产环境权限过滤（暂时注释）
-      // const accessedRoutes = this.isAdmin
-      //   ? asyncRoutes
-      //   : filterAsyncRoutes(asyncRoutes, this.roles)
+      // 按角色过滤菜单（系统管理员同样按路由配置的 roles 过滤，
+      // 例如管理员不提交申请、不审批，不显示"申请管理""审批管理"）
+      const accessedRoutes = filterAsyncRoutes(asyncRoutes, this.roles)
 
       // 合并静态路由和动态路由
       this.routes = constantRoutes.concat(accessedRoutes)

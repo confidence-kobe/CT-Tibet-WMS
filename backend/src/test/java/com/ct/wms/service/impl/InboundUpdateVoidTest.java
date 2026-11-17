@@ -292,4 +292,15 @@ class InboundUpdateVoidTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("无权查看");
     }
+
+    @Test
+    @DisplayName("首页统计 - 今日入库数包含新入库、不含已作废")
+    void dashboard_todayInboundCount() {
+        long before = statisticsService.getDashboardStats().getTodayInboundCount();
+        Long id = createInbound(WAREHOUSE_DEPT2, "5", "10");
+        assertThat(statisticsService.getDashboardStats().getTodayInboundCount()).isEqualTo(before + 1);
+
+        inboundService.voidInbound(id, "录错");
+        assertThat(statisticsService.getDashboardStats().getTodayInboundCount()).isEqualTo(before);
+    }
 }

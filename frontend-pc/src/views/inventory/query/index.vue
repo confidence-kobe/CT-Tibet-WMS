@@ -28,7 +28,7 @@
             <el-option
               v-for="warehouse in warehouseList"
               :key="warehouse.id"
-              :label="warehouse.name"
+              :label="warehouse.warehouseName"
               :value="warehouse.id"
             />
           </el-select>
@@ -41,9 +41,9 @@
             @clear="handleQuery"
             style="width: 140px"
           >
-            <el-option label="充足" :value="0" />
-            <el-option label="预警" :value="1" />
-            <el-option label="紧急" :value="2" />
+            <el-option label="正常" :value="0" />
+            <el-option label="低库存" :value="1" />
+            <el-option label="缺货" :value="2" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -79,9 +79,9 @@
         <el-table-column prop="spec" label="规格型号" width="120" />
         <el-table-column prop="unit" label="单位" width="80" align="center" />
         <el-table-column prop="warehouseName" label="仓库" min-width="120" />
-        <el-table-column prop="stock" label="当前库存" width="100" align="right">
+        <el-table-column prop="quantity" label="当前库存" width="100" align="right">
           <template #default="{ row }">
-            <span :class="getStockClass(row)">{{ row.stock }}</span>
+            <span :class="getStockClass(row)">{{ row.quantity }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="minStock" label="最低库存" width="100" align="right" />
@@ -92,7 +92,7 @@
         </el-table-column>
         <el-table-column prop="totalValue" label="库存金额(元)" width="120" align="right">
           <template #default="{ row }">
-            <span class="amount">¥{{ (row.stock * row.price).toFixed(2) }}</span>
+            <span class="amount">¥{{ (row.stockValue ?? 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="90" align="center">
@@ -158,6 +158,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { listInventories } from '@/api/inventory'
 import { listWarehouses } from '@/api/warehouse'
+import { getInventoryStatistics } from '@/api/statistics'
 
 // 查询表单
 const queryForm = reactive({
@@ -197,25 +198,42 @@ const loadWarehouses = async () => {
   }
 }
 
+// 库存状态（与库存预警页、后端低库存预警规则一致）：缺货 / 低库存（低于最低库存）/ 正常
+const getStockStatus = (row) => {
+  if (!(row.quantity > 0)) return 'out'
+  if (row.minStock != null && row.quantity < row.minStock) return 'low'
+  return 'normal'
+}
+
 // 获取库存状态类名
 const getStockClass = (row) => {
-  if (row.stock === 0) return 'text-danger'
-  if (row.stock <= row.minStock) return 'text-warning'
+  const status = getStockStatus(row)
+  if (status === 'out') return 'text-danger'
+  if (status === 'low') return 'text-warning'
   return ''
 }
 
 // 获取库存状态类型
 const getStockStatusType = (row) => {
-  if (row.stock === 0) return 'danger'
-  if (row.stock <= row.minStock) return 'warning'
-  return 'success'
+  return { out: 'danger', low: 'warning', normal: 'success' }[getStockStatus(row)]
 }
 
 // 获取库存状态文本
 const getStockStatusText = (row) => {
-  if (row.stock === 0) return '缺货'
-  if (row.stock <= row.minStock) return '低库存'
-  return '正常'
+  return { out: '缺货', low: '低库存', normal: '正常' }[getStockStatus(row)]
+}
+
+// 加载顶部统计（按所选仓库；后端按部门数据权限过滤）
+const loadStatistics = async () => {
+  try {
+    const res = await getInventoryStatistics({ warehouseId: queryForm.warehouseId || undefined })
+    const data = res.data || {}
+    statistics.totalItems = data.materialCount || 0
+    statistics.totalValue = Number(data.totalValue || 0)
+    statistics.warningCount = data.warningCount || 0
+  } catch (error) {
+    console.error('加载库存统计失败:', error)
+  }
 }
 
 // 查询数据
@@ -234,12 +252,7 @@ const handleQuery = async () => {
     tableData.value = res.data || []
     pagination.total = res.total || 0
 
-    // 更新统计数据
-    if (res.data.stats) {
-      statistics.totalItems = res.data.stats.totalItems || 0
-      statistics.totalValue = res.data.stats.totalValue || 0
-      statistics.warningCount = res.data.stats.warningCount || 0
-    }
+    loadStatistics()
   } catch (error) {
     console.error('查询失败:', error)
     ElMessage.error('查询失败')

@@ -42,13 +42,14 @@ public class InventoryController {
             @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "仓库ID") @RequestParam(required = false) Long warehouseId,
             @Parameter(description = "物资ID") @RequestParam(required = false) Long materialId,
-            @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
+            @Parameter(description = "关键词") @RequestParam(required = false) String keyword,
+            @Parameter(description = "库存状态：0-正常 1-低库存 2-缺货") @RequestParam(required = false) Integer status) {
 
-        log.info("查询库存列表: pageNum={}, pageSize={}, warehouseId={}, materialId={}",
-                pageNum, pageSize, warehouseId, materialId);
+        log.info("查询库存列表: pageNum={}, pageSize={}, warehouseId={}, materialId={}, status={}",
+                pageNum, pageSize, warehouseId, materialId, status);
 
         Page<Inventory> page = inventoryService.listInventories(pageNum, pageSize, warehouseId,
-                materialId, keyword);
+                materialId, keyword, status);
 
         return PageResult.of(page);
     }
