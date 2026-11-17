@@ -313,4 +313,25 @@ class DeptScopeQueryTest {
 
         assertThat(applyMapper.selectById(own).getStatus()).isEqualTo(ApplyStatus.APPROVED);
     }
+
+    @Test
+    @DisplayName("申请单列表和详情返回申请原因、物资种类数和金额")
+    void applyListAndDetail_fillReasonCountAndAmount() {
+        // 物资1单价 1500，申请 1 件
+        Long id = createApply(4L, "employee1", WAREHOUSE_DEPT2);
+
+        TestDataBuilder.mockSecurityContext(2L, "dept_admin", "DEPT_ADMIN");
+        Apply row = applyService.listPendingApplies(1, 100).getRecords().stream()
+                .filter(a -> a.getId().equals(id)).findFirst().orElseThrow();
+        assertThat(row.getApplyReason()).isEqualTo("测试申请");
+        assertThat(row.getItemCount()).isEqualTo(1);
+        assertThat(row.getTotalAmount()).isEqualByComparingTo("1500");
+        assertThat(row.getWarehouseName()).isNotBlank();
+
+        Apply detail = applyService.getApplyById(id);
+        assertThat(detail.getApplyReason()).isEqualTo("测试申请");
+        assertThat(detail.getTotalAmount()).isEqualByComparingTo("1500");
+        assertThat(detail.getDetails().get(0).getPrice()).isEqualByComparingTo("1500");
+        assertThat(detail.getDetails().get(0).getAmount()).isEqualByComparingTo("1500");
+    }
 }
