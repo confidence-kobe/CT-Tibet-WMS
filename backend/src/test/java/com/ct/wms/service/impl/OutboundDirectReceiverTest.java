@@ -7,6 +7,7 @@ import com.ct.wms.entity.Outbound;
 import com.ct.wms.mapper.InventoryLogMapper;
 import com.ct.wms.mapper.OutboundMapper;
 import com.ct.wms.service.OutboundService;
+import com.ct.wms.service.StatisticsService;
 import com.ct.wms.util.TestDataBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +47,9 @@ class OutboundDirectReceiverTest {
 
     @Autowired
     private InventoryLogMapper inventoryLogMapper;
+
+    @Autowired
+    private StatisticsService statisticsService;
 
     @BeforeEach
     void setUp() {
@@ -100,5 +104,13 @@ class OutboundDirectReceiverTest {
                 .eq(InventoryLog::getRemark, "锁定库存"));
         assertThat(lockLogs).isNotEmpty();
         assertThat(lockLogs).allSatisfy(l -> assertThat(l.getOperatorId()).isEqualTo(3L));
+    }
+
+    @Test
+    @DisplayName("首页统计 - 直接出库完成后今日出库数 +1")
+    void dashboard_todayOutboundCount() {
+        long before = statisticsService.getDashboardStats().getTodayOutboundCount();
+        outboundService.createOutboundDirect(dto());
+        assertThat(statisticsService.getDashboardStats().getTodayOutboundCount()).isEqualTo(before + 1);
     }
 }

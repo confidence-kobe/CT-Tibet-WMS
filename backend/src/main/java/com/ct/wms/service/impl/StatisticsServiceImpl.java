@@ -4,6 +4,7 @@ import com.ct.wms.security.WarehouseDataScope;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ct.wms.common.enums.ApplyStatus;
 import com.ct.wms.common.enums.OutboundSource;
+import com.ct.wms.common.enums.OutboundStatus;
 import com.ct.wms.dto.InboundStatisticsDTO;
 import com.ct.wms.dto.InventoryStatisticsDTO;
 import com.ct.wms.dto.OutboundStatisticsDTO;
@@ -76,6 +77,22 @@ public class StatisticsServiceImpl implements StatisticsService {
         applyWrapper.eq(Apply::getStatus, ApplyStatus.PENDING.getValue());
         warehouseDataScope.restrict(applyWrapper, Apply::getWarehouseId);
         stats.setPendingApplies(applyMapper.selectCount(applyWrapper));
+
+        // 4.1 今日入库、今日出库（首页统计卡片）
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime todayEnd = LocalDate.now().atTime(23, 59, 59);
+
+        LambdaQueryWrapper<Inbound> todayInboundWrapper = new LambdaQueryWrapper<>();
+        todayInboundWrapper.between(Inbound::getInboundTime, todayStart, todayEnd);
+        excludeVoidInbound(todayInboundWrapper);
+        warehouseDataScope.restrict(todayInboundWrapper, Inbound::getWarehouseId);
+        stats.setTodayInboundCount(inboundMapper.selectCount(todayInboundWrapper));
+
+        LambdaQueryWrapper<Outbound> todayOutboundWrapper = new LambdaQueryWrapper<>();
+        todayOutboundWrapper.between(Outbound::getOutboundTime, todayStart, todayEnd)
+                .eq(Outbound::getStatus, OutboundStatus.COMPLETED);
+        warehouseDataScope.restrict(todayOutboundWrapper, Outbound::getWarehouseId);
+        stats.setTodayOutboundCount(outboundMapper.selectCount(todayOutboundWrapper));
 
         // 5. 本月入库统计
         YearMonth currentMonth = YearMonth.now();

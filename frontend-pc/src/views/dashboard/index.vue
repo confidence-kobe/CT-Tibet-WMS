@@ -343,7 +343,14 @@ const stockChartOption = computed(() => ({
 const loadStats = async () => {
   try {
     const res = await getDashboardStats()
-    stats.value = res.data
+    const data = res.data || {}
+    // 后端字段名与卡片字段不同，这里做映射
+    stats.value = {
+      todayInbound: data.todayInboundCount ?? 0,
+      todayOutbound: data.todayOutboundCount ?? 0,
+      pendingApproval: data.pendingApplies ?? 0,
+      stockWarning: data.lowStockAlerts ?? 0
+    }
   } catch (error) {
     console.error('加载统计数据失败:', error)
   }
