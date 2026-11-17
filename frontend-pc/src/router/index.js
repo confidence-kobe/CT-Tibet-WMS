@@ -82,7 +82,7 @@ export const asyncRoutes = [
         meta: {
           title: '物资管理',
           icon: 'Box',
-          roles: ['admin', 'dept_admin']
+          roles: ['admin', 'dept_admin', 'warehouse']
         }
       },
       {

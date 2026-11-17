@@ -98,7 +98,7 @@
             <el-button link type="primary" size="small" @click="handleEdit(row)">
               编辑
             </el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row)">
+            <el-button v-if="canManageStatus" link type="danger" size="small" @click="handleDelete(row)">
               删除
             </el-button>
           </template>
@@ -175,7 +175,7 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="状态" prop="status">
+        <el-form-item v-if="canManageStatus" label="状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio :label="0">启用</el-radio>
             <el-radio :label="1">停用</el-radio>
@@ -250,8 +250,19 @@ import {
   createMaterial,
   updateMaterial,
   deleteMaterial,
+  updateMaterialStatus,
   getMaterialCategories
 } from '@/api/material'
+import { useUserStore } from '@/store'
+
+const userStore = useUserStore()
+
+// 删除、启用/停用物资只有系统管理员和部门管理员可以操作（与后端权限一致），
+// 仓库管理员只能新增、修改物资
+const canManageStatus = computed(() => userStore.roles.some(role => ['admin', 'dept_admin'].includes(role)))
+
+// 编辑前的状态，用于判断是否需要单独提交状态变更
+let originalStatus = null
 
 // 查询表单
 const queryForm = reactive({
@@ -365,6 +376,7 @@ const handleAdd = () => {
 const handleEdit = (row) => {
   isEdit.value = true
   Object.assign(form, row)
+  originalStatus = row.status
   dialogVisible.value = true
 }
 
@@ -416,11 +428,18 @@ const handleSave = async () => {
       description: form.description
     }
 
+    // 修改/新增接口不处理状态，状态变更需要单独调用（否则表单里选"停用"不会生效）
     if (isEdit.value) {
       await updateMaterial(form.id, data)
+      if (canManageStatus.value && form.status !== originalStatus) {
+        await updateMaterialStatus(form.id, form.status)
+      }
       ElMessage.success('修改成功')
     } else {
-      await createMaterial(data)
+      const res = await createMaterial(data)
+      if (canManageStatus.value && form.status === 1 && res.data) {
+        await updateMaterialStatus(res.data, 1)
+      }
       ElMessage.success('新增成功')
     }
 
