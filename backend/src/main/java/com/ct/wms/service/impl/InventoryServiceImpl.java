@@ -200,7 +200,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public Page<Inventory> listInventories(Integer pageNum, Integer pageSize, Long warehouseId,
-                                           Long materialId, String keyword) {
+                                           Long materialId, String keyword, Integer stockStatus) {
         Page<Inventory> page = new Page<>(pageNum, pageSize);
 
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
@@ -214,6 +214,20 @@ public class InventoryServiceImpl implements InventoryService {
 
         if (materialId != null) {
             wrapper.eq(Inventory::getMaterialId, materialId);
+        }
+
+        // 库存状态（与低库存预警规则一致：低于物资最低库存为低库存）
+        if (stockStatus != null) {
+            String minStock = "(SELECT m.min_stock FROM tb_material m WHERE m.id = tb_inventory.material_id)";
+            if (stockStatus == 2) {
+                wrapper.le(Inventory::getQuantity, BigDecimal.ZERO);
+            } else if (stockStatus == 1) {
+                wrapper.gt(Inventory::getQuantity, BigDecimal.ZERO)
+                        .apply("quantity < " + minStock);
+            } else if (stockStatus == 0) {
+                wrapper.gt(Inventory::getQuantity, BigDecimal.ZERO)
+                        .apply("(" + minStock + " IS NULL OR quantity >= " + minStock + ")");
+            }
         }
 
         // 关键词搜索（需要联表查询物资名称，这里简化处理）
@@ -334,6 +348,12 @@ public class InventoryServiceImpl implements InventoryService {
             inventory.setMaterialCode(material.getMaterialCode());
             inventory.setSpec(material.getSpec());
             inventory.setUnit(material.getUnit());
+            inventory.setCategory(material.getCategory());
+            inventory.setPrice(material.getPrice());
+            inventory.setMinStock(material.getMinStock());
+            if (material.getPrice() != null && inventory.getQuantity() != null) {
+                inventory.setStockValue(material.getPrice().multiply(inventory.getQuantity()));
+            }
         }
     }
 
