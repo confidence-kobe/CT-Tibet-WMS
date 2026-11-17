@@ -27,9 +27,21 @@ public interface ApplyService {
      * @param keyword     关键词（可选）
      * @return 分页结果
      */
+    default Page<Apply> listApplies(Integer pageNum, Integer pageSize, Long warehouseId,
+                                    Integer status, String startDate, String endDate,
+                                    Long applicantId, Long approverId, String keyword) {
+        return listApplies(pageNum, pageSize, warehouseId, status, startDate, endDate,
+                applicantId, approverId, keyword, null);
+    }
+
+    /**
+     * 分页查询申请单列表
+     *
+     * @param processed 为 true 时只返回已处理（已审批/已拒绝及其后续状态）的申请单
+     */
     Page<Apply> listApplies(Integer pageNum, Integer pageSize, Long warehouseId,
                             Integer status, String startDate, String endDate,
-                            Long applicantId, Long approverId, String keyword);
+                            Long applicantId, Long approverId, String keyword, Boolean processed);
 
     /**
      * 查询我的申请单列表

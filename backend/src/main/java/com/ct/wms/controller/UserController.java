@@ -9,6 +9,7 @@ import com.ct.wms.dto.UpdateProfileRequest;
 import com.ct.wms.dto.UserDTO;
 import com.ct.wms.entity.User;
 import com.ct.wms.service.UserService;
+import com.ct.wms.vo.UserOptionVO;
 import com.ct.wms.vo.UserProfileVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -19,6 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 用户管理Controller
@@ -115,6 +118,14 @@ public class UserController {
         log.info("重置用户密码: id={}", id);
         userService.resetPassword(id, request.getNewPassword());
         return Result.success(null, "重置成功");
+    }
+
+    @GetMapping("/options")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
+    @Operation(summary = "人员选项", description = "选择领用人用：管理员看全部，部门管理员和仓管员只看本部门启用的人员")
+    public Result<List<UserOptionVO>> listUserOptions(
+            @Parameter(description = "姓名或手机号关键词") @RequestParam(required = false) String keyword) {
+        return Result.success(userService.listUserOptions(keyword));
     }
 
     // ========== 个人中心相关接口 ==========

@@ -127,6 +127,7 @@
 </template>
 
 <script setup>
+import dayjs from 'dayjs'
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
@@ -367,8 +368,8 @@ onMounted(() => {
   const start = new Date()
   start.setTime(start.getTime() - 3600 * 1000 * 24 * 30)
   queryForm.dateRange = [
-    start.toISOString().split('T')[0],
-    end.toISOString().split('T')[0]
+    dayjs(start).format('YYYY-MM-DD'),
+    dayjs(end).format('YYYY-MM-DD')
   ]
 
   handleQuery()

@@ -122,6 +122,7 @@
 
 <script>
 import api from '@/api'
+import { toPage } from '@/utils/page'
 
 export default {
   data() {
@@ -164,7 +165,7 @@ export default {
         })
 
         if (res.code === 200) {
-          const { list, total } = res.data
+          const { list, total } = toPage(res)
 
           if (this.pageNum === 1) {
             this.list = list
@@ -258,7 +259,7 @@ export default {
 
         const res = await api.approval.approveApply(this.currentApply.id, {
           approvalStatus: this.approvalType === 'approve' ? 1 : 2,
-          rejectReason: this.approvalType === 'reject' ? this.approvalForm.opinion.trim() : ''
+          rejectReason: this.approvalForm.opinion.trim()
         })
 
         uni.hideLoading()

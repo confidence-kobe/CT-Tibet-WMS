@@ -125,6 +125,7 @@
 
 <script>
 import api from '@/api'
+import { toPage } from '@/utils/page'
 
 export default {
   data() {
@@ -151,16 +152,41 @@ export default {
   },
 
   methods: {
+    // 最近操作记录：只显示改变库存数量的入库/出库流水（不含锁定、解锁）
+    async loadRecentLogs() {
+      try {
+        const res = await api.inventory.getInventoryHistory({
+          pageNum: 1,
+          pageSize: 20,
+          warehouseId: this.detail.warehouseId,
+          materialId: this.detail.materialId
+        })
+        const logs = toPage(res).list
+          .filter(log => log.changeType === 1 || log.changeType === 2)
+          .slice(0, 5)
+          .map(log => ({
+            type: log.changeType === 1 ? 'inbound' : 'outbound',
+            quantity: Math.abs(Number(log.changeQuantity) || 0),
+            operator: log.operatorName,
+            time: log.createTime
+          }))
+        this.$set(this.detail, 'recentLogs', logs)
+      } catch (err) {
+        console.error('加载操作记录失败', err)
+      }
+    },
+
     async loadData() {
       if (this.loading) return
 
       this.loading = true
 
       try {
-        const res = await api.inventory.getDetail(this.id || this.materialCode)
+        const res = await api.inventory.getInventoryDetail(this.id)
 
         if (res.code === 200) {
           this.detail = res.data
+          this.loadRecentLogs()
 
           // 设置标题
           uni.setNavigationBarTitle({

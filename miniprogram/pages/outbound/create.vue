@@ -197,6 +197,7 @@
 
 <script>
 import api from '@/api'
+import { nowString } from '@/utils/date'
 import { fetchAllPages } from '@/utils/fetchAll'
 import { mapState } from 'vuex'
 
@@ -390,11 +391,9 @@ export default {
 
     async loadUsers() {
       try {
-        // 后端每页最多 100 条，按页拉取完整用户列表
-        this.users = await fetchAllPages(api.user.getUserList, {
-          deptId: this.userInfo ? this.userInfo.deptId : null,
-          status: 0
-        })
+        // 本部门启用的人员（仓管员也可调用，后端按部门过滤）
+        const res = await api.user.getUserOptions()
+        this.users = res.data || []
         this.filteredUsers = this.users
       } catch (err) {
         console.error('加载用户列表失败', err)
@@ -418,8 +417,8 @@ export default {
       } else {
         this.filteredUsers = this.users.filter(user => {
           return (
-            user.realName.includes(this.userSearchKeyword) ||
-            user.phone.includes(this.userSearchKeyword)
+            (user.realName || '').includes(this.userSearchKeyword) ||
+            (user.phone || '').includes(this.userSearchKeyword)
           )
         })
       }
@@ -481,6 +480,8 @@ export default {
         const res = await api.outbound.create({
           warehouseId: this.form.warehouseId,
           outboundType: this.form.outboundType,
+          // 出库接口用 ISO 本地时间格式（带 T、不带时区）
+          outboundTime: nowString().replace(' ', 'T'),
           receiverId: this.form.receiverId,
           purpose: this.form.purpose.trim(),
           remark: this.form.remark.trim(),
@@ -490,7 +491,7 @@ export default {
           }))
         })
 
-        if (res.code === 201) {
+        if (res.code === 200 || res.code === 201) {
           uni.showToast({
             title: '出库成功',
             icon: 'success',

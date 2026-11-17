@@ -44,6 +44,10 @@ public class OutboundDTO {
     @Schema(description = "领取人联系电话")
     private String receiverPhone;
 
+    @Size(max = 255, message = "用途不能超过255字")
+    @Schema(description = "用途")
+    private String purpose;
+
     @Size(max = 500, message = "备注不能超过500字")
     @Schema(description = "备注")
     private String remark;

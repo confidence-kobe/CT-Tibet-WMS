@@ -220,6 +220,7 @@ import { createOutboundDirect } from '@/api/outbound'
 import { listWarehouses } from '@/api/warehouse'
 import { listMaterials } from '@/api/material'
 import { fetchAllPages } from '@/utils/fetchAll'
+import dayjs from 'dayjs'
 import { listInventories } from '@/api/inventory'
 
 const router = useRouter()
@@ -439,7 +440,7 @@ const handleSubmit = async () => {
       receiverName: form.receiverName,
       receiverPhone: form.receiverPhone,
       remark: form.remark,
-      outboundTime: new Date().toISOString(),
+      outboundTime: dayjs().format('YYYY-MM-DDTHH:mm:ss'),
       details: form.details.map(item => ({
         materialId: item.materialId,
         quantity: item.quantity,

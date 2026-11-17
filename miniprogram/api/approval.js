@@ -41,6 +41,7 @@ export function getApprovedList(params) {
     method: 'GET',
     data: {
       ...params,
+      processed: true,
       // 如果指定了approvalStatus，转换为status
       status: params.approvalStatus || undefined
     }

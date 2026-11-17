@@ -13,7 +13,7 @@
     <view class="login-content">
       <view class="welcome-text">
         <text class="title">欢迎使用</text>
-        <text class="subtitle">请使用微信授权登录</text>
+        <text class="subtitle">请使用系统账号登录</text>
       </view>
 
       <!-- 功能特性 -->
@@ -33,17 +33,47 @@
       </view>
     </view>
 
-    <!-- 底部登录按钮 -->
+    <!-- 底部登录区域 -->
     <view class="login-footer">
+      <!-- 账号密码登录（与 PC 端账号相同） -->
+      <view class="login-form">
+        <input
+          v-model="form.username"
+          class="form-input"
+          placeholder="请输入用户名"
+          placeholder-class="form-placeholder"
+          :disabled="loading"
+        />
+        <input
+          v-model="form.password"
+          class="form-input"
+          password
+          placeholder="请输入密码"
+          placeholder-class="form-placeholder"
+          :disabled="loading"
+          @confirm="handlePasswordLogin"
+        />
+      </view>
+
       <button
         class="login-btn"
         type="primary"
         :loading="loading"
         :disabled="loading"
+        @click="handlePasswordLogin"
+      >
+        <text v-if="!loading">登录</text>
+        <text v-else>登录中...</text>
+      </button>
+
+      <!-- 微信一键登录：后端接口尚未实现（需小程序 AppID/AppSecret），暂不显示 -->
+      <button
+        v-if="wechatLoginEnabled"
+        class="login-btn wechat-btn"
+        :disabled="loading"
         @click="handleWechatLogin"
       >
-        <text v-if="!loading">微信一键登录</text>
-        <text v-else>登录中...</text>
+        <text>微信一键登录</text>
       </button>
 
       <view class="tips">
@@ -62,10 +92,43 @@ import api from '@/api'
 export default {
   data() {
     return {
-      loading: false
+      loading: false,
+      // 微信登录待后端接入后开启
+      wechatLoginEnabled: false,
+      form: {
+        username: '',
+        password: ''
+      }
     }
   },
   methods: {
+    // 账号密码登录
+    async handlePasswordLogin() {
+      const username = this.form.username.trim()
+      if (!username || !this.form.password) {
+        uni.showToast({ title: '请输入用户名和密码', icon: 'none' })
+        return
+      }
+
+      this.loading = true
+      try {
+        const res = await api.auth.login({ username, password: this.form.password })
+        const { token, user } = res.data
+        this.$store.commit('SET_TOKEN', token)
+        this.$store.commit('SET_USER_INFO', user)
+
+        uni.showToast({ title: '登录成功', icon: 'success', duration: 1000 })
+        setTimeout(() => {
+          this.loading = false
+          uni.switchTab({ url: '/pages/index/index' })
+        }, 1000)
+      } catch (err) {
+        // 错误提示（如用户名或密码错误）已由 request.js 展示
+        this.loading = false
+        console.error('登录失败', err)
+      }
+    },
+
     // 微信登录
     handleWechatLogin() {
       // 检查是否在微信环境
@@ -313,6 +376,31 @@ export default {
     opacity: 0.9;
     transform: scale(0.98);
   }
+}
+
+.login-form {
+  width: 100%;
+  margin-bottom: 32rpx;
+}
+
+.form-input {
+  width: 100%;
+  height: 96rpx;
+  margin-bottom: 24rpx;
+  padding: 0 40rpx;
+  box-sizing: border-box;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 48rpx;
+  font-size: 30rpx;
+  color: #333333;
+}
+
+.form-placeholder {
+  color: #999999;
+}
+
+.wechat-btn {
+  margin-top: 24rpx;
 }
 
 .tips {

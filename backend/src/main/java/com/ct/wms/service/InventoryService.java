@@ -89,13 +89,19 @@ public interface InventoryService {
         return listInventories(pageNum, pageSize, warehouseId, materialId, keyword, null);
     }
 
+    default Page<Inventory> listInventories(Integer pageNum, Integer pageSize, Long warehouseId,
+                                             Long materialId, String keyword, Integer stockStatus) {
+        return listInventories(pageNum, pageSize, warehouseId, materialId, keyword, stockStatus, null);
+    }
+
     /**
-     * 分页查询库存列表（支持按库存状态筛选）
+     * 分页查询库存列表（支持按库存状态、物资类别筛选）
      *
      * @param stockStatus 库存状态：0-正常 1-低库存（低于最低库存） 2-缺货；为空不筛选
+     * @param category    物资类别；为空不筛选
      */
     Page<Inventory> listInventories(Integer pageNum, Integer pageSize, Long warehouseId,
-                                     Long materialId, String keyword, Integer stockStatus);
+                                     Long materialId, String keyword, Integer stockStatus, String category);
 
     /**
      * 分页查询库存流水

@@ -1024,8 +1024,11 @@ public class StatisticsServiceImpl implements StatisticsService {
         warehouseDataScope.restrict(applyWrapper, Apply::getWarehouseId);
         tasks.setPendingApproval(applyMapper.selectCount(applyWrapper).intValue());
 
-        // 待领取（这里简化处理，实际可能需要根据出库状态判断）
-        tasks.setPendingPickup(0);
+        // 待领取（审批通过后自动生成、等待员工领取的出库单）
+        LambdaQueryWrapper<Outbound> pickupWrapper = new LambdaQueryWrapper<>();
+        pickupWrapper.eq(Outbound::getStatus, OutboundStatus.PENDING_PICKUP);
+        warehouseDataScope.restrict(pickupWrapper, Outbound::getWarehouseId);
+        tasks.setPendingPickup(outboundMapper.selectCount(pickupWrapper).intValue());
 
         // 低库存预警
         List<Inventory> lowStockAlerts = inventoryService.listLowStockAlerts(null);

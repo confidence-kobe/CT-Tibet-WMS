@@ -129,6 +129,7 @@
 
 <script>
 import api from '@/api'
+import { toPage } from '@/utils/page'
 
 export default {
   data() {
@@ -162,20 +163,20 @@ export default {
       this.loading = true
 
       try {
-        const res = await api.inventory.getList({
+        const filters = this.currentFilters()
+        const res = await api.inventory.getInventoryList({
           pageNum: this.pageNum,
           pageSize: this.pageSize,
-          category: this.selectedCategory === '全部' ? '' : this.selectedCategory,
-          status: this.statusOptions[this.selectedStatusIndex].value,
-          keyword: this.keyword
+          ...filters,
+          status: this.statusOptions[this.selectedStatusIndex].value
         })
 
         if (res.code === 200) {
-          const { list, summary, total } = res.data
+          const { list, total } = toPage(res)
 
           if (this.pageNum === 1) {
             this.list = list
-            this.summary = summary || {}
+            this.loadSummary(filters)
           } else {
             this.list = this.list.concat(list)
           }
@@ -192,9 +193,31 @@ export default {
       }
     },
 
+    // 当前筛选条件（不含状态）
+    currentFilters() {
+      const filters = {}
+      if (this.selectedCategory !== '全部') filters.category = this.selectedCategory
+      if (this.keyword) filters.keyword = this.keyword
+      return filters
+    },
+
+    // 顶部统计：按当前筛选条件分别查询各状态的总数
+    async loadSummary(filters) {
+      try {
+        const count = status => api.inventory.getInventoryList({ pageNum: 1, pageSize: 1, ...filters, status })
+          .then(r => toPage(r).total)
+        const [totalMaterials, normalCount, lowStockCount, outOfStockCount] = await Promise.all([
+          count(undefined), count(0), count(1), count(2)
+        ])
+        this.summary = { totalMaterials, normalCount, lowStockCount, outOfStockCount }
+      } catch (err) {
+        console.error('加载库存统计失败', err)
+      }
+    },
+
     async loadCategories() {
       try {
-        const res = await api.common.getCategories()
+        const res = await api.common.getMaterialCategories()
 
         if (res.code === 200) {
           this.categories = ['全部'].concat(res.data || [])

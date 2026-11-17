@@ -71,13 +71,17 @@
           <text class="info-label">审批时间</text>
           <text class="info-value">{{ detail.approvalTime || '-' }}</text>
         </view>
-        <view v-if="detail.status === 1 && detail.approvalOpinion" class="info-row column">
+        <view v-if="(detail.status === 1 || detail.status === 3) && detail.approvalOpinion" class="info-row column">
           <text class="info-label">审批意见</text>
           <text class="info-value success">{{ detail.approvalOpinion }}</text>
         </view>
         <view v-if="detail.status === 2" class="info-row column">
           <text class="info-label">拒绝原因</text>
-          <text class="info-value danger">{{ detail.rejectReason }}</text>
+          <text class="info-value danger">{{ detail.rejectReason || '未填写' }}</text>
+        </view>
+        <view v-if="detail.status === 4 && detail.cancelReason" class="info-row column">
+          <text class="info-label">取消原因</text>
+          <text class="info-value">{{ detail.cancelReason }}</text>
         </view>
       </view>
 

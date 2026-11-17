@@ -101,4 +101,11 @@ public class Inbound extends BaseEntity {
     @TableField(exist = false)
     @Schema(description = "入库明细列表")
     private List<InboundDetail> details;
+
+    /**
+     * 物资种类数（非数据库字段，列表展示用）
+     */
+    @TableField(exist = false)
+    @Schema(description = "物资种类数")
+    private Integer itemCount;
 }

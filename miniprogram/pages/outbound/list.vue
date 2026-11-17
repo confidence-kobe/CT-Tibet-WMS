@@ -124,7 +124,7 @@
 
           <!-- 统计 -->
           <view class="item-summary">
-            <text class="summary-text">共 {{ item.materialCount }} 种物资</text>
+            <text class="summary-text">共 {{ item.itemCount || 0 }} 种物资</text>
             <text class="summary-divider">|</text>
             <text class="summary-text">总金额 ¥{{ item.totalAmount.toFixed(2) }}</text>
           </view>
@@ -160,6 +160,7 @@
 
 <script>
 import api from '@/api'
+import { toPage } from '@/utils/page'
 import { mapState, mapGetters } from 'vuex'
 
 export default {
@@ -203,7 +204,7 @@ export default {
     ...mapGetters(['isWarehouse']),
 
     canCreateOutbound() {
-      return this.isWarehouse || this.userInfo.roleCode === 'DEPT_ADMIN'
+      return this.isWarehouse || (this.userInfo || {}).roleCode === 'dept_admin'
     }
   },
 
@@ -230,7 +231,7 @@ export default {
         })
 
         if (res.code === 200) {
-          const newOutbounds = res.data.records || []
+          const newOutbounds = toPage(res).list
 
           if (isRefresh) {
             this.outbounds = newOutbounds

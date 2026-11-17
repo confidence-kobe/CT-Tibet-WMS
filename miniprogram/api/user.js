@@ -66,6 +66,18 @@ export function getUserList(params) {
 }
 
 /**
+ * 人员选项（选择领用人用）：部门管理员、仓管员只返回本部门启用的人员
+ * @param {string} keyword - 姓名或手机号关键词（可选）
+ */
+export function getUserOptions(keyword) {
+  return $uRequest({
+    url: '/api/users/options',
+    method: 'GET',
+    data: keyword ? { keyword } : {}
+  })
+}
+
+/**
  * 查询用户详情
  * @param {number} id - 用户ID
  * @returns {Promise} 返回用户详细信息
@@ -109,6 +121,7 @@ export default {
   updateProfile,
   changePassword,
   getUserList,
+  getUserOptions,
   getUserById,
   bindWechat,
   unbindWechat
