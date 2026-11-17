@@ -1,10 +1,13 @@
 package com.ct.wms.vo;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 /**
  * 登录响应VO
@@ -66,5 +69,15 @@ public class LoginVO {
 
         @Schema(description = "头像")
         private String avatar;
+
+        @Schema(description = "邮箱")
+        private String email;
+
+        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @Schema(description = "最后登录时间")
+        private LocalDateTime lastLoginTime;
+
+        @Schema(description = "最后登录IP")
+        private String lastLoginIp;
     }
 }
