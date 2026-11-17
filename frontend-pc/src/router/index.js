@@ -310,7 +310,7 @@ export const asyncRoutes = [
     meta: {
       title: '库存管理',
       icon: 'Goods',
-      roles: ['admin', 'dept_admin', 'warehouse', 'user']
+      roles: ['admin', 'dept_admin', 'warehouse']
     },
     children: [
       {
@@ -444,6 +444,7 @@ export const asyncRoutes = [
   // 404页面必须放在最后
   {
     path: '/:pathMatch(.*)*',
+    name: 'NotFoundRedirect',
     redirect: '/404',
     meta: { hidden: true }
   }
@@ -456,6 +457,18 @@ const router = createRouter({
   // 路由切换时滚动到页面顶部
   scrollBehavior: () => ({ left: 0, top: 0 })
 })
+
+/**
+ * 移除已添加的动态路由
+ * 同一浏览器切换账号时，避免上一个用户的路由残留（可通过地址栏访问到无权限页面）
+ */
+function resetAsyncRoutes() {
+  asyncRoutes.forEach(route => {
+    if (route.name && router.hasRoute(route.name)) {
+      router.removeRoute(route.name)
+    }
+  })
+}
 
 // 白名单：不需要登录即可访问的路径
 const whiteList = ['/login', '/404', '/403']
@@ -493,6 +506,7 @@ router.beforeEach(async (to, from, next) => {
             const accessRoutes = await userStore.generateRoutes()
 
             // 动态添加路由
+            resetAsyncRoutes()
             accessRoutes.forEach(route => {
               router.addRoute(route)
             })
@@ -516,7 +530,8 @@ router.beforeEach(async (to, from, next) => {
           // 根据角色生成可访问的路由
           const accessRoutes = await userStore.generateRoutes()
 
-          // 动态添加路由
+          // 动态添加路由（先清掉上一个登录用户的路由）
+          resetAsyncRoutes()
           accessRoutes.forEach(route => {
             router.addRoute(route)
           })
