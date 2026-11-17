@@ -52,13 +52,14 @@ public class ApplyServiceImpl implements ApplyService {
     private final RoleMapper roleMapper;
     private final OutboundService outboundService;
     private final InventoryService inventoryService;
+    private final InventoryMapper inventoryMapper;
     private final IdGenerator idGenerator;
     private final WarehouseDataScope warehouseDataScope;
 
     @Override
     public Page<Apply> listApplies(Integer pageNum, Integer pageSize, Long warehouseId,
                                    Integer status, String startDate, String endDate,
-                                   Long applicantId, Long approverId, String keyword) {
+                                   Long applicantId, Long approverId, String keyword, Boolean processed) {
         Page<Apply> page = new Page<>(pageNum, pageSize);
 
         LambdaQueryWrapper<Apply> wrapper = new LambdaQueryWrapper<>();
@@ -88,6 +89,11 @@ public class ApplyServiceImpl implements ApplyService {
 
         if (approverId != null) {
             wrapper.eq(Apply::getApproverId, approverId);
+        }
+
+        if (Boolean.TRUE.equals(processed)) {
+            // 已处理 = 有审批人（通过、拒绝，以及通过后的已完成/已取消）
+            wrapper.isNotNull(Apply::getApproverId);
         }
 
         if (StringUtils.hasText(keyword)) {
@@ -208,8 +214,57 @@ public class ApplyServiceImpl implements ApplyService {
         apply.setDetails(details);
         apply.setApplyReason(apply.getPurpose());
         fillTotals(apply, details);
+        fillStockCheck(apply, details);
 
         return apply;
+    }
+
+    /**
+     * 审批前的库存检查：仅对管理角色、仅对待审批的申请填充"当前可用库存/是否充足"。
+     * 普通员工不展示库存数字。
+     */
+    private void fillStockCheck(Apply apply, List<ApplyDetail> details) {
+        if (details.isEmpty()) {
+            return;
+        }
+        if (!isCurrentUserManager()) {
+            // 显式清空，避免缓存对象带出库存数字
+            details.forEach(d -> {
+                d.setCurrentStock(null);
+                d.setIsStockSufficient(null);
+            });
+            return;
+        }
+        boolean pending = ApplyStatus.PENDING.equals(apply.getStatus());
+        Set<Long> materialIds = details.stream().map(ApplyDetail::getMaterialId).collect(Collectors.toSet());
+        Map<Long, Inventory> inventoryMap = inventoryMapper.selectList(new LambdaQueryWrapper<Inventory>()
+                        .eq(Inventory::getWarehouseId, apply.getWarehouseId())
+                        .in(Inventory::getMaterialId, materialIds))
+                .stream()
+                .collect(Collectors.toMap(Inventory::getMaterialId, inv -> inv, (a, b) -> a));
+        for (ApplyDetail detail : details) {
+            Inventory inv = inventoryMap.get(detail.getMaterialId());
+            BigDecimal available = BigDecimal.ZERO;
+            if (inv != null) {
+                BigDecimal qty = inv.getQuantity() != null ? inv.getQuantity() : BigDecimal.ZERO;
+                BigDecimal locked = inv.getLockedQuantity() != null ? inv.getLockedQuantity() : BigDecimal.ZERO;
+                available = qty.subtract(locked);
+            }
+            detail.setCurrentStock(available);
+            // 已审批的申请库存已锁定，不再提示不足
+            detail.setIsStockSufficient(!pending || detail.getQuantity() == null
+                    || available.compareTo(detail.getQuantity()) >= 0);
+        }
+    }
+
+    private boolean isCurrentUserManager() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(a -> "ROLE_ADMIN".equals(a) || "ROLE_DEPT_ADMIN".equals(a) || "ROLE_WAREHOUSE".equals(a));
     }
 
     @Override
@@ -338,6 +393,13 @@ public class ApplyServiceImpl implements ApplyService {
         apply.setApproverId(approverId);
         apply.setApprovalTime(LocalDateTime.now());
         apply.setApprovalRemark(dto.getApprovalRemark());
+        // 审批意见 / 拒绝原因落库，员工端才能看到
+        String remark = dto.getApprovalRemark() != null ? dto.getApprovalRemark().trim() : null;
+        if (dto.getApprovalResult() != null && dto.getApprovalResult() == 2) {
+            apply.setRejectReason(remark);
+        } else {
+            apply.setApprovalOpinion(remark);
+        }
 
         if (dto.getApprovalResult() == 1) {
             // 审批通过 - 先锁定库存再创建出库单
@@ -381,6 +443,12 @@ public class ApplyServiceImpl implements ApplyService {
                     apply.getApplicantId(),
                     approverId
             );
+
+            // 回写关联出库单ID，方便从申请单直接跳转到出库单
+            Apply link = new Apply();
+            link.setId(apply.getId());
+            link.setOutboundId(outboundId);
+            applyMapper.updateById(link);
 
             log.info("自动创建出库单: applyId={}, outboundId={}", apply.getId(), outboundId);
 
@@ -566,6 +634,7 @@ public class ApplyServiceImpl implements ApplyService {
 
     private void fillTotals(Apply apply, List<ApplyDetail> details) {
         apply.setItemCount(details.size());
+        apply.setFirstMaterialName(details.isEmpty() ? null : details.get(0).getMaterialName());
         apply.setTotalAmount(details.stream()
                 .map(d -> d.getAmount() != null ? d.getAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
@@ -627,11 +696,7 @@ public class ApplyServiceImpl implements ApplyService {
         if (getCurrentUserId().equals(apply.getApplicantId())) {
             return;
         }
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean isManager = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch(a -> "ROLE_ADMIN".equals(a) || "ROLE_DEPT_ADMIN".equals(a) || "ROLE_WAREHOUSE".equals(a));
-        if (!isManager || !warehouseDataScope.canAccess(apply.getWarehouseId())) {
+        if (!isCurrentUserManager() || !warehouseDataScope.canAccess(apply.getWarehouseId())) {
             throw new BusinessException(403, "无权查看此申请单");
         }
     }

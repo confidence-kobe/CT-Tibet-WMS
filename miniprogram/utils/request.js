@@ -46,7 +46,12 @@ export function $uRequest(options = {}) {
             handleBusinessError(data, reject)
           }
         } else if (res.statusCode === 401) {
-          handleUnauthorized()
+          if (options.url && options.url.indexOf('/api/auth/login') !== -1) {
+            // 登录接口返回 401 表示用户名或密码错误/账号锁定，不是登录过期
+            uni.showToast({ title: (data && data.message) || '用户名或密码错误', icon: 'none' })
+          } else {
+            handleUnauthorized()
+          }
           reject(data)
         } else if (res.statusCode === 403) {
           uni.showToast({

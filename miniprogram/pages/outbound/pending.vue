@@ -138,6 +138,7 @@
 
 <script>
 import api from '@/api'
+import { toPage } from '@/utils/page'
 
 export default {
   data() {
@@ -173,7 +174,7 @@ export default {
         })
 
         if (res.code === 200) {
-          const { list, total } = res.data
+          const { list, total } = toPage(res)
 
           // 计算等待天数
           list.forEach(item => {
@@ -276,9 +277,8 @@ export default {
         success: async (res) => {
           if (res.confirm) {
             try {
-              const result = await api.outbound.cancel(item.id, {
-                cancelReason: res.content || '仓管取消'
-              })
+              // 第二个参数是取消原因文本（后端读取 body.reason）
+              const result = await api.outbound.cancel(item.id, res.content || '仓管取消')
 
               if (result.code === 200) {
                 uni.showToast({

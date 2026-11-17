@@ -100,9 +100,14 @@ service.interceptors.response.use(
           message = '请求参数错误'
           break
         case 401:
-          message = '未授权，请重新登录'
-          removeToken()
-          router.push('/login')
+          if (error.config?.url?.includes('/auth/login')) {
+            // 登录接口返回 401 表示用户名或密码错误/账号锁定，不是登录过期
+            message = error.response.data?.message || '用户名或密码错误'
+          } else {
+            message = '未授权，请重新登录'
+            removeToken()
+            router.push('/login')
+          }
           break
         case 403:
           message = '拒绝访问'

@@ -45,13 +45,14 @@ public class ApplyController {
             @Parameter(description = "结束日期") @RequestParam(required = false) String endDate,
             @Parameter(description = "申请人ID") @RequestParam(required = false) Long applicantId,
             @Parameter(description = "审批人ID") @RequestParam(required = false) Long approverId,
-            @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
+            @Parameter(description = "关键词") @RequestParam(required = false) String keyword,
+            @Parameter(description = "仅已处理（已审批/已拒绝）") @RequestParam(required = false) Boolean processed) {
 
         log.info("查询申请单列表: pageNum={}, pageSize={}, warehouseId={}, status={}",
                 pageNum, pageSize, warehouseId, status);
 
         Page<Apply> page = applyService.listApplies(pageNum, pageSize, warehouseId,
-                status, startDate, endDate, applicantId, approverId, keyword);
+                status, startDate, endDate, applicantId, approverId, keyword, processed);
 
         return PageResult.of(page);
     }

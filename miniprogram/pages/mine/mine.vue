@@ -2,10 +2,10 @@
   <view class="mine-container">
     <!-- 用户信息 -->
     <view class="user-header">
-      <image class="avatar" :src="userInfo.avatar || '/static/default-avatar.png'" mode="aspectFill" />
+      <image class="avatar" :src="user.avatar || '/static/default-avatar.png'" mode="aspectFill" />
       <view class="user-info">
-        <text class="user-name">{{ userInfo.realName || '未登录' }}</text>
-        <text class="user-dept">{{ userInfo.deptName || '' }} | {{ userInfo.roleName || '' }}</text>
+        <text class="user-name">{{ user.realName || '未登录' }}</text>
+        <text class="user-dept">{{ user.deptName || '' }} | {{ user.roleName || '' }}</text>
       </view>
     </view>
 
@@ -24,11 +24,11 @@
 
       <view class="menu-item" @click="goToPassword">
         <view class="menu-left">
-          <text class="menu-icon">棣冩惖</text>
+          <text class="menu-icon">🔒</text>
           <text class="menu-text">修改密码</text>
         </view>
         <view class="menu-right">
-          <text class="menu-arrow">閳?/text>
+          <text class="menu-arrow">›</text>
         </view>
       </view>
 
@@ -71,7 +71,11 @@ import { mapState } from 'vuex'
 
 export default {
   computed: {
-    ...mapState(['userInfo', 'unreadCount'])
+    ...mapState(['userInfo', 'unreadCount']),
+    // 未登录（userInfo 为空）时模板取值不报错
+    user() {
+      return this.userInfo || {}
+    }
   },
 
   methods: {

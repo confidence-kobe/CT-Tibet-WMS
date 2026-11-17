@@ -3,10 +3,10 @@
     <!-- 头部信息 -->
     <view class="header">
       <view class="user-info">
-        <image class="avatar" :src="userInfo.avatar || '/static/default-avatar.png'" mode="aspectFill" />
+        <image class="avatar" :src="user.avatar || '/static/default-avatar.png'" mode="aspectFill" />
         <view class="info">
-          <text class="name">{{ userInfo.realName || '未登录' }}</text>
-          <text class="dept">{{ userInfo.deptName || '' }}</text>
+          <text class="name">{{ user.realName || '未登录' }}</text>
+          <text class="dept">{{ user.deptName || '' }}</text>
         </view>
       </view>
       <view class="message-icon" @click="goToMessages">
@@ -112,7 +112,7 @@
               <text class="stat-label">待审批</text>
             </view>
             <view class="stat-item">
-              <text class="stat-value info">{{ todayData.materialCount || 20 }}</text>
+              <text class="stat-value info">{{ todayData.materialCount || 0 }}</text>
               <text class="stat-label">库存种类</text>
             </view>
           </view>
@@ -221,7 +221,11 @@ export default {
 
   computed: {
     ...mapState(['userInfo', 'unreadCount', 'pendingTasks']),
-    ...mapGetters(['isEmployee', 'isWarehouse'])
+    ...mapGetters(['isEmployee', 'isWarehouse']),
+    // 未登录（userInfo 为空）时模板取值不报错
+    user() {
+      return this.userInfo || {}
+    }
   },
 
   methods: {

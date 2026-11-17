@@ -193,7 +193,7 @@ export default {
     ...mapState(['userInfo']),
 
     showActions() {
-      return this.detail.status === 0 && (this.userInfo.roleCode === 'WAREHOUSE' || this.userInfo.roleCode === 'DEPT_ADMIN')
+      return this.detail.status === 0 && ['warehouse', 'dept_admin'].includes((this.userInfo || {}).roleCode)
     },
 
     allStockSufficient() {

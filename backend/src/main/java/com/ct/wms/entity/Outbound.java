@@ -148,6 +148,13 @@ public class Outbound extends BaseEntity {
     private List<OutboundDetail> details;
 
     /**
+     * 物资种类数（非数据库字段，列表展示用）
+     */
+    @TableField(exist = false)
+    @Schema(description = "物资种类数")
+    private Integer itemCount;
+
+    /**
      * 获取关联申请单ID（别名方法）
      * @return 申请单ID
      */

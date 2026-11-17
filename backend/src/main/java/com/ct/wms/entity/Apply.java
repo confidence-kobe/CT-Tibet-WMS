@@ -187,6 +187,13 @@ public class Apply extends BaseEntity {
     private Integer itemCount;
 
     /**
+     * 第一个物资名称（非数据库字段，列表摘要用，如"光缆24芯等2项"）
+     */
+    @TableField(exist = false)
+    @Schema(description = "第一个物资名称")
+    private String firstMaterialName;
+
+    /**
      * 申请金额（非数据库字段，按物资单价估算）
      */
     @TableField(exist = false)

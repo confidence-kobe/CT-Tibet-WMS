@@ -24,10 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 出库Service实现类
@@ -108,6 +111,7 @@ public class OutboundServiceImpl implements OutboundService {
         // 填充关联数据（防御性检查，避免空指针）
         if (result != null && result.getRecords() != null && !result.getRecords().isEmpty()) {
             result.getRecords().forEach(this::fillOutboundInfo);
+            fillItemCounts(result.getRecords());
         }
 
         return result;
@@ -238,6 +242,7 @@ public class OutboundServiceImpl implements OutboundService {
 
         outbound.setOutboundTime(dto.getOutboundTime());
         outbound.setTotalAmount(totalAmount);
+        outbound.setPurpose(StringUtils.hasText(dto.getPurpose()) ? dto.getPurpose().trim() : null);
         outbound.setRemark(dto.getRemark());
 
         outboundMapper.insert(outbound);
@@ -345,9 +350,11 @@ public class OutboundServiceImpl implements OutboundService {
             User receiver = userMapper.selectById(receiverId);
             outbound.setReceiverId(receiverId);
             outbound.setReceiverName(receiver != null ? receiver.getRealName() : null);
+            outbound.setReceiverPhone(receiver != null ? receiver.getPhone() : null);
         }
 
         outbound.setApplyId(applyId);
+        outbound.setPurpose(apply.getPurpose());
         outbound.setOutboundTime(apply.getApplyTime());
         outbound.setTotalAmount(totalAmount);
         outbound.setRemark("来自申请单: " + apply.getApplyNo());
@@ -466,6 +473,7 @@ public class OutboundServiceImpl implements OutboundService {
 
         // 更新出库单状态
         outbound.setStatus(OutboundStatus.CANCELED);
+        outbound.setCancelReason(reason);
         outbound.setRemark((outbound.getRemark() != null ? outbound.getRemark() : "") + " [取消原因: " + reason + "]");
         outboundMapper.updateById(outbound);
 
@@ -474,6 +482,8 @@ public class OutboundServiceImpl implements OutboundService {
             Apply apply = applyMapper.selectById(outbound.getApplyId());
             if (apply != null) {
                 apply.setStatus(ApplyStatus.CANCELED);
+                apply.setCancelReason("仓管取消出库: " + reason);
+                apply.setCancelTime(LocalDateTime.now());
                 applyMapper.updateById(apply);
             }
         }
@@ -560,9 +570,47 @@ public class OutboundServiceImpl implements OutboundService {
 
         // 更新出库单状态
         outbound.setStatus(OutboundStatus.CANCELED);
+        outbound.setCancelReason(reason);
         outbound.setRemark((outbound.getRemark() != null ? outbound.getRemark() : "") + " [取消原因: " + reason + "]");
         outboundMapper.updateById(outbound);
 
         log.info("取消关联出库单成功: outboundId={}, applyId={}", outbound.getId(), applyId);
+    }
+
+    /**
+     * 批量填充物资种类数（一次查询所有明细，避免逐条查库）
+     */
+    /**
+     * 列表批量补充：物资明细、物资种类数、来源申请单号（用途为空时取申请单用途）。
+     * 仓管员在"待领取"列表里需要直接看到要发哪些物资。
+     */
+    private void fillItemCounts(List<Outbound> records) {
+        List<Long> ids = records.stream().map(Outbound::getId).collect(Collectors.toList());
+        Map<Long, List<OutboundDetail>> detailMap = outboundDetailMapper.selectList(
+                        new LambdaQueryWrapper<OutboundDetail>().in(OutboundDetail::getOutboundId, ids))
+                .stream()
+                .collect(Collectors.groupingBy(OutboundDetail::getOutboundId));
+        records.forEach(r -> {
+            List<OutboundDetail> details = detailMap.getOrDefault(r.getId(), java.util.Collections.emptyList());
+            r.setDetails(details);
+            r.setItemCount(details.size());
+        });
+
+        List<Long> applyIds = records.stream().map(Outbound::getApplyId)
+                .filter(java.util.Objects::nonNull).distinct().collect(Collectors.toList());
+        if (applyIds.isEmpty()) {
+            return;
+        }
+        Map<Long, Apply> applyMap = applyMapper.selectBatchIds(applyIds).stream()
+                .collect(Collectors.toMap(Apply::getId, a -> a, (a, b) -> a));
+        records.forEach(r -> {
+            Apply apply = r.getApplyId() != null ? applyMap.get(r.getApplyId()) : null;
+            if (apply != null) {
+                r.setApplyNo(apply.getApplyNo());
+                if (!StringUtils.hasText(r.getPurpose())) {
+                    r.setPurpose(apply.getPurpose());
+                }
+            }
+        });
     }
 }

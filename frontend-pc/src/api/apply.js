@@ -78,11 +78,12 @@ export function getPendingApplies(params) {
  * @param {string} params.keyword - 关键词（申请单号）
  * @returns {Promise} 返回分页数据
  */
-export function getApprovedApplies(params) {
+export function getApprovedApplies(params = {}) {
+  const { approvalStatus, ...rest } = params
   return request({
-    url: '/applies/approved',
+    url: '/applies',
     method: 'get',
-    params
+    params: { ...rest, status: approvalStatus, processed: true }
   })
 }
 
@@ -120,16 +121,17 @@ export function createApply(data) {
  * 审批申请单
  * @param {number} id - 申请单ID
  * @param {number} approvalStatus - 审批状态 (1-通过 2-拒绝)
- * @param {string} rejectReason - 拒绝理由（拒绝时必填）
+ * @param {string} remark - 审批意见 / 拒绝理由（拒绝时必填）
  * @returns {Promise} 返回审批结果
  */
-export function approveApply(id, approvalStatus, rejectReason) {
+export function approveApply(id, approvalStatus, remark) {
   return request({
-    url: `/applies/${id}/approve`,
+    url: '/applies/approve',
     method: 'post',
-    params: {
-      approvalStatus,
-      rejectReason
+    data: {
+      applyId: id,
+      approvalResult: approvalStatus,
+      approvalRemark: remark || ''
     }
   })
 }

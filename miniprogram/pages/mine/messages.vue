@@ -82,6 +82,7 @@
 
 <script>
 import api from '@/api'
+import { toPage } from '@/utils/page'
 import { mapState } from 'vuex'
 
 export default {
@@ -129,7 +130,8 @@ export default {
         })
 
         if (res.code === 200) {
-          const newMessages = res.data.records || []
+          const page = toPage(res)
+          const newMessages = page.list
 
           if (isRefresh) {
             this.messages = newMessages
@@ -137,8 +139,9 @@ export default {
             this.messages = [...this.messages, ...newMessages]
           }
 
-          this.unreadCount = res.data.unreadCount || 0
-          this.totalCount = res.data.total || 0
+          this.totalCount = page.total
+          // 未读数单独查询（列表接口不返回）
+          api.message.getUnreadCount().then(r => { this.unreadCount = Number(r.data) || 0 }).catch(() => {})
           this.hasMore = newMessages.length === this.pageSize
 
           // 更新 Vuex 中的未读数
@@ -198,7 +201,7 @@ export default {
 
       switch (type) {
         case 1: // 申请审批
-          if (this.userInfo.roleCode === 'WAREHOUSE' || this.userInfo.roleCode === 'DEPT_ADMIN') {
+          if (['warehouse', 'dept_admin'].includes((this.userInfo || {}).roleCode)) {
             uni.navigateTo({
               url: `/pages/approval/detail?id=${relatedData.id}`
             })

@@ -200,7 +200,8 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public Page<Inventory> listInventories(Integer pageNum, Integer pageSize, Long warehouseId,
-                                           Long materialId, String keyword, Integer stockStatus) {
+                                           Long materialId, String keyword, Integer stockStatus,
+                                           String category) {
         Page<Inventory> page = new Page<>(pageNum, pageSize);
 
         LambdaQueryWrapper<Inventory> wrapper = new LambdaQueryWrapper<>();
@@ -228,6 +229,11 @@ public class InventoryServiceImpl implements InventoryService {
                 wrapper.gt(Inventory::getQuantity, BigDecimal.ZERO)
                         .apply("(" + minStock + " IS NULL OR quantity >= " + minStock + ")");
             }
+        }
+
+        // 物资类别（参数绑定，避免拼接 SQL）
+        if (StringUtils.hasText(category)) {
+            wrapper.apply("material_id IN (SELECT m.id FROM tb_material m WHERE m.category = {0})", category);
         }
 
         // 关键词搜索（需要联表查询物资名称，这里简化处理）
@@ -355,6 +361,16 @@ public class InventoryServiceImpl implements InventoryService {
                 inventory.setStockValue(material.getPrice().multiply(inventory.getQuantity()));
             }
         }
+
+        // 库存状态（与状态筛选规则一致）：0-正常 1-低库存 2-缺货
+        BigDecimal quantity = inventory.getQuantity() != null ? inventory.getQuantity() : BigDecimal.ZERO;
+        if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            inventory.setStockStatus(2);
+        } else if (inventory.getMinStock() != null && quantity.compareTo(inventory.getMinStock()) < 0) {
+            inventory.setStockStatus(1);
+        } else {
+            inventory.setStockStatus(0);
+        }
     }
 
     /**
@@ -430,6 +446,8 @@ public class InventoryServiceImpl implements InventoryService {
         Inventory inventory = inventoryMapper.selectById(id);
         if (inventory != null) {
             warehouseDataScope.checkAccess(inventory.getWarehouseId(), "无权查看其他部门仓库的库存");
+            // 与列表一致：填充仓库、物资信息和库存状态
+            fillInventoryInfo(inventory);
         }
         return inventory;
     }

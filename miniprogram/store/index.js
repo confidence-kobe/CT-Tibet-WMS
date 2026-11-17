@@ -1,5 +1,6 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
+import { $uRequest } from '@/utils/request.js'
 
 Vue.use(Vuex)
 
@@ -22,6 +23,10 @@ const store = new Vuex.Store({
   },
   mutations: {
     SET_USER_INFO(state, userInfo) {
+      // 角色编码统一转小写（页面按小写判断，后端返回的大小写取决于数据库数据）
+      if (userInfo && userInfo.roleCode) {
+        userInfo = { ...userInfo, roleCode: String(userInfo.roleCode).toLowerCase() }
+      }
       state.userInfo = userInfo
       uni.setStorageSync('userInfo', userInfo)
     },
@@ -68,12 +73,14 @@ const store = new Vuex.Store({
     // 获取未读消息数量
     async getUnreadCount({ commit }) {
       try {
-        const res = await this.$request({
+        // 注意：store 中没有 this.$request（只挂在组件上），直接使用请求方法
+        const res = await $uRequest({
           url: '/api/messages/unread-count',
           method: 'GET'
         })
         if (res.code === 200) {
-          commit('SET_UNREAD_COUNT', res.data.total || 0)
+          // 后端直接返回未读数量
+          commit('SET_UNREAD_COUNT', Number(res.data) || 0)
         }
       } catch (err) {
         console.error('获取未读消息数量失败', err)
@@ -82,8 +89,8 @@ const store = new Vuex.Store({
     // 获取待办事项统计
     async getPendingTasks({ commit }) {
       try {
-        const res = await this.$request({
-          url: '/api/stats/dashboard',
+        const res = await $uRequest({
+          url: '/api/statistics/miniprogram',
           method: 'GET'
         })
         if (res.code === 200) {

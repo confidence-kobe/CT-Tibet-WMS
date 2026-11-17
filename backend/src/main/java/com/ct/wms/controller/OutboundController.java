@@ -108,8 +108,13 @@ public class OutboundController {
     @Operation(summary = "取消出库单", description = "取消待取货的出库单")
     public Result<Void> cancelOutbound(
             @Parameter(description = "出库单ID") @PathVariable Long id,
+            @RequestParam(value = "reason", required = false) String reasonParam,
             @RequestBody(required = false) java.util.Map<String, String> body) {
-        String reason = body != null ? body.get("reason") : "";
+        // 兼容两种传法：JSON body {reason}（小程序）和 URL 参数 ?reason=（PC）
+        String reason = body != null && body.get("reason") != null ? body.get("reason") : reasonParam;
+        if (reason == null || reason.trim().isEmpty()) {
+            reason = "未填写原因";
+        }
         log.info("取消出库单: id={}, reason={}", id, reason);
         outboundService.cancelOutbound(id, reason);
         return Result.success(null, "取消成功");

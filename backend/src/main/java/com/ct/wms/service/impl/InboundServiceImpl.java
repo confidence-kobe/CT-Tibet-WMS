@@ -98,6 +98,7 @@ public class InboundServiceImpl implements InboundService {
         // 填充关联数据（防御性检查，避免空指针）
         if (result != null && result.getRecords() != null && !result.getRecords().isEmpty()) {
             result.getRecords().forEach(this::fillInboundInfo);
+            fillItemCounts(result.getRecords());
         }
 
         return result;
@@ -355,5 +356,17 @@ public class InboundServiceImpl implements InboundService {
             return userDetails.getId();
         }
         throw new BusinessException(401, "未登录");
+    }
+
+    /**
+     * 批量填充物资种类数（一次查询所有明细，避免逐条查库）
+     */
+    private void fillItemCounts(List<Inbound> records) {
+        List<Long> ids = records.stream().map(Inbound::getId).collect(Collectors.toList());
+        Map<Long, Long> counts = inboundDetailMapper.selectList(
+                        new LambdaQueryWrapper<InboundDetail>().in(InboundDetail::getInboundId, ids))
+                .stream()
+                .collect(Collectors.groupingBy(InboundDetail::getInboundId, Collectors.counting()));
+        records.forEach(r -> r.setItemCount(counts.getOrDefault(r.getId(), 0L).intValue()));
     }
 }

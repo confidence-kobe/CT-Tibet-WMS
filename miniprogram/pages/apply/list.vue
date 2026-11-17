@@ -93,6 +93,7 @@
 
 <script>
 import api from '@/api'
+import { toPage } from '@/utils/page'
 
 export default {
   data() {
@@ -146,7 +147,7 @@ export default {
         })
 
         if (res.code === 200) {
-          const { list, total } = res.data
+          const { list, total } = toPage(res)
 
           // 添加物资摘要
           list.forEach(item => {
@@ -174,7 +175,7 @@ export default {
 
     // 获取物资摘要
     getMaterialSummary(item) {
-      const count = item.materialCount || 0
+      const count = item.itemCount || 0
       const first = item.firstMaterialName || '物资'
       return count > 1 ? `${first}等${count}项` : first
     },

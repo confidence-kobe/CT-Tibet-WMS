@@ -1,10 +1,13 @@
 package com.ct.wms.service;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ct.wms.dto.ChangePasswordRequest;
 import com.ct.wms.dto.UpdateProfileRequest;
 import com.ct.wms.dto.UserDTO;
 import com.ct.wms.entity.User;
+import com.ct.wms.vo.UserOptionVO;
 import com.ct.wms.vo.UserProfileVO;
 
 /**
@@ -91,6 +94,15 @@ public interface UserService {
      * @return 用户个人信息VO
      */
     UserProfileVO getCurrentUserProfile();
+
+    /**
+     * 人员选项（选择领用人用）：系统管理员可查看所有启用的用户，
+     * 部门管理员、仓管员只能查看本部门启用的用户
+     *
+     * @param keyword 姓名或手机号关键词（可选）
+     * @return 人员选项列表（最多 200 条）
+     */
+    List<UserOptionVO> listUserOptions(String keyword);
 
     /**
      * 更新当前用户个人信息

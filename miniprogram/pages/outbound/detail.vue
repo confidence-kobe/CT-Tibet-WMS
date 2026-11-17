@@ -165,7 +165,7 @@ export default {
     ...mapGetters(['isWarehouse']),
 
     showActions() {
-      return this.isWarehouse || this.userInfo.roleCode === 'DEPT_ADMIN'
+      return this.isWarehouse || (this.userInfo || {}).roleCode === 'dept_admin'
     }
   },
 

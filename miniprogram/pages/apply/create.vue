@@ -2,6 +2,22 @@
   <view class="create-apply-container">
     <!-- 表单 -->
     <view class="form">
+      <!-- 领用仓库（本部门的仓库；只有一个时自动选中） -->
+      <view class="form-item required">
+        <view class="label">领用仓库</view>
+        <picker
+          v-if="warehouses.length > 1"
+          mode="selector"
+          :range="warehouses"
+          range-key="warehouseName"
+          :value="warehouseIndex"
+          @change="handleWarehouseChange"
+        >
+          <view class="picker-value">{{ currentWarehouse.warehouseName }} ▼</view>
+        </picker>
+        <view v-else class="picker-value">{{ currentWarehouse.warehouseName || '本部门暂无可用仓库' }}</view>
+      </view>
+
       <!-- 用途说明 -->
       <view class="form-item required">
         <view class="label">用途说明</view>
@@ -28,7 +44,7 @@
               <view class="material-detail">
                 <text class="material-name">{{ item.materialName }}</text>
                 <text class="material-spec">{{ item.spec }} | {{ item.unit }}</text>
-                <text :class="['stock-status', item.isStockSufficient ? 'sufficient' : 'insufficient']">
+                <text v-if="item.currentStock != null" :class="['stock-status', item.isStockSufficient ? 'sufficient' : 'insufficient']">
                   当前库存: {{ item.currentStock }} {{ item.unit }}
                   {{ item.isStockSufficient ? '✓' : '⚠️ 库存不足' }}
                 </text>
@@ -117,7 +133,7 @@
               >
                 <view class="selector-info">
                   <text class="selector-name">{{ item.materialName }}</text>
-                  <text class="selector-spec">{{ item.spec }} | 库存: {{ item.stock }}{{ item.unit }}</text>
+                  <text class="selector-spec">{{ item.spec }}<text v-if="item.stock != null"> | 库存: {{ item.stock }}{{ item.unit }}</text></text>
                 </view>
                 <text class="selector-check">{{ isSelected(item.id) ? '✓' : '' }}</text>
               </view>
@@ -144,7 +160,7 @@
             <text class="info-row">物资: {{ selectedMaterial.materialName }}</text>
             <text class="info-row">规格: {{ selectedMaterial.spec }}</text>
             <text class="info-row">单位: {{ selectedMaterial.unit }}</text>
-            <text class="info-row">当前库存: {{ selectedMaterial.stock }} {{ selectedMaterial.unit }}</text>
+            <text v-if="selectedMaterial.stock != null" class="info-row">当前库存: {{ selectedMaterial.stock }} {{ selectedMaterial.unit }}</text>
           </view>
 
           <view class="quantity-input-group">
@@ -167,7 +183,7 @@
             </view>
           </view>
 
-          <view class="tips small">
+          <view v-if="selectedMaterial.stock != null" class="tips small">
             <text class="tip-icon">💡</text>
             <text class="tip-text">提示: 申请数量不应超过当前库存</text>
           </view>
@@ -194,6 +210,9 @@ export default {
         details: []
       },
       submitting: false,
+      // 领用仓库
+      warehouses: [],
+      warehouseIndex: 0,
       // 物资选择器
       showSelector: false,
       materials: [],
@@ -210,6 +229,9 @@ export default {
   },
 
   computed: {
+    currentWarehouse() {
+      return this.warehouses[this.warehouseIndex] || {}
+    },
     canSubmit() {
       return (
         this.form.purpose.trim().length > 0 &&
@@ -310,7 +332,8 @@ export default {
           this.selectedMaterial = {
             ...material,
             ...res.data,
-            stock: res.data.totalStock || 0
+            // 员工无库存查看权限时后端不返回库存，此时不显示也不拦截（审批时后端会校验真实库存）
+            stock: res.data.totalStock != null ? res.data.totalStock : null
           }
           this.editingIndex = -1
           this.tempQuantity = ''
@@ -353,7 +376,7 @@ export default {
         return
       }
 
-      if (quantity > this.selectedMaterial.stock) {
+      if (this.selectedMaterial.stock != null && quantity > this.selectedMaterial.stock) {
         uni.showModal({
           title: '提示',
           content: `当前库存仅有${this.selectedMaterial.stock}${this.selectedMaterial.unit}，是否继续？`,
@@ -378,7 +401,7 @@ export default {
         unit: this.selectedMaterial.unit,
         quantity: quantity,
         currentStock: this.selectedMaterial.stock,
-        isStockSufficient: quantity <= this.selectedMaterial.stock
+        isStockSufficient: this.selectedMaterial.stock == null || quantity <= this.selectedMaterial.stock
       }
 
       if (this.editingIndex >= 0) {
@@ -435,11 +458,29 @@ export default {
         return
       }
 
-      item.isStockSufficient = quantity <= item.currentStock
+      item.isStockSufficient = item.currentStock == null || quantity <= item.currentStock
     },
 
     // 提交申请
+    // 加载本部门可用仓库（后端按部门过滤）
+    async loadWarehouses() {
+      try {
+        const res = await api.common.getMyWarehouses()
+        this.warehouses = res.data || []
+      } catch (err) {
+        console.error('加载仓库失败', err)
+      }
+    },
+
+    handleWarehouseChange(e) {
+      this.warehouseIndex = Number(e.detail.value)
+    },
+
     async handleSubmit() {
+      if (!this.currentWarehouse.id) {
+        uni.showToast({ title: '本部门暂无可用仓库，无法申请', icon: 'none' })
+        return
+      }
       // 验证
       if (!this.form.purpose.trim()) {
         uni.showToast({
@@ -462,7 +503,8 @@ export default {
 
       try {
         const res = await api.apply.createApply({
-          purpose: this.form.purpose.trim(),
+          warehouseId: this.currentWarehouse.id,
+          applyReason: this.form.purpose.trim(),
           details: this.form.details.map(item => ({
             materialId: item.materialId,
             quantity: item.quantity
@@ -496,7 +538,7 @@ export default {
   },
 
   onLoad() {
-    // 初始化
+    this.loadWarehouses()
   }
 }
 </script>
@@ -530,6 +572,14 @@ export default {
   font-weight: 500;
   color: #262626;
   margin-bottom: 16rpx;
+}
+
+.picker-value {
+  font-size: 28rpx;
+  color: #262626;
+  padding: 20rpx 16rpx;
+  background-color: #fafafa;
+  border-radius: 8rpx;
 }
 
 .textarea {

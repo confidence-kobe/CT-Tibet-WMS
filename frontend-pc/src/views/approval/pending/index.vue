@@ -466,7 +466,7 @@ const handleApprovalSubmit = async () => {
     await approveApply(
       currentRow.value.id,
       approvalStatus,
-      approvalStatus === 2 ? approvalForm.opinion : undefined
+      approvalForm.opinion
     )
 
     const message = approvalType.value === 'approve'
