@@ -1,6 +1,9 @@
 package com.ct.wms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ct.wms.common.enums.OutboundSource;
+import com.ct.wms.common.enums.OutboundStatus;
+import com.ct.wms.common.enums.OutboundType;
 import com.ct.wms.dto.OutboundDTO;
 import com.ct.wms.entity.InventoryLog;
 import com.ct.wms.entity.Outbound;
@@ -19,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -112,5 +116,30 @@ class OutboundDirectReceiverTest {
         long before = statisticsService.getDashboardStats().getTodayOutboundCount();
         outboundService.createOutboundDirect(dto());
         assertThat(statisticsService.getDashboardStats().getTodayOutboundCount()).isEqualTo(before + 1);
+    }
+
+    @Test
+    @DisplayName("出库统计只计已完成的出库单，不含待取货和已取消")
+    void outboundStatistics_onlyCompleted() {
+        LocalDate today = LocalDate.now();
+        int before = statisticsService.getOutboundStatistics(today, today, null, null).getTotalCount();
+
+        outboundService.createOutboundDirect(dto());
+        for (OutboundStatus status : new OutboundStatus[]{OutboundStatus.PENDING_PICKUP, OutboundStatus.CANCELED}) {
+            Outbound outbound = new Outbound();
+            outbound.setOutboundNo("CK_TEST_" + status + System.nanoTime());
+            outbound.setWarehouseId(1L);
+            outbound.setOutboundType(OutboundType.RECEIVE);
+            outbound.setSource(OutboundSource.FROM_APPLY);
+            outbound.setOperatorId(3L);
+            outbound.setOperatorName("Warehouse Mgr");
+            outbound.setReceiverName("测试领取人");
+            outbound.setOutboundTime(LocalDateTime.now());
+            outbound.setStatus(status);
+            outboundMapper.insert(outbound);
+        }
+
+        assertThat(statisticsService.getOutboundStatistics(today, today, null, null).getTotalCount())
+                .isEqualTo(before + 1);
     }
 }

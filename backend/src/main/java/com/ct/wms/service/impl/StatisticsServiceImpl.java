@@ -117,6 +117,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         LambdaQueryWrapper<Outbound> outboundWrapper = new LambdaQueryWrapper<>();
         outboundWrapper.ge(Outbound::getOutboundTime, monthStart);
         outboundWrapper.le(Outbound::getOutboundTime, monthEnd);
+        outboundWrapper.eq(Outbound::getStatus, OutboundStatus.COMPLETED);
         warehouseDataScope.restrict(outboundWrapper, Outbound::getWarehouseId);
 
         List<Outbound> monthOutbounds = outboundMapper.selectList(outboundWrapper);
@@ -245,7 +246,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         LambdaQueryWrapper<Outbound> wrapper = new LambdaQueryWrapper<>();
         wrapper.ge(Outbound::getOutboundTime, startDateTime)
                .le(Outbound::getOutboundTime, endDateTime)
-               .isNotNull(Outbound::getOutboundTime); // 只统计已出库的
+               .eq(Outbound::getStatus, OutboundStatus.COMPLETED); // 只统计已完成的出库（不含待取货、已取消）
         warehouseDataScope.restrict(wrapper, Outbound::getWarehouseId);
 
         if (warehouseId != null) {
@@ -743,7 +744,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         LambdaQueryWrapper<Outbound> outboundWrapper = new LambdaQueryWrapper<>();
         outboundWrapper.ge(Outbound::getOutboundTime, startDate.atStartOfDay())
                        .le(Outbound::getOutboundTime, endDate.atTime(23, 59, 59))
-                       .isNotNull(Outbound::getOutboundTime);
+                       .eq(Outbound::getStatus, OutboundStatus.COMPLETED);
         warehouseDataScope.restrict(outboundWrapper, Outbound::getWarehouseId);
         if (warehouseId != null) {
             outboundWrapper.eq(Outbound::getWarehouseId, warehouseId);
@@ -995,7 +996,8 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         // 今日出库
         LambdaQueryWrapper<Outbound> outboundWrapper = new LambdaQueryWrapper<>();
-        outboundWrapper.between(Outbound::getOutboundTime, todayStart, todayEnd);
+        outboundWrapper.between(Outbound::getOutboundTime, todayStart, todayEnd)
+                .eq(Outbound::getStatus, OutboundStatus.COMPLETED);
         warehouseDataScope.restrict(outboundWrapper, Outbound::getWarehouseId);
         stats.setOutboundCount(outboundMapper.selectCount(outboundWrapper).intValue());
 
