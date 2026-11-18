@@ -66,6 +66,7 @@
 </template>
 
 <script>
+import { syncTabBar } from '@/utils/tabbar'
 import api from '@/api'
 import { mapState } from 'vuex'
 
@@ -142,6 +143,7 @@ export default {
   },
 
   onShow() {
+    syncTabBar(this.$store.state.userInfo)
     // 刷新未读消息数
     this.$store.dispatch('getUnreadCount')
   }

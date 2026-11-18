@@ -1,5 +1,8 @@
 <template>
-  <view class="apply-list-container">
+  <view>
+  <!-- 仓管员 / 管理员：第 2 个 Tab 显示为"工作台" -->
+  <workbench v-if="isManager" ref="workbench" />
+  <view v-else class="apply-list-container">
     <!-- 标签页 -->
     <view class="tabs">
       <view
@@ -89,13 +92,24 @@
       <text class="fab-icon">+</text>
     </view>
   </view>
+  </view>
 </template>
 
 <script>
 import api from '@/api'
 import { toPage } from '@/utils/page'
+import { isManagerRole, syncTabBar } from '@/utils/tabbar'
+import Workbench from '@/components/workbench.vue'
 
 export default {
+  components: { Workbench },
+
+  computed: {
+    isManager() {
+      return isManagerRole(this.$store.state.userInfo)
+    }
+  },
+
   data() {
     return {
       activeTab: 0,
@@ -274,11 +288,18 @@ export default {
   },
 
   onLoad() {
+    if (this.isManager) return
     this.loadData()
     this.loadStats()
   },
 
   onShow() {
+    syncTabBar(this.$store.state.userInfo)
+    uni.setNavigationBarTitle({ title: this.isManager ? '工作台' : '我的申请' })
+    if (this.isManager) {
+      this.$nextTick(() => this.$refs.workbench && this.$refs.workbench.refresh())
+      return
+    }
     // 从详情页返回时刷新
     if (this.list.length > 0) {
       this.onRefresh()
@@ -286,7 +307,11 @@ export default {
   },
 
   onPullDownRefresh() {
-    this.onRefresh()
+    if (this.isManager) {
+      this.$refs.workbench && this.$refs.workbench.refresh()
+    } else {
+      this.onRefresh()
+    }
     uni.stopPullDownRefresh()
   }
 }

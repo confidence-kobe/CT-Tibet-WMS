@@ -190,3 +190,11 @@ mysql -uroot -p --default-character-set=utf8mb4 ct_tibet_wms < migrations/2026-1
 
 脚本最后会列出无法自动确定所属仓库的申请单（部门下有多个仓库时），需要人工补上 `warehouse_id`。
 
+### 2026-11-18：清理没有仓库的申请单
+
+升级后仍然没有 `warehouse_id` 的申请单（例如示例数据 `SQ_WL_20251105_0001`），任何人都无法查看或审批。执行下面的脚本把它们逻辑删除（`deleted = 1`，可恢复）；可以重复执行，新装的数据库执行也没有影响：
+
+```bash
+mysql -uroot -p --default-character-set=utf8mb4 ct_tibet_wms < migrations/2026-11-18_remove_applies_without_warehouse.sql
+```
+
