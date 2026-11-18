@@ -144,6 +144,11 @@ export default {
   },
 
   computed: {
+    // 普通员工只读查看库存，不加载出入库流水（流水仅管理角色可见）
+    isEmployee() {
+      const user = this.$store.state.userInfo || {}
+      return (user.roleCode || '').toLowerCase() === 'user'
+    },
     showActions() {
       // 根据用户角色判断是否显示操作按钮
       // 这里暂时返回 false，需要根据实际权限控制
@@ -186,7 +191,9 @@ export default {
 
         if (res.code === 200) {
           this.detail = res.data
-          this.loadRecentLogs()
+          if (!this.isEmployee) {
+            this.loadRecentLogs()
+          }
 
           // 设置标题
           uni.setNavigationBarTitle({
