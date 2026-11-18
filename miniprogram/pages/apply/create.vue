@@ -213,6 +213,8 @@ export default {
       // 领用仓库
       warehouses: [],
       warehouseIndex: 0,
+      // 所选仓库的可用库存：materialId -> 可用数量（null 表示还没加载或加载失败）
+      stockMap: null,
       // 物资选择器
       showSelector: false,
       materials: [],
@@ -246,7 +248,8 @@ export default {
     async loadMaterials() {
       try {
         // 只获取启用的物资；后端每页最多 100 条，按页拉取完整列表
-        this.materials = await fetchAllPages(api.common.getMaterials, { status: 0 })
+        const materials = await fetchAllPages(api.common.getMaterials, { status: 0 })
+        this.materials = materials.map(item => ({ ...item, stock: this.stockOf(item.id) }))
         this.filteredMaterials = this.materials
 
         // 提取类别
@@ -332,8 +335,8 @@ export default {
           this.selectedMaterial = {
             ...material,
             ...res.data,
-            // 员工无库存查看权限时后端不返回库存，此时不显示也不拦截（审批时后端会校验真实库存）
-            stock: res.data.totalStock != null ? res.data.totalStock : null
+            // 所选仓库的可用库存；加载失败时为 null，不显示也不拦截（审批时后端会再校验）
+            stock: this.stockOf(material.id)
           }
           this.editingIndex = -1
           this.tempQuantity = ''
@@ -467,13 +470,49 @@ export default {
       try {
         const res = await api.common.getMyWarehouses()
         this.warehouses = res.data || []
+        await this.loadStock()
       } catch (err) {
         console.error('加载仓库失败', err)
       }
     },
 
-    handleWarehouseChange(e) {
+    async handleWarehouseChange(e) {
       this.warehouseIndex = Number(e.detail.value)
+      await this.loadStock()
+    },
+    // 加载所选仓库的可用库存（数量 - 已锁定），用于申请时提示有没有货
+    async loadStock() {
+      const warehouseId = this.currentWarehouse.id
+      if (!warehouseId) {
+        this.stockMap = null
+        return
+      }
+      try {
+        const list = await fetchAllPages(api.inventory.getInventoryList, { warehouseId })
+        const map = {}
+        list.forEach(inv => {
+          map[inv.materialId] = Math.max(0, Number(inv.quantity || 0) - Number(inv.lockedQuantity || 0))
+        })
+        this.stockMap = map
+      } catch (err) {
+        // 拿不到库存不影响申请，只是不显示
+        console.error('加载库存失败', err)
+        this.stockMap = null
+      }
+      this.refreshStock()
+    },
+    // 仓库里没有这条库存记录 = 0；库存未加载 = null（不显示、不拦截）
+    stockOf(materialId) {
+      if (!this.stockMap) return null
+      return this.stockMap[materialId] != null ? this.stockMap[materialId] : 0
+    },
+    refreshStock() {
+      this.materials = this.materials.map(item => ({ ...item, stock: this.stockOf(item.id) }))
+      this.filteredMaterials = this.filteredMaterials.map(item => ({ ...item, stock: this.stockOf(item.id) }))
+      this.form.details.forEach(item => {
+        item.currentStock = this.stockOf(item.materialId)
+        item.isStockSufficient = item.currentStock == null || Number(item.quantity) <= item.currentStock
+      })
     },
 
     async handleSubmit() {

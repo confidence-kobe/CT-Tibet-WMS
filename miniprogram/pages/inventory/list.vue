@@ -128,6 +128,7 @@
 </template>
 
 <script>
+import { syncTabBar } from '@/utils/tabbar'
 import api from '@/api'
 import { toPage } from '@/utils/page'
 
@@ -286,6 +287,7 @@ export default {
   },
 
   onShow() {
+    syncTabBar(this.$store.state.userInfo)
     if (this.list.length > 0) {
       this.onRefresh()
     }

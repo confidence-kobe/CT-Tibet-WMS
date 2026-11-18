@@ -14,6 +14,9 @@ import javax.validation.constraints.Max;
 import org.springframework.validation.annotation.Validated;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,8 +38,8 @@ public class InventoryController {
     private final InventoryService inventoryService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
-    @Operation(summary = "分页查询库存列表", description = "支持多条件筛选")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE', 'USER')")
+    @Operation(summary = "分页查询库存列表", description = "支持多条件筛选；普通员工只读查看本部门库存（不含金额）")
     public PageResult<Inventory> listInventories(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页条数") @Max(100) @RequestParam(defaultValue = "20") Integer pageSize,
@@ -51,6 +54,9 @@ public class InventoryController {
 
         Page<Inventory> page = inventoryService.listInventories(pageNum, pageSize, warehouseId,
                 materialId, keyword, status, category);
+        if (isPlainEmployee()) {
+            page.getRecords().forEach(InventoryController::hideAmounts);
+        }
 
         return PageResult.of(page);
     }
@@ -90,12 +96,33 @@ public class InventoryController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DEPT_ADMIN', 'WAREHOUSE', 'USER')")
     @Operation(summary = "查询库存详情", description = "根据ID查询库存详细信息")
     public Result<Inventory> getInventoryById(
             @Parameter(description = "库存ID") @PathVariable Long id) {
         log.info("查询库存详情: id={}", id);
         Inventory inventory = inventoryService.getById(id);
+        if (inventory != null && isPlainEmployee()) {
+            hideAmounts(inventory);
+        }
         return Result.success(inventory);
+    }
+
+    /**
+     * 当前用户是否只有普通员工角色（员工可以只读看库存数量，但不看单价和金额）
+     */
+    private static boolean isPlainEmployee() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return false;
+        }
+        return auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .noneMatch(a -> "ROLE_ADMIN".equals(a) || "ROLE_DEPT_ADMIN".equals(a) || "ROLE_WAREHOUSE".equals(a));
+    }
+
+    private static void hideAmounts(Inventory inventory) {
+        inventory.setPrice(null);
+        inventory.setStockValue(null);
     }
 }

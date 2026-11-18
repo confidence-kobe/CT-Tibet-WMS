@@ -194,6 +194,7 @@
 </template>
 
 <script>
+import { syncTabBar } from '@/utils/tabbar'
 import { mapState, mapGetters } from 'vuex'
 import api from '@/api'
 
@@ -325,7 +326,8 @@ export default {
 
     // 跳转到审批列表（仓管）
     goToApprovalList() {
-      uni.switchTab({
+      // 审批列表不是 Tab 页，不能用 switchTab
+      uni.navigateTo({
         url: '/pages/approval/list'
       })
     },
@@ -381,6 +383,7 @@ export default {
   },
 
   onShow() {
+    syncTabBar(this.$store.state.userInfo)
     // 页面显示时刷新数据
     this.loadData()
   },

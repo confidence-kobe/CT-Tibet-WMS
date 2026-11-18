@@ -10,6 +10,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -72,11 +74,22 @@ public class InventoryControllerTest {
     }
 
     @Test
-    public void testListInventoriesEmployeeForbidden() throws Exception {
+    public void testListInventoriesEmployeeReadOnlyOwnDeptWithoutAmounts() throws Exception {
         if (employeeToken == null) return;
-        mockMvc.perform(get("/api/inventories")
+        // 员工可以只读查看本部门（仓库1）库存，但看不到单价和金额
+        mockMvc.perform(get("/api/inventories").param("pageSize", "100")
                         .header("Authorization", "Bearer " + employeeToken))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isNotEmpty())
+                .andExpect(jsonPath("$.data[*].warehouseId", everyItem(is(1))))
+                .andExpect(jsonPath("$.data[0].quantity").exists())
+                .andExpect(jsonPath("$.data[0].price").doesNotExist())
+                .andExpect(jsonPath("$.data[0].stockValue").doesNotExist());
+        mockMvc.perform(get("/api/inventories/1")
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.quantity").exists())
+                .andExpect(jsonPath("$.data.price").doesNotExist());
     }
 
     @Test
