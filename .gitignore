@@ -25,6 +25,8 @@ package-lock.json
 
 # Environment
 .env.local
+# start-dev 脚本的运行日志和进程号
+.run/
 .env.*.local
 .env.production
 frontend-pc/.env.production
