@@ -1,75 +1,42 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# =============================================================
+# CT-Tibet-WMS 停止开发服务（Mac / Linux）
+# 停止由 ./start-dev.sh 启动的后端和 PC 前端。MySQL、Redis 不会被停止。
+# =============================================================
+set -uo pipefail
 
-# CT-Tibet-WMS 开发环境停止脚本
-# 用途: 停止所有开发服务器
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+RUN_DIR="$ROOT/.run"
 
-echo "======================================"
-echo "  CT-Tibet-WMS 开发环境停止脚本"
-echo "======================================"
-echo ""
+# 结束进程及其所有子进程（npm run dev 会再拉起 node/vite 子进程）
+kill_tree() {
+  local pid=$1 child
+  for child in $(pgrep -P "$pid" 2>/dev/null); do
+    kill_tree "$child"
+  done
+  kill "$pid" 2>/dev/null
+}
 
-echo "🛑 停止服务..."
+stop_service() {
+  local name=$1 file="$RUN_DIR/$2.pid"
+  if [ ! -f "$file" ]; then
+    echo "  - $name：没有记录（未通过 start-dev.sh 启动，或已停止）"
+    return
+  fi
+  local pid
+  pid="$(cat "$file")"
+  if kill -0 "$pid" 2>/dev/null; then
+    kill_tree "$pid"
+    for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+    kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null
+    echo "  ✔ $name 已停止"
+  else
+    echo "  - $name：进程已不存在"
+  fi
+  rm -f "$file"
+}
 
-# 从PID文件读取并停止进程
-if [ -f .backend.pid ]; then
-    BACKEND_PID=$(cat .backend.pid)
-    if ps -p $BACKEND_PID > /dev/null 2>&1; then
-        echo "停止后端服务 (PID: $BACKEND_PID)..."
-        kill $BACKEND_PID 2>/dev/null
-        echo "✅ 后端服务已停止"
-    else
-        echo "⚠️  后端服务未运行"
-    fi
-    rm -f .backend.pid
-else
-    # 尝试通过端口查找并停止
-    BACKEND_PID=$(lsof -ti:8888 2>/dev/null)
-    if [ ! -z "$BACKEND_PID" ]; then
-        echo "停止后端服务 (PID: $BACKEND_PID)..."
-        kill $BACKEND_PID 2>/dev/null
-        echo "✅ 后端服务已停止"
-    else
-        echo "⚠️  后端服务未运行"
-    fi
-fi
-
-if [ -f .frontend.pid ]; then
-    FRONTEND_PID=$(cat .frontend.pid)
-    if ps -p $FRONTEND_PID > /dev/null 2>&1; then
-        echo "停止PC前端服务 (PID: $FRONTEND_PID)..."
-        kill $FRONTEND_PID 2>/dev/null
-        echo "✅ PC前端服务已停止"
-    else
-        echo "⚠️  PC前端服务未运行"
-    fi
-    rm -f .frontend.pid
-else
-    # 尝试通过端口查找并停止
-    FRONTEND_PID=$(lsof -ti:5173 2>/dev/null)
-    if [ ! -z "$FRONTEND_PID" ]; then
-        echo "停止PC前端服务 (PID: $FRONTEND_PID)..."
-        kill $FRONTEND_PID 2>/dev/null
-        echo "✅ PC前端服务已停止"
-    else
-        echo "⚠️  PC前端服务未运行"
-    fi
-fi
-
-# 停止可能的Maven进程
-MAVEN_PIDS=$(pgrep -f "maven" 2>/dev/null)
-if [ ! -z "$MAVEN_PIDS" ]; then
-    echo "停止Maven进程..."
-    echo $MAVEN_PIDS | xargs kill 2>/dev/null
-fi
-
-# 停止可能的Vite进程
-VITE_PIDS=$(pgrep -f "vite" 2>/dev/null)
-if [ ! -z "$VITE_PIDS" ]; then
-    echo "停止Vite进程..."
-    echo $VITE_PIDS | xargs kill 2>/dev/null
-fi
-
-echo ""
-echo "======================================"
-echo "  ✅ 所有服务已停止"
-echo "======================================"
+echo "停止 CT-Tibet-WMS 开发服务..."
+stop_service "PC 前端" frontend
+stop_service "后端" backend
+echo "完成（MySQL、Redis 保持运行）"

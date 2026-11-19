@@ -31,7 +31,7 @@ CT-Tibet-WMS是一个为西藏电信公司开发的现代化仓库管理系统�
 ### 项目状态
 
 - ✅ **PC 端核心业务可用**：入库（含编辑、作废）、直接出库、申请 → 审批 → 出库、库存查询、按部门数据隔离，已在真实 MySQL 上跑通
-- ✅ **后端测试**：280 个测试用例全部通过（`cd backend && mvn test`）
+- ✅ **后端测试**：300 个测试用例全部通过（`cd backend && mvn test`）
 - ⚠️ **小程序**：部分列表页、库存页与后端接口不匹配，需要修复后再使用
 - ⚠️ **PC 端待完善**：首页统计卡片、库存页数量列等部分页面显示不完整；微信模板消息尚未接通
 - ⚠️ **一键启动脚本和 Docker 部署**：尚未按当前代码验证，见下方"快速开始"
@@ -156,7 +156,31 @@ git clone https://github.com/confidence-kobe/CT-Tibet-WMS.git
 cd CT-Tibet-WMS
 ```
 
-### 3. 初始化数据库
+### 3. 一键启动（推荐）
+
+先确保 **MySQL 已经在运行**（Redis 没开的话脚本会自动帮你启动），然后：
+
+| 系统 | 启动 | 停止 |
+|------|------|------|
+| Windows | 双击 `start-dev.bat` | 双击 `stop-dev.bat` |
+| Mac / Linux | `./start-dev.sh` | `./stop-dev.sh` |
+
+脚本会自动完成：
+
+1. **第一次运行**时生成 `.env.local`，里面有随机的 `JWT_SECRET` 和数据库账号（默认 `root` / `root`）。这个文件不会提交到 Git；MySQL 密码不是 `root` 时改这里即可
+2. 检查 MySQL；数据库还没建时自动执行三个初始化脚本（已有数据库不会动）
+3. 检查 Redis，没运行就自动启动
+4. 编译并启动后端（48888），启动 PC 前端（4444）并自动打开浏览器
+
+常用参数：`--no-build`（代码没改时跳过编译，启动更快）。Mac/Linux 的日志在 `.run/` 目录；Windows 的后端、前端各开一个窗口显示日志。
+
+> 数据库是用旧版脚本建的？一键启动不会自动升级表结构，请先按 [sql/README.md](sql/README.md) 执行迁移脚本。
+
+---
+
+下面是**手动启动**的步骤，一键启动出问题时可以对照排查。
+
+### 手动 1. 初始化数据库
 
 开发配置默认使用 MySQL 账号 `root`、密码 `root`（见 `backend/src/main/resources/application-dev.yml`）。按顺序执行三个脚本：
 
@@ -171,13 +195,13 @@ cd ..
 > ⚠️ 只执行这三个脚本。`init-database.sql` 已废弃，`fix_*.sql` 是历史修复脚本，都不要执行。
 > 如果数据库是用旧版脚本建的（启动后登录报 `Unknown column ...`），请按 [sql/README.md](sql/README.md) 中"升级已有数据库"执行迁移脚本。
 
-### 4. 启动 Redis
+### 手动 2. 启动 Redis
 
 ```bash
 redis-server
 ```
 
-### 5. 启动后端（新开一个终端）
+### 手动 3. 启动后端（新开一个终端）
 
 后端必须设置环境变量 `JWT_SECRET`（登录令牌签名密钥，至少 32 个字符，可用 `openssl rand -hex 32` 生成）：
 
@@ -198,7 +222,7 @@ java -jar target\ct-tibet-wms.jar
 
 看到 `Started WmsApplication` 即启动成功。
 
-### 6. 启动前端（再开一个终端）
+### 手动 4. 启动前端（再开一个终端）
 
 ```bash
 cd frontend-pc
@@ -206,7 +230,7 @@ npm install
 npm run dev
 ```
 
-### 7. 打开系统
+### 4. 打开系统
 
 | 地址 | 说明 |
 |------|------|
@@ -231,7 +255,9 @@ npm run dev
 
 | 现象 | 原因与解决 |
 |------|-----------|
-| 后端启动报 `Could not resolve placeholder 'JWT_SECRET'` | 没有设置环境变量 `JWT_SECRET`，见第 5 步 |
+| 后端启动报 `Could not resolve placeholder 'JWT_SECRET'` | 没有设置环境变量 `JWT_SECRET`。用一键启动脚本会自动设置；手动启动见"手动 3" |
+| 一键启动提示"无法用账号 root 登录 MySQL" | 本机 MySQL 密码不是 `root`，改 `.env.local` 里的 `DB_PASSWORD` |
+| 一键启动提示端口已被占用、跳过 | 服务已经在运行；要重启先运行 stop-dev 再启动 |
 | 后端启动报 `JWT密钥长度不足` | `JWT_SECRET` 少于 32 个字符 |
 | 登录报 500，日志里有 `Unknown column` | 数据库是旧版脚本建的，执行 [sql/README.md](sql/README.md) 中的迁移脚本 |
 | 登录失败，后端日志 `Invalid CORS request` | 前端不是从 4444 端口访问的；请用 `npm run dev` 启动并访问 http://localhost:4444/wms/ |
@@ -241,13 +267,9 @@ npm run dev
 
 小程序不能在浏览器中运行，需要用 [微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html) 导入 `miniprogram` 目录。
 
-### 其他启动方式（尚未验证）
+### Docker 方式（尚未验证）
 
-仓库中的 `start-dev.sh` / `start-dev.bat`（一键启动）和 `docker-start.sh`、`docker-compose*.yml`（Docker 方式）**尚未按当前代码验证**：
-- 一键启动脚本没有设置 `JWT_SECRET`、不会初始化数据库，打印的端口也已过时，按原样使用后端会启动失败；
-- Docker 配置的数据库初始化已修正为执行上面三个脚本，但整体流程未实际运行过。
-
-建议优先使用上面的手动步骤。
+`docker-start.sh`、`docker-compose*.yml` **尚未按当前代码完整验证**：数据库初始化已修正为执行上面三个脚本，但整体流程未实际运行过。本地开发建议用一键启动脚本。
 
 ---
 
