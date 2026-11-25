@@ -115,7 +115,7 @@ public class OutboundServiceImplTest {
         dto.setWarehouseId(testWarehouseId);
         dto.setOutboundType(1); // 领用
         dto.setOutboundTime(LocalDateTime.now());
-        dto.setReceiverId(1L);
+        dto.setReceiverId(4L); // 本部门员工（仓库1属于部门2）
         dto.setRemark("测试直接出库");
 
         // 添加明细
@@ -160,7 +160,7 @@ public class OutboundServiceImplTest {
             dto.setWarehouseId(testWarehouseId);
             dto.setOutboundType(1);
             dto.setOutboundTime(LocalDateTime.now());
-            dto.setReceiverId(1L);
+            dto.setReceiverId(4L); // 本部门员工（仓库1属于部门2）
 
             List<OutboundDTO.OutboundDetailDTO> details = new ArrayList<>();
             OutboundDTO.OutboundDetailDTO detail = new OutboundDTO.OutboundDetailDTO();
@@ -192,7 +192,7 @@ public class OutboundServiceImplTest {
         dto.setWarehouseId(testWarehouseId);
         dto.setOutboundType(1);
         dto.setOutboundTime(LocalDateTime.now());
-        dto.setReceiverId(1L);
+        dto.setReceiverId(4L); // 本部门员工（仓库1属于部门2）
 
         List<OutboundDTO.OutboundDetailDTO> details = new ArrayList<>();
         OutboundDTO.OutboundDetailDTO detail = new OutboundDTO.OutboundDetailDTO();
@@ -227,7 +227,7 @@ public class OutboundServiceImplTest {
         dto.setWarehouseId(testWarehouseId);
         dto.setOutboundType(1);
         dto.setOutboundTime(LocalDateTime.now());
-        dto.setReceiverId(1L);
+        dto.setReceiverId(4L); // 本部门员工（仓库1属于部门2）
 
         List<OutboundDTO.OutboundDetailDTO> details = new ArrayList<>();
         OutboundDTO.OutboundDetailDTO detail = new OutboundDTO.OutboundDetailDTO();
@@ -258,7 +258,7 @@ public class OutboundServiceImplTest {
         dto.setWarehouseId(testWarehouseId);
         dto.setOutboundType(1);
         dto.setOutboundTime(LocalDateTime.now());
-        dto.setReceiverId(1L);
+        dto.setReceiverId(4L); // 本部门员工（仓库1属于部门2）
 
         List<OutboundDTO.OutboundDetailDTO> details = new ArrayList<>();
         OutboundDTO.OutboundDetailDTO detail = new OutboundDTO.OutboundDetailDTO();

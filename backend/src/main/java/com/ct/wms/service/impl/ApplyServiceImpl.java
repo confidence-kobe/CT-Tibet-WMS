@@ -487,29 +487,17 @@ public class ApplyServiceImpl implements ApplyService {
             throw new BusinessException(400, "当前状态不允许取消");
         }
 
-        // 如果是已审批状态，需要释放锁定的库存，并取消关联的出库单
+        // 已审批（待领取）：取消关联出库单。库存解锁统一由出库单取消完成，这里不再重复解锁，
+        // 否则同一批物资会被解锁两次（只有这一张单时会报"锁定数量不足"导致取消失败，
+        // 有其他单时会误释放别人的锁定库存）
         if (ApplyStatus.APPROVED.equals(apply.getStatus())) {
-            // 查询申请明细并释放锁定库存
-            LambdaQueryWrapper<ApplyDetail> detailWrapper = new LambdaQueryWrapper<>();
-            detailWrapper.eq(ApplyDetail::getApplyId, apply.getId());
-            List<ApplyDetail> details = applyDetailMapper.selectList(detailWrapper);
-
-            for (ApplyDetail detail : details) {
-                inventoryService.unlockInventory(
-                        apply.getWarehouseId(),
-                        detail.getMaterialId(),
-                        detail.getQuantity()
-                );
-                log.info("释放锁定库存: warehouseId={}, materialId={}, quantity={}",
-                        apply.getWarehouseId(), detail.getMaterialId(), detail.getQuantity());
-            }
-
-            // 同步取消关联的出库单
             outboundService.cancelOutboundByApplyId(apply.getId(), "申请人取消申请，自动取消出库单");
         }
 
         // 更新状态
         apply.setStatus(ApplyStatus.CANCELED);
+        apply.setCancelReason("申请人主动取消");
+        apply.setCancelTime(LocalDateTime.now());
         applyMapper.updateById(apply);
 
         log.info("取消申请单: applyNo={}, applicantId={}", apply.getApplyNo(), userId);

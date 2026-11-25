@@ -227,6 +227,13 @@ public class OutboundServiceImpl implements OutboundService {
 
         // 领取人：优先用选择的系统用户；否则用手工填写的姓名电话；都没有则视为仓管员本人领用
         User receiver = dto.getReceiverId() != null ? userMapper.selectById(dto.getReceiverId()) : null;
+        if (dto.getReceiverId() != null && receiver == null) {
+            throw new BusinessException(404, "领用人不存在");
+        }
+        // 领用人必须是该仓库所属部门的员工（前端下拉已限制，这里在后端再兜底）
+        if (receiver != null && !warehouse.getDeptId().equals(receiver.getDeptId())) {
+            throw new BusinessException(400, "领用人不属于该仓库所在部门");
+        }
         if (receiver != null) {
             outbound.setReceiverId(receiver.getId());
             outbound.setReceiverName(receiver.getRealName());
