@@ -6,7 +6,9 @@ import com.ct.wms.common.enums.ApplyStatus;
 import com.ct.wms.common.enums.MessageType;
 import com.ct.wms.dto.NotificationMessageDTO;
 import com.ct.wms.entity.Apply;
+import com.ct.wms.entity.Warehouse;
 import com.ct.wms.mapper.ApplyMapper;
+import com.ct.wms.mapper.WarehouseMapper;
 import com.ct.wms.mq.NotificationProducer;
 import com.ct.wms.utils.RedisLockUtils;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ import java.util.List;
 public class ApplyTimeoutTask {
 
     private final ApplyMapper applyMapper;
+    private final WarehouseMapper warehouseMapper;
 
     // 可选依赖：如果 Redis 未启用（测试环境），此字段为 null
     @Autowired(required = false)
@@ -110,9 +113,14 @@ public class ApplyTimeoutTask {
 
             for (Apply apply : timeoutApplies) {
                 try {
-                    // 发送提醒消息给审批人
+                    // 待审批的申请还没有审批人（approverId 为空），提醒发给仓库的仓管员
+                    Long receiverId = resolveReminderReceiver(apply);
+                    if (receiverId == null) {
+                        log.warn("申请单 {} 所在仓库没有设置仓管员，无法发送审批提醒", apply.getApplyNo());
+                        continue;
+                    }
                     NotificationMessageDTO notification = NotificationMessageDTO.builder()
-                            .receiverId(apply.getApproverId())
+                            .receiverId(receiverId)
                             .messageType(MessageType.APPLY_REMINDER.getValue())
                             .title("申请审批超时提醒")
                             .content(String.format("申请单 %s 已提交超过24小时，请及时审批。申请人: %s",
@@ -125,8 +133,8 @@ public class ApplyTimeoutTask {
                     notificationProducer.sendNotification(notification);
 
                     successCount++;
-                    log.info("发送审批超时提醒成功: id={}, applyNo={}, approverId={}",
-                            apply.getId(), apply.getApplyNo(), apply.getApproverId());
+                    log.info("发送审批超时提醒成功: id={}, applyNo={}, receiverId={}",
+                            apply.getId(), apply.getApplyNo(), receiverId);
 
                 } catch (Exception e) {
                     log.error("发送审批超时提醒失败: id={}, applyNo={}",
@@ -250,5 +258,16 @@ public class ApplyTimeoutTask {
         }
 
         log.info("==================== 申请长期超时取消任务结束 ====================");
+    }
+
+    /**
+     * 审批提醒的接收人：申请单所在仓库的仓管员
+     */
+    public Long resolveReminderReceiver(Apply apply) {
+        if (apply.getWarehouseId() == null) {
+            return null;
+        }
+        Warehouse warehouse = warehouseMapper.selectById(apply.getWarehouseId());
+        return warehouse != null ? warehouse.getManagerId() : null;
     }
 }
